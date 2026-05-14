@@ -1,0 +1,475 @@
+# Product Writeup: Stakes-Based Social Accountability Platform
+
+## One-line concept
+
+A social challenge platform where people create or join goal-based competitions, put money, reputation, or consequences on the line, and hold each other accountable through proof, leaderboards, streaks, reactions, comments, and disputes.
+
+## Core idea
+
+Most people want to become more consistent, but motivation fades quickly when goals are private, vague, or consequence-free. This product turns self-improvement into a social game.
+
+Users can create challenges around fitness, productivity, lifestyle, wellness, studying, chores, sobriety, or any custom habit. Challenges can be private among friends, semi-private within communities, or eventually public. Members complete tasks, submit check-ins, earn points, build streaks, and compete on leaderboards.
+
+The key difference from a normal habit tracker is that users are not just tracking progress for themselves. They are competing against people they know, with social pressure and optional stakes attached. Friends can react, comment, trash talk, request proof, or challenge suspicious completions. Groups can also pool money, create prize pots, set penalties, or define real-life consequences.
+
+The product is not just about fitness. Fitness is one of the strongest initial use cases, but the broader category is:
+
+> **Social accountability with stakes.**
+
+## Product positioning
+
+The app sits somewhere between a habit tracker, fantasy sports league, group chat, and commitment contract.
+
+A simple way to describe it:
+
+> **Duolingo streaks + fantasy sports + BeReal proof + group money pots.**
+
+Or:
+
+> **Put your money, ego, and reputation behind your goals.**
+
+The user should not feel like they are using a serious productivity app. It should feel competitive, social, slightly chaotic, and fun. The app should make consistency feel like a game people want to talk about.
+
+## Why now
+
+People already create informal challenges in group chats: gym streaks, step competitions, sober months, exam grind groups, weight-loss bets, punishment challenges, and fantasy-style leaderboards. But these are usually managed manually through messages, spreadsheets, screenshots, Venmo/Monzo/Revolut transfers, and trust.
+
+There is no dominant social platform for casual, friend-led accountability competitions with flexible tasks, leaderboards, proof, money pools, and disputes in one place.
+
+Existing tools are fragmented:
+
+* Habit trackers are usually individual and boring.
+* Fitness apps are too fitness-specific.
+* Betting apps are not designed for self-improvement.
+* Group chats are social but lack structure.
+* Payment apps handle money but not challenge logic.
+* Corporate wellness platforms are too formal and not consumer-native.
+
+This product combines the structure of a challenge platform with the energy of a private group chat.
+
+## Target users
+
+The initial target users should be groups that already have strong social ties and competitive dynamics.
+
+Best early segments:
+
+**University friend groups**
+People doing gym challenges, study sprints, sobriety months, step goals, or summer shred competitions.
+
+**Frats / societies / clubs**
+Groups that already have internal culture, rankings, consequences, and shared goals.
+
+**Housemates**
+Chores, cleaning, cooking, gym consistency, no takeout, budget challenges.
+
+**Sports teams**
+Off-season training, conditioning, attendance, recovery habits, nutrition.
+
+**Work friend groups**
+Steps, gym, productivity, reading, no coffee, sleep, wellness challenges.
+
+**Fitness friend groups**
+Cutting/bulking challenges, gym attendance, protein, cardio, steps, weight goals.
+
+The key early user is not “someone who wants to build a habit.” The key early user is:
+
+> **A group leader who wants to run a challenge that their friends will actually care about.**
+
+That could be the friend who organizes the gym challenge, the frat social chair, the housemate who wants everyone to clean, or the team captain setting training goals.
+
+## Core use cases
+
+### 1. Fitness challenges
+
+A group creates a 4-week “Summer Shred” challenge. Members earn points for gym sessions, steps, protein goals, calorie limits, runs, weigh-ins, and progress photos. Everyone contributes £20. At the end, the top three split the prize pot, or anyone below a completion threshold forfeits their money.
+
+### 2. Study/productivity challenges
+
+Students create an exam grind challenge. Members check in with study hours, Pomodoro sessions, library attendance, or completed problem sets. The leaderboard tracks consistency. Anyone who misses too many days has to buy the group dinner.
+
+### 3. Lifestyle reset challenges
+
+A group runs “No Alcohol November” or “No Takeout Month.” Members check in daily. Friends can request proof or call out questionable behavior. Money from failed days can go into a shared reward pot.
+
+### 4. Housemate accountability
+
+Housemates create weekly chore challenges. Tasks include taking out bins, cleaning the kitchen, doing dishes, vacuuming, or buying shared supplies. Points determine who pays less into the next group expense or who gets punished.
+
+### 5. Public or creator-led challenges
+
+Later, influencers, coaches, campus groups, or communities can host larger challenges. Users join with entry fees, compete on larger leaderboards, and submit verified proof. This requires stronger verification but could become a major growth channel.
+
+## Product modes
+
+### Private groups
+
+This is the MVP wedge.
+
+Private groups are easier to launch because trust and social enforcement already exist. Friends know when someone is lying. Proof does not need to be perfect because the group can challenge questionable check-ins.
+
+Private groups also create better retention because users are pulled back by social pressure, not just notifications.
+
+### Semi-private communities
+
+After private groups, the product can expand to communities with shared context: universities, clubs, teams, frats, offices, gyms, or online communities.
+
+Examples:
+
+* UCL 10k steps league
+* Waterloo alumni fitness challenge
+* Finance intern productivity sprint
+* Frat house summer cut
+* Local gym transformation challenge
+
+These groups are larger than friend groups but still have identity and social trust.
+
+### Public challenges
+
+Public challenges are the long-term marketplace layer.
+
+Examples:
+
+* 30-day gym streak
+* 6-week cut
+* 10k steps every day
+* No alcohol month
+* Wake up before 7am
+* Read 20 pages daily
+* Marathon prep challenge
+
+Public challenges can support larger prize pools, creator-led competitions, sponsored rewards, and community leaderboards. But this should come later, once verification and moderation are stronger.
+
+## MVP scope
+
+The MVP should focus on private groups and flexible challenge creation.
+
+### MVP user flow
+
+1. Create a group.
+2. Invite friends.
+3. Create a challenge.
+4. Choose challenge duration.
+5. Add daily or weekly tasks.
+6. Set point values.
+7. Optionally set stakes: money, penalty, reward, or consequence.
+8. Members check in each day.
+9. Friends react, comment, request proof, or challenge completions.
+10. Leaderboard updates.
+11. At the end, winners/losers are determined and the group settles the result.
+
+### MVP features
+
+**Groups**
+Private group spaces with members, roles, and challenge history.
+
+**Challenge builder**
+Users can select templates or create custom challenges.
+
+**Task system**
+Daily, weekly, one-time, or recurring tasks. Examples: gym, steps, protein, studying, no alcohol, wake up early, clean kitchen.
+
+**Check-ins**
+Users mark tasks complete and optionally add proof: photo, screenshot, text, location, wearable data, or manual note.
+
+**Leaderboard**
+Weekly and challenge-long rankings based on points.
+
+**Streaks**
+Daily consistency streaks for individuals and groups.
+
+**Social layer**
+Comments, reactions, trash talk, encouragement, callouts.
+
+**Proof requests**
+Members can ask someone to provide evidence for a completion.
+
+**Challenge/dispute system**
+If someone claims a questionable task, friends can challenge it. The group owner or majority vote decides whether it stands.
+
+**Stakes/pot tracking**
+The app tracks who owes what, who contributed, and how the pot should be split. Actual payment integration can come later; initially it can be manual settlement.
+
+## Money and stakes
+
+The money angle is one of the strongest parts of the product, but it needs to be framed carefully.
+
+It should not feel like gambling. It should feel like commitment, accountability, pooled rewards, and group consequences.
+
+Better language:
+
+* Stakes
+* Commitment pot
+* Buy-in
+* Group pool
+* Forfeit
+* Penalty
+* Reward
+* Consequence
+* Pledge
+* Accountability deposit
+
+Avoid making the product feel like a betting app where users are wagering on uncertain outcomes. Instead, frame it around people committing money to their own goals.
+
+Example mechanics:
+
+### Completion threshold
+
+Everyone contributes £20. If you complete at least 80% of tasks, you get your money back. Anyone below 80% forfeits their money.
+
+### Winner pot
+
+Everyone contributes £10. The top three split the pot.
+
+### Group reward
+
+Everyone contributes £20. If the group hits a collective goal, the money funds a dinner, trip, party, or shared reward.
+
+### Charity forfeit
+
+Missed tasks send money to charity, or to a cause the user dislikes for extra motivation.
+
+### Real-life consequence
+
+No money required. Loser has to do a punishment: cook dinner, wear a funny outfit, clean the house, buy coffee, post an embarrassing photo, etc.
+
+The app should support both monetary and non-monetary stakes.
+
+## Verification and fairness
+
+Verification should be lightweight at first. The goal is not to create a perfect anti-cheat system immediately. The goal is to make cheating socially costly.
+
+In private groups, social pressure is the main enforcement mechanism.
+
+Possible proof types:
+
+* Photo proof
+* Screenshot proof
+* Gym location check-in
+* Step count screenshot
+* Wearable integration
+* Manual check-in
+* Friend confirmation
+* Group vote
+* Random proof requests
+
+For MVP, proof can be flexible and manual. Later, verification can become more automated with Apple Health, Google Fit, Strava, Fitbit, MyFitnessPal, screen-time APIs, location, QR codes, or gym integrations.
+
+The important design principle:
+
+> **The product does not need perfect verification; it needs enough friction and social visibility to make lying embarrassing.**
+
+## Differentiation
+
+The app should not compete directly as another habit tracker. It should compete as a social game.
+
+Main differentiators:
+
+**1. Group-first, not individual-first**
+Most habit apps are about personal tracking. This is about friends competing and holding each other accountable.
+
+**2. Stakes-based**
+Money, consequences, and reputation make the challenge matter.
+
+**3. Flexible goals**
+Not limited to fitness. Users can create any type of challenge.
+
+**4. Social enforcement**
+Reactions, comments, proof requests, and disputes make accountability feel alive.
+
+**5. Leaderboards and seasons**
+The app turns self-improvement into recurring competitions.
+
+**6. Culture and trash talk**
+The emotional hook is not just discipline. It is competition, banter, pride, and not wanting to lose.
+
+## Product personality
+
+The tone should be fun, competitive, and slightly savage, not overly polished or wellness-coded.
+
+Bad tone:
+
+> “Build healthy habits and achieve your goals.”
+
+Better tone:
+
+> “Don’t let your friends outwork you.”
+
+> “Miss leg day, lose your deposit.”
+
+> “Receipts required.”
+
+> “Your group chat finally has consequences.”
+
+> “Put £20 on it.”
+
+> “No proof, no points.”
+
+The product should feel native to friend groups, frats, teams, and competitive communities.
+
+## Possible names
+
+Some directions:
+
+* Stake
+* Receipts
+* Proof
+* Pot
+* Lock In
+* Forfeit
+* Buy In
+* Checkmate
+* Streak League
+* Accountability League
+* Pact
+* No Cap
+* Put Up
+* Skin In
+* Bettr
+* Commit Club
+* The Pot
+* League
+* Locked
+* On The Line
+
+The best names probably emphasize either **proof**, **stakes**, or **competition**.
+
+My favorites conceptually:
+
+**Receipts**
+Great for proof culture: “show receipts.”
+
+**Lock In**
+Strong Gen Z productivity/fitness phrase.
+
+**The Pot**
+Good for money pooling, but maybe too narrow.
+
+**Forfeit**
+Strong accountability angle.
+
+**Stakes**
+Clear, but maybe too generic.
+
+**Proof League**
+Descriptive, but less consumer-clean.
+
+## Growth strategy
+
+The product has natural viral loops because challenges require inviting other people.
+
+### Initial growth loop
+
+A group owner creates a challenge → invites friends → friends join → leaderboard creates competition → users create new challenges → more groups form.
+
+### Best launch wedge
+
+Campus groups and friend groups are probably the strongest launch environment.
+
+Examples:
+
+* UCL gym challenge
+* Frat/society house challenge
+* Sports team conditioning challenge
+* Exam grind challenge before finals
+* Summer shred challenge
+* Dry January / sober month challenge
+* Housemate chore challenge
+
+### Viral moments
+
+The app should generate shareable artifacts:
+
+* Weekly leaderboard screenshot
+* “X lost the challenge”
+* “Y has a 21-day streak”
+* “Z got challenged for fake proof”
+* “Group completed 83% of tasks”
+* “Loser consequence reveal”
+* “Prize pot winner”
+
+These can be shared to group chats, Instagram stories, TikTok, Snapchat, Discord, etc.
+
+## Monetization
+
+Potential monetization paths:
+
+### 1. Transaction fee on money pools
+
+Take a small percentage of pots or payouts once payment infrastructure is integrated.
+
+### 2. Premium groups
+
+Charge group owners for advanced features: larger groups, custom rules, multiple concurrent challenges, analytics, proof settings, admin controls.
+
+### 3. Creator-hosted challenges
+
+Creators, coaches, fitness influencers, or productivity creators can host paid challenges. The platform takes a fee.
+
+### 4. Sponsored challenges
+
+Brands sponsor challenges with prizes: fitness brands, supplement companies, gyms, wellness brands, education products.
+
+### 5. Campus/org plans
+
+Frats, societies, clubs, gyms, sports teams, or companies pay for organized challenge infrastructure.
+
+For MVP, monetization should probably be secondary. The main goal is proving that groups repeatedly create and complete challenges.
+
+## Risks
+
+### Legal/payment risk
+
+Money pooling can drift into gambling or regulated financial activity depending on structure and jurisdiction. This needs careful design. Early versions can track stakes manually without holding funds.
+
+### Cheating
+
+Public challenges especially need stronger verification. Private groups can rely on social enforcement, but public money challenges need more robust proof.
+
+### Retention
+
+Users may join one challenge and leave. The product needs recurring “seasons,” templates, reminders, group identity, and social rituals.
+
+### Too broad
+
+If the app supports every possible habit from day one, it may feel unfocused. The MVP should focus on a few strong templates while allowing custom tasks.
+
+### Awkwardness around money
+
+Some users may not want to pool money. The app should also support non-monetary consequences and reputation-based competition.
+
+## Initial product thesis
+
+The strongest thesis is:
+
+> People are more likely to stick to goals when their friends are watching, competing, and when something real is on the line.
+
+The app should not try to solve motivation through content, coaching, or AI first. It should solve motivation through **social pressure, competition, and stakes**.
+
+## Recommended MVP positioning
+
+Do not start with:
+
+> “A fitness accountability app.”
+
+Start with:
+
+> **“Create challenges with your friends. Put money or consequences on the line. Prove you did it. Climb the leaderboard.”**
+
+That keeps the product broad enough for fitness, productivity, studying, lifestyle, chores, and community challenges, while still being concrete.
+
+## Cleaner pitch
+
+> A social accountability platform where friends, teams, and communities create competitive challenges around fitness, productivity, lifestyle, or custom goals. Members complete tasks, submit proof, earn points, build streaks, and climb leaderboards. Groups can add stakes by pooling money, setting penalties, or choosing real-life consequences. Friends can react, comment, request proof, and challenge suspicious check-ins, turning consistency into a game powered by competition, accountability, and social pressure.
+
+## Even shorter pitch
+
+> A challenge platform for friend groups and communities where people put money, reputation, or consequences on the line to stay consistent with their goals.
+
+## Best initial version
+
+The best first product is probably:
+
+> **Private group challenges with leaderboards, proof, comments, disputes, and optional money/consequence tracking.**
+
+Start there. Nail the group dynamics. Then expand into community and public challenges later.
+
