@@ -966,7 +966,7 @@ function App() {
               </div>
               <div className="leaderboard">
                 {leaderboard.map((row, index) => (
-                  <div className={`leaderboard-row rank-${index + 1}`} key={row.member.id}>
+                  <div className={`leaderboard-row rank-${index + 1}`} data-rank={index + 1} key={row.member.id}>
                     <span className="rank">{index + 1}</span>
                     <span className="avatar" style={{ backgroundColor: row.member.color }}>
                       {getInitials(row.member.name)}
