@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { ConvexClientProvider } from "./_components/convex-client-provider";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -40,7 +41,9 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ConvexClientProvider>{children}</ConvexClientProvider>
+      </body>
     </html>
   );
 }

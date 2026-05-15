@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
   "dependencies": {
+    "convex": "^1.39.1",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
