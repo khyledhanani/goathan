@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Receipts",
+    "slug": "receipts",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "receipts",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#090B0A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.receipts.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090B0A"
+      },
+      "package": "com.receipts.app"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
