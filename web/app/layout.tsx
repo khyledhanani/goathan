@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./_components/convex-client-provider";
 import "./globals.css";
 
@@ -26,9 +27,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Receipts — keep each other honest",
+  title: "Receipts — bring the receipts.",
   description:
-    "A private squad fitness competition app. Daily lines, weekly standings, Call Cap when something looks suspicious.",
+    "A private squad fitness accountability app. Prove the work, compete with your crew.",
 };
 
 export const viewport = {
@@ -40,10 +41,12 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
-      <body>
-        <ConvexClientProvider>{children}</ConvexClientProvider>
-      </body>
-    </html>
+    <ConvexAuthNextjsServerProvider>
+      <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+        <body>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </body>
+      </html>
+    </ConvexAuthNextjsServerProvider>
   );
 }

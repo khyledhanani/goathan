@@ -1,5 +1,5 @@
-import { Receipts } from "./_components/receipts";
+import { SignInScreen } from "./_components/sign-in-screen";
 
-export default function Page() {
-  return <Receipts />;
+export default function HomePage() {
+  return <SignInScreen />;
 }
