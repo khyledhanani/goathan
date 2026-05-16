@@ -9,6 +9,7 @@ import { api } from "../../convex/_generated/api";
 import { mainGoalLabel } from "@/lib/types";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
+import { ConfirmDialog } from "./confirm-dialog";
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -21,6 +22,11 @@ export function ProfileScreen() {
   const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [leavingId, setLeavingId] = useState<string | null>(null);
+  const [leaveTarget, setLeaveTarget] = useState<{
+    id: string;
+    name: string;
+    isAdmin: boolean;
+  } | null>(null);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -32,21 +38,17 @@ export function ProfileScreen() {
     }
   };
 
-  const onLeave = async (groupId: string, name: string, isAdmin: boolean) => {
-    const adminNote = isAdmin
-      ? " As admin, leaving will pass admin to the next member (or delete the group if you're alone)."
-      : "";
-    if (
-      !window.confirm(
-        `Leave "${name}"? You'll lose your standings here.${adminNote}`,
-      )
-    ) {
-      return;
-    }
-    setLeavingId(groupId);
+  const onLeaveClick = (groupId: string, name: string, isAdmin: boolean) => {
+    setLeaveTarget({ id: groupId, name, isAdmin });
+  };
+
+  const confirmLeave = async () => {
+    if (!leaveTarget) return;
+    const { id, name } = leaveTarget;
+    setLeavingId(id);
     try {
       const result = await leaveGroup({
-        groupId: groupId as Parameters<typeof leaveGroup>[0]["groupId"],
+        groupId: id as Parameters<typeof leaveGroup>[0]["groupId"],
       });
       setToast({
         message:
@@ -55,6 +57,7 @@ export function ProfileScreen() {
             : `You left ${name}`,
         tone: "neutral",
       });
+      setLeaveTarget(null);
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     } finally {
@@ -77,9 +80,14 @@ export function ProfileScreen() {
   return (
     <div className="page-wrap">
       <header className="page-wrap-bar">
-        <Link href="/dashboard" className="entry-brand">
-          Receipts<span className="v">v0.1</span>
-        </Link>
+        <div className="topbar-left">
+          <Link href="/dashboard" className="entry-brand">
+            Receipts<span className="v">v0.1</span>
+          </Link>
+          <Link href="/dashboard" className="btn-link">
+            ← Home
+          </Link>
+        </div>
         <button className="btn-link" onClick={onLogout} disabled={signingOut}>
           {signingOut ? "Out…" : "Log out"}
         </button>
@@ -145,10 +153,10 @@ export function ProfileScreen() {
                     </Link>
                     <button
                       className="btn-link btn-link-danger"
-                      onClick={() => onLeave(g._id, g.name, g.isAdmin)}
+                      onClick={() => onLeaveClick(g._id, g.name, g.isAdmin)}
                       disabled={leavingId === g._id}
                     >
-                      {leavingId === g._id ? "Leaving…" : "Leave"}
+                      Leave
                     </button>
                   </div>
                 </li>
@@ -168,6 +176,33 @@ export function ProfileScreen() {
           />
         </section>
       </main>
+
+      <ConfirmDialog
+        open={leaveTarget !== null}
+        title={leaveTarget ? `Leave ${leaveTarget.name}?` : ""}
+        body={
+          leaveTarget && (
+            <>
+              <p>
+                You&apos;ll lose your standings in this group and your
+                completions will be removed.
+              </p>
+              {leaveTarget.isAdmin && (
+                <p className="confirm-note">
+                  You&apos;re admin. If anyone else is in the group, admin
+                  passes to the longest-tenured member. If you&apos;re alone,
+                  the group is deleted permanently.
+                </p>
+              )}
+            </>
+          )
+        }
+        confirmLabel={leaveTarget?.isAdmin ? "Leave anyway" : "Leave group"}
+        danger
+        busy={leavingId !== null}
+        onCancel={() => setLeaveTarget(null)}
+        onConfirm={confirmLeave}
+      />
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>

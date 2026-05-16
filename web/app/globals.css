@@ -964,6 +964,42 @@ a { color: inherit; text-decoration: none; }
 
 .btn-link-danger:hover { color: var(--cap); opacity: 0.8; }
 
+.btn-danger {
+  background: var(--cap);
+}
+
+.btn-danger:hover {
+  background: var(--cap);
+  filter: brightness(0.92);
+}
+
+.btn-danger:disabled {
+  background: var(--cap-soft);
+  color: var(--cap);
+}
+
+.modal-confirm-body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--smoke);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.modal-confirm-body p { margin: 0; }
+
+.modal-confirm-body .confirm-note {
+  padding: 12px 14px;
+  background: var(--cap-soft);
+  border-left: 2px solid var(--cap);
+  color: var(--cap);
+  font-size: 13px;
+  border-radius: 0 6px 6px 0;
+}
+
 /* Home single-group sections (legacy class — unused now) */
 
 /* Profile — groups list */
