@@ -1,5 +1,5 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -16,7 +16,7 @@ function generateCode(): string {
 
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) throw new ConvexError("Not authenticated");
   return userId;
 }
 
@@ -28,8 +28,8 @@ async function requireOnboardedProfile(
     .query("profiles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique();
-  if (!profile) throw new Error("Profile not found");
-  if (!profile.onboardingCompleted) throw new Error("Finish onboarding first");
+  if (!profile) throw new ConvexError("Profile not found");
+  if (!profile.onboardingCompleted) throw new ConvexError("Finish onboarding first");
   return profile;
 }
 
@@ -42,7 +42,7 @@ async function findFreshInviteCode(ctx: MutationCtx): Promise<string> {
       .unique();
     if (!taken) return code;
   }
-  throw new Error("Could not generate an invite code, try again");
+  throw new ConvexError("Could not generate an invite code, try again");
 }
 
 export const getMyGroups = query({
@@ -88,7 +88,7 @@ export const getRoster = query({
         q.eq("groupId", groupId).eq("userId", userId),
       )
       .unique();
-    if (!myMembership) throw new Error("Not a member of this group");
+    if (!myMembership) throw new ConvexError("Not a member of this group");
 
     const memberships = await ctx.db
       .query("memberships")
@@ -127,8 +127,8 @@ export const create = mutation({
     await requireOnboardedProfile(ctx, userId);
 
     const trimmed = name.trim();
-    if (!trimmed) throw new Error("Group name is required");
-    if (trimmed.length > 40) throw new Error("Group name is too long");
+    if (!trimmed) throw new ConvexError("Group name is required");
+    if (trimmed.length > 40) throw new ConvexError("Group name is too long");
 
     const inviteCode = await findFreshInviteCode(ctx);
     const now = Date.now();
@@ -158,13 +158,13 @@ export const joinByCode = mutation({
     await requireOnboardedProfile(ctx, userId);
 
     const code = inviteCode.trim().toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error("Invite codes are 6 characters");
+    if (!/^[A-Z0-9]{6}$/.test(code)) throw new ConvexError("Invite codes are 6 characters");
 
     const group = await ctx.db
       .query("groups")
       .withIndex("by_invite_code", (q) => q.eq("inviteCode", code))
       .unique();
-    if (!group) throw new Error("That code doesn't match any group");
+    if (!group) throw new ConvexError("That code doesn't match any group");
 
     const existing = await ctx.db
       .query("memberships")
@@ -172,7 +172,7 @@ export const joinByCode = mutation({
         q.eq("groupId", group._id).eq("userId", userId),
       )
       .unique();
-    if (existing) throw new Error("You're already in this group");
+    if (existing) throw new ConvexError("You're already in this group");
 
     await ctx.db.insert("memberships", {
       groupId: group._id,

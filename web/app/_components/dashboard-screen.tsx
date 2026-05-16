@@ -8,6 +8,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { mainGoalLabel } from "@/lib/types";
 import { firstName } from "@/lib/utils";
+import { errorMessage } from "@/lib/errors";
+import { Toast, type ToastValue } from "./toast";
 
 type GroupSummary = {
   _id: Id<"groups">;
@@ -25,7 +27,7 @@ export function DashboardScreen() {
   const profile = useQuery(api.profiles.getCurrentProfile);
   const groups = useQuery(api.groups.getMyGroups);
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -39,12 +41,6 @@ export function DashboardScreen() {
       router.replace("/onboarding");
     }
   }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -115,9 +111,9 @@ export function DashboardScreen() {
 
         <section className="fade-up d1">
           <GroupActions
-            onCreate={() => setToast("Group created")}
-            onJoin={(name) => setToast(`Joined ${name}`)}
-            onError={(msg) => setToast(msg)}
+            onCreate={() => setToast({ message: "Group created", tone: "success" })}
+            onJoin={() => setToast({ message: "You're in the group", tone: "success" })}
+            onError={(msg) => setToast({ message: msg, tone: "error" })}
           />
         </section>
 
@@ -136,7 +132,7 @@ export function DashboardScreen() {
                   group={g}
                   onCopy={() => {
                     navigator.clipboard?.writeText(g.inviteCode).catch(() => {});
-                    setToast("Invite code copied");
+                    setToast({ message: "Invite code copied", tone: "neutral" });
                   }}
                 />
               ))}
@@ -167,7 +163,7 @@ export function DashboardScreen() {
         </section>
       </main>
 
-      {toast && <div className="toast">{toast}</div>}
+      <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
@@ -185,7 +181,6 @@ function GroupActions({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const createGroup = useMutation(api.groups.create);
   const joinByCode = useMutation(api.groups.joinByCode);
@@ -194,7 +189,6 @@ function GroupActions({
   const canJoin = /^[A-Z0-9]{6}$/.test(code) && !busy;
 
   const submit = async () => {
-    setError(null);
     setBusy(true);
     try {
       if (mode === "create") {
@@ -209,9 +203,7 @@ function GroupActions({
         setCode("");
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong";
-      setError(msg);
-      onError(msg);
+      onError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -222,20 +214,14 @@ function GroupActions({
       <div className="seg">
         <button
           className={mode === "create" ? "active" : ""}
-          onClick={() => {
-            setMode("create");
-            setError(null);
-          }}
+          onClick={() => setMode("create")}
         >
           Create a group
         </button>
         <span className="seg-dot">/</span>
         <button
           className={mode === "join" ? "active" : ""}
-          onClick={() => {
-            setMode("join");
-            setError(null);
-          }}
+          onClick={() => setMode("join")}
         >
           Join with code
         </button>
@@ -275,12 +261,6 @@ function GroupActions({
             }}
           />
         </label>
-      )}
-
-      {error && (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
       )}
 
       <div style={{ marginTop: 22 }}>

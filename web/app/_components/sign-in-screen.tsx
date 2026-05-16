@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { errorMessage } from "@/lib/errors";
+import { Toast, type ToastValue } from "./toast";
 
 export function SignInScreen() {
   const { signIn } = useAuthActions();
   const [status, setStatus] = useState<"idle" | "signing-in" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastValue>(null);
 
   const onSignIn = async () => {
     setStatus("signing-in");
-    setError(null);
     try {
       await signIn("google", { redirectTo: "/dashboard" });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Sign-in failed. Try again.";
-      setError(msg);
+      setToast({
+        message: errorMessage(e, "Sign-in failed. Try again."),
+        tone: "error",
+      });
       setStatus("error");
     }
   };
@@ -54,12 +57,6 @@ export function SignInScreen() {
             <span className="arrow">→</span>
           </button>
 
-          {error && (
-            <p className="auth-error" role="alert">
-              {error}
-            </p>
-          )}
-
           <p className="auth-fineprint">
             We&apos;ll pull your name, email, and avatar from Google. You can change
             your tag in onboarding.
@@ -84,6 +81,8 @@ export function SignInScreen() {
           </div>
         </div>
       </div>
+
+      <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

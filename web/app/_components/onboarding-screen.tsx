@@ -7,6 +7,8 @@ import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import { MAIN_GOAL_OPTIONS, type MainGoal } from "@/lib/types";
+import { errorMessage } from "@/lib/errors";
+import { Toast, type ToastValue } from "./toast";
 
 export function OnboardingScreen() {
   const router = useRouter();
@@ -21,7 +23,7 @@ export function OnboardingScreen() {
   const [username, setUsername] = useState("");
   const [mainGoal, setMainGoal] = useState<MainGoal | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastValue>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
   useEffect(() => {
@@ -57,7 +59,6 @@ export function OnboardingScreen() {
 
   const onSubmit = async () => {
     if (!canSubmit) return;
-    setError(null);
     setSubmitting(true);
     try {
       await completeOnboarding({
@@ -67,7 +68,7 @@ export function OnboardingScreen() {
       });
       router.replace("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save. Try again.");
+      setToast({ message: errorMessage(e, "Could not save. Try again."), tone: "error" });
       setSubmitting(false);
     }
   };
@@ -166,12 +167,6 @@ export function OnboardingScreen() {
             </div>
           </div>
 
-          {error && (
-            <p className="auth-error" role="alert">
-              {error}
-            </p>
-          )}
-
           <div style={{ marginTop: 28, display: "flex", gap: 12, alignItems: "center" }}>
             <button className="btn-primary" disabled={!canSubmit} onClick={onSubmit}>
               {submitting ? "Locking in…" : "Bring the receipts"}
@@ -186,6 +181,8 @@ export function OnboardingScreen() {
         <span className="eyebrow">No receipts, no rank</span>
         <span className="eyebrow">Private · invite only</span>
       </div>
+
+      <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

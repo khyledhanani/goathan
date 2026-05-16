@@ -1,12 +1,12 @@
 import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mainGoalValidator } from "./schema";
 
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) throw new ConvexError("Not authenticated");
   return userId;
 }
 
@@ -22,9 +22,9 @@ async function findProfileByUser(
 
 function normalizeUsername(raw: string): string {
   const u = raw.trim().toLowerCase();
-  if (!u) throw new Error("Username is required");
+  if (!u) throw new ConvexError("Username is required");
   if (!/^[a-z0-9_.]{2,20}$/.test(u)) {
-    throw new Error("Username must be 2–20 chars (a–z, 0–9, _ or .)");
+    throw new ConvexError("Username must be 2–20 chars (a–z, 0–9, _ or .)");
   }
   return u;
 }
@@ -39,7 +39,7 @@ async function assertUsernameAvailable(
     .withIndex("by_username", (q) => q.eq("username", username))
     .unique();
   if (taken && taken._id !== selfProfileId) {
-    throw new Error("That username is taken");
+    throw new ConvexError("That username is taken");
   }
 }
 
@@ -57,7 +57,7 @@ export const upsertCurrentProfileFromAuth = mutation({
   handler: async (ctx) => {
     const userId = await requireAuthUserId(ctx);
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw new ConvexError("Not authenticated");
 
     const userDoc = await ctx.db.get(userId);
     const existing = await findProfileByUser(ctx, userId);
@@ -99,10 +99,10 @@ export const updateOnboardingProfile = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx);
     const profile = await findProfileByUser(ctx, userId);
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) throw new ConvexError("Profile not found");
 
     const displayName = args.displayName.trim();
-    if (!displayName) throw new Error("Display name is required");
+    if (!displayName) throw new ConvexError("Display name is required");
 
     const username = normalizeUsername(args.username);
     await assertUsernameAvailable(ctx, username, profile._id);
@@ -127,10 +127,10 @@ export const completeOnboarding = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx);
     const profile = await findProfileByUser(ctx, userId);
-    if (!profile) throw new Error("Profile not found");
+    if (!profile) throw new ConvexError("Profile not found");
 
     const displayName = args.displayName.trim();
-    if (!displayName) throw new Error("Display name is required");
+    if (!displayName) throw new ConvexError("Display name is required");
 
     const username = normalizeUsername(args.username);
     await assertUsernameAvailable(ctx, username, profile._id);
