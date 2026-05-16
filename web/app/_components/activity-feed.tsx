@@ -159,22 +159,26 @@ function ActivityRow({
             {timeAgo(mode === "verified" ? (item.verifiedAt ?? item.claimedAt) : item.claimedAt)}
           </span>
         </div>
-        {mode === "verified" && item.proofUrl && (
-          <button
-            className="proof-thumb proof-thumb-sm"
-            onClick={() => onOpenProof(item.proofUrl!)}
-            aria-label="View proof"
-          >
-            <img src={item.proofUrl} alt="" />
-          </button>
-        )}
-        {!item.isYou && mode === "verified" && (
-          <button
-            className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
-            onClick={() => onCallCap(item.completionId)}
-          >
-            {item.challengedByYou ? "Cap called" : "Call cap"}
-          </button>
+        {mode === "verified" && (item.proofUrl || !item.isYou) && (
+          <div className="activity-actions">
+            {item.proofUrl && (
+              <button
+                className="proof-thumb proof-thumb-sm"
+                onClick={() => onOpenProof(item.proofUrl!)}
+                aria-label="View proof"
+              >
+                <img src={item.proofUrl} alt="" />
+              </button>
+            )}
+            {!item.isYou && (
+              <button
+                className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
+                onClick={() => onCallCap(item.completionId)}
+              >
+                {item.challengedByYou ? "Cap called" : "Call cap"}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

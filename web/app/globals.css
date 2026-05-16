@@ -1567,6 +1567,13 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
 }
 
+.activity-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .activity-main {
   display: flex;
   flex-direction: column;
