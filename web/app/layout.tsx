@@ -28,7 +28,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Receipts — bring the receipts.",
+  title: "Receipts",
   description:
     "A private group fitness accountability app. Prove the work, compete with your crew.",
   appleWebApp: {
