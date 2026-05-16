@@ -40,12 +40,8 @@ export function DashboardScreen() {
     }
     if (!profile.onboardingCompleted) {
       router.replace("/onboarding");
-      return;
     }
-    if (groups && groups.length === 1) {
-      router.replace(`/group/${groups[0]._id}`);
-    }
-  }, [authLoading, isAuthenticated, profile, groups, upsertFromAuth, router]);
+  }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -304,12 +300,12 @@ function GroupCard({
   return (
     <article className="group-card">
       <header className="group-card-head">
-        <div>
+        <div className="group-card-head-left">
           <span className="eyebrow">{group.isAdmin ? "Admin · you" : "Member"}</span>
           <Link href={`/group/${group._id}`} className="group-card-name-link">
             <h3 className="group-card-name">{group.name}</h3>
           </Link>
-          <Link href={`/group/${group._id}`} className="btn-link" style={{ marginTop: 6 }}>
+          <Link href={`/group/${group._id}`} className="btn-link">
             Open →
           </Link>
         </div>

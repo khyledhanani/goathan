@@ -743,14 +743,22 @@ a { color: inherit; text-decoration: none; }
   margin: 0;
 }
 
+.group-card-head-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
 .group-card-name-link {
-  display: inline-block;
+  display: block;
   color: inherit;
   text-decoration: none;
   transition: color 140ms ease;
 }
 .group-card-name-link:hover { color: var(--accent); }
-.group-card-name-link .group-card-name { margin-top: 6px; }
+.group-card-name-link .group-card-name { margin: 0; }
 
 /* Top bar (shared) */
 
@@ -972,4 +980,33 @@ a { color: inherit; text-decoration: none; }
   margin-top: 24px;
   padding-top: 18px;
   border-top: 1px solid var(--rule);
+}
+
+/* Invite block (on group page) */
+
+.invite-block {
+  padding: 22px 24px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--paper-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-block .eyebrow { display: block; }
+
+.invite-block-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.invite-block-value {
+  font-family: var(--font-mono), monospace;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--ink);
 }

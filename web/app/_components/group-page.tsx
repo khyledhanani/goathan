@@ -92,7 +92,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
         </span>
         <div className="topbar-right">
           <Link href="/dashboard" className="btn-link">
-            Groups
+            All groups
           </Link>
           <div className="user-chip">
             {profile.avatarUrl ? (
@@ -158,6 +158,28 @@ export function GroupPage({ groupId }: { groupId: string }) {
               + Add task
             </button>
           )}
+        </section>
+
+        <section className="fade-up d2" style={{ marginTop: 56 }}>
+          <header className="section-head">
+            <h2 className="h-section">Invite to {group.name}.</h2>
+            <span className="eyebrow">Anyone with the code can join</span>
+          </header>
+          <div className="invite-block">
+            <span className="eyebrow">Invite code</span>
+            <div className="invite-block-row">
+              <span className="mono invite-block-value">{group.inviteCode}</span>
+              <button
+                className="btn-ghost btn-ghost-sm"
+                onClick={() => {
+                  navigator.clipboard?.writeText(group.inviteCode).catch(() => {});
+                  setToast({ message: "Invite code copied", tone: "neutral" });
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
         </section>
       </main>
 
