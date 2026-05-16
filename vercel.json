@@ -1,5 +1,5 @@
 {
   "buildCommand": "npm install --prefix web && npm run build --prefix web",
-  "outputDirectory": "web/dist",
-  "framework": null
+  "outputDirectory": "web/.next",
+  "framework": "nextjs"
 }
