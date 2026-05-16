@@ -27,7 +27,20 @@ type FeedItem = {
   comments: CommentItem[];
 };
 
-const verbFor = (category: FeedItem["taskCategory"]): string => {
+type ActivityBlock = {
+  key: string;
+  memberUserId: Id<"users">;
+  memberDisplayName: string;
+  memberAvatarUrl?: string;
+  isYou: boolean;
+  items: FeedItem[];
+  latestAt: number;
+  latestCompletionId: Id<"completions">;
+  totalChallenges: number;
+  aggregatedComments: CommentItem[];
+};
+
+const verbForSingle = (category: FeedItem["taskCategory"]): string => {
   if (category === "NUTRITION") return "hit";
   if (category === "RECOVERY") return "logged";
   return "locked in";
@@ -42,6 +55,35 @@ function timeAgo(ts: number): string {
   if (hr < 24) return `${hr}h`;
   const day = Math.floor(hr / 24);
   return `${day}d`;
+}
+
+function groupConsecutive(items: FeedItem[]): ActivityBlock[] {
+  const blocks: ActivityBlock[] = [];
+  for (const item of items) {
+    const last = blocks[blocks.length - 1];
+    if (last && last.memberUserId === item.memberUserId) {
+      last.items.push(item);
+      last.totalChallenges += item.challengeCount;
+      last.aggregatedComments.push(...item.comments);
+    } else {
+      blocks.push({
+        key: item.completionId,
+        memberUserId: item.memberUserId,
+        memberDisplayName: item.memberDisplayName,
+        memberAvatarUrl: item.memberAvatarUrl,
+        isYou: item.isYou,
+        items: [item],
+        latestAt: item.completedAt,
+        latestCompletionId: item.completionId,
+        totalChallenges: item.challengeCount,
+        aggregatedComments: [...item.comments],
+      });
+    }
+  }
+  for (const b of blocks) {
+    b.aggregatedComments.sort((a, b) => a.createdAt - b.createdAt);
+  }
+  return blocks;
 }
 
 export function ActivityFeed({
@@ -64,58 +106,167 @@ export function ActivityFeed({
     );
   }
 
+  const blocks = groupConsecutive(items);
+
   return (
     <ul className="activity-feed">
-      {items.map((item) => (
-        <li
-          key={item.completionId}
-          className={`activity-row ${item.challengeCount > 0 ? "challenged" : ""}`}
-        >
-          <div className="activity-top">
-            {item.memberAvatarUrl ? (
-              <img
-                src={item.memberAvatarUrl}
-                alt=""
-                width={32}
-                height={32}
-                className="avatar"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {item.memberDisplayName.charAt(0).toUpperCase()}
+      {blocks.map((block) =>
+        block.items.length === 1 ? (
+          <SingleRow
+            key={block.key}
+            item={block.items[0]}
+            onCallCap={onCallCap}
+            onComment={onComment}
+          />
+        ) : (
+          <GroupedRow
+            key={block.key}
+            block={block}
+            onCallCap={onCallCap}
+            onComment={onComment}
+          />
+        ),
+      )}
+    </ul>
+  );
+}
+
+function SingleRow({
+  item,
+  onCallCap,
+  onComment,
+}: {
+  item: FeedItem;
+  onCallCap: (id: Id<"completions">) => void;
+  onComment: (id: Id<"completions">, body: string) => Promise<void>;
+}) {
+  return (
+    <li
+      className={`activity-row ${item.challengeCount > 0 ? "challenged" : ""}`}
+    >
+      <div className="activity-top">
+        <Avatar
+          name={item.memberDisplayName}
+          src={item.memberAvatarUrl}
+          size={32}
+        />
+        <div className="activity-main">
+          <p className="activity-line">
+            <span className="activity-name">{item.memberDisplayName}</span>{" "}
+            <span className="activity-verb">{verbForSingle(item.taskCategory)}</span>{" "}
+            <span className="activity-task">{item.taskName}</span>
+            {item.challengeCount > 0 && (
+              <span className="activity-cap-count">
+                · {item.challengeCount} cap
+                {item.challengeCount > 1 ? "s" : ""}
               </span>
             )}
-            <div className="activity-main">
-              <p className="activity-line">
-                <span className="activity-name">{item.memberDisplayName}</span>{" "}
-                <span className="activity-verb">{verbFor(item.taskCategory)}</span>{" "}
-                <span className="activity-task">{item.taskName}</span>
-                {item.challengeCount > 0 && (
-                  <span className="activity-cap-count">
-                    · {item.challengeCount} cap
-                    {item.challengeCount > 1 ? "s" : ""}
-                  </span>
-                )}
-              </p>
-              <span className="activity-time mono">{timeAgo(item.completedAt)}</span>
-            </div>
-            {!item.isYou && (
+          </p>
+          <span className="activity-time mono">{timeAgo(item.completedAt)}</span>
+        </div>
+        {!item.isYou && (
+          <button
+            className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
+            onClick={() => onCallCap(item.completionId)}
+          >
+            {item.challengedByYou ? "Cap called" : "Call cap"}
+          </button>
+        )}
+      </div>
+
+      <CommentThread
+        comments={item.comments}
+        onSubmit={(body) => onComment(item.completionId, body)}
+      />
+    </li>
+  );
+}
+
+function GroupedRow({
+  block,
+  onCallCap,
+  onComment,
+}: {
+  block: ActivityBlock;
+  onCallCap: (id: Id<"completions">) => void;
+  onComment: (id: Id<"completions">, body: string) => Promise<void>;
+}) {
+  const count = block.items.length;
+  return (
+    <li
+      className={`activity-row activity-row-grouped ${block.totalChallenges > 0 ? "challenged" : ""}`}
+    >
+      <div className="activity-top">
+        <Avatar
+          name={block.memberDisplayName}
+          src={block.memberAvatarUrl}
+          size={32}
+        />
+        <div className="activity-main">
+          <p className="activity-line">
+            <span className="activity-name">{block.memberDisplayName}</span>{" "}
+            <span className="activity-verb">stacked</span>{" "}
+            <span className="activity-task">
+              {count} receipt{count > 1 ? "s" : ""}
+            </span>
+            {block.totalChallenges > 0 && (
+              <span className="activity-cap-count">
+                · {block.totalChallenges} cap
+                {block.totalChallenges > 1 ? "s" : ""}
+              </span>
+            )}
+          </p>
+          <span className="activity-time mono">{timeAgo(block.latestAt)}</span>
+        </div>
+      </div>
+
+      <ul className="activity-stack">
+        {block.items.map((it) => (
+          <li
+            key={it.completionId}
+            className={`activity-stack-item ${it.challengeCount > 0 ? "challenged" : ""}`}
+          >
+            <span className="activity-stack-name">{it.taskName}</span>
+            <span className="activity-stack-cat">{it.taskCategory}</span>
+            <span className="activity-stack-pts num">+{it.points}</span>
+            {!block.isYou && (
               <button
-                className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
-                onClick={() => onCallCap(item.completionId)}
+                className={`btn-cap btn-cap-sm ${it.challengedByYou ? "called" : ""}`}
+                onClick={() => onCallCap(it.completionId)}
               >
-                {item.challengedByYou ? "Cap called" : "Call cap"}
+                {it.challengedByYou ? "Capped" : "Cap"}
               </button>
             )}
-          </div>
+          </li>
+        ))}
+      </ul>
 
-          <CommentThread
-            comments={item.comments}
-            onSubmit={(body) => onComment(item.completionId, body)}
-          />
-        </li>
-      ))}
-    </ul>
+      <CommentThread
+        comments={block.aggregatedComments}
+        onSubmit={(body) => onComment(block.latestCompletionId, body)}
+      />
+    </li>
+  );
+}
+
+function Avatar({
+  name,
+  src,
+  size,
+}: {
+  name: string;
+  src?: string;
+  size: number;
+}) {
+  if (src) {
+    return (
+      <img src={src} alt="" width={size} height={size} className="avatar" />
+    );
+  }
+  return (
+    <span className="avatar avatar-fallback">
+      {name.charAt(0).toUpperCase()}
+    </span>
   );
 }
 
