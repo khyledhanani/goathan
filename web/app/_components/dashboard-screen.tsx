@@ -11,6 +11,7 @@ import { firstName } from "@/lib/utils";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
+import { DayResetCountdown } from "./countdown";
 
 type Member = { displayName: string; avatarUrl?: string };
 
@@ -138,6 +139,9 @@ export function DashboardScreen() {
                     <span className="num">{home.totals.todayDone}</span>/
                     <span className="num">{home.totals.totalDailyTasks}</span>{" "}
                     done
+                  </p>
+                  <p className="hero-countdown">
+                    <DayResetCountdown />
                   </p>
                 </div>
               </div>

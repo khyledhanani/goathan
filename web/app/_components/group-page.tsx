@@ -14,6 +14,7 @@ import { TodaySlate } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
 import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
+import { DayResetCountdown } from "./countdown";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -173,6 +174,9 @@ export function GroupPage({ groupId }: { groupId: string }) {
               <span className="num">{stats.weekPoints}</span> this week ·{" "}
               <span className="num">{stats.todayDone}</span>/
               <span className="num">{stats.totalDailyTasks}</span> done
+            </p>
+            <p className="hero-countdown">
+              <DayResetCountdown />
             </p>
           </div>
         </div>
