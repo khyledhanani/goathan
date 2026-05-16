@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { firstName } from "@/lib/utils";
@@ -16,11 +17,23 @@ type Member = { displayName: string; avatarUrl?: string };
 export function DashboardScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
   const toggleCompletion = useMutation(api.completions.toggle);
   const [toast, setToast] = useState<ToastValue>(null);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const onLogout = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/");
+    } catch {
+      setSigningOut(false);
+    }
+  };
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -74,22 +87,31 @@ export function DashboardScreen() {
         <Link href="/dashboard" className="entry-brand">
           Receipts<span className="v">v0.1</span>
         </Link>
-        <Link href="/profile" className="user-chip user-chip-link">
-          {profile.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt=""
-              width={28}
-              height={28}
-              className="avatar"
-            />
-          ) : (
-            <span className="avatar avatar-fallback">
-              {hello.charAt(0).toUpperCase()}
-            </span>
-          )}
-          <span className="user-chip-name">{profile.displayName}</span>
-        </Link>
+        <div className="topbar-right">
+          <Link href="/profile" className="user-chip user-chip-link">
+            {profile.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt=""
+                width={28}
+                height={28}
+                className="avatar"
+              />
+            ) : (
+              <span className="avatar avatar-fallback">
+                {hello.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span className="user-chip-name">{profile.displayName}</span>
+          </Link>
+          <button
+            className="btn-link"
+            onClick={onLogout}
+            disabled={signingOut}
+          >
+            {signingOut ? "Out…" : "Log out"}
+          </button>
+        </div>
       </header>
 
       <main className="page">
