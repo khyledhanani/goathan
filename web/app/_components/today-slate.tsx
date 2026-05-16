@@ -45,12 +45,14 @@ export function TodaySlate({
   onUnclaim,
   onUpload,
   onOpenProof,
+  onRemoveTask,
 }: {
   slate: SlateItem[];
   onClaim: (taskId: Id<"tasks">) => void;
   onUnclaim: (completionId: Id<"completions">) => void;
   onUpload: (completionId: Id<"completions">, file: File) => void;
   onOpenProof: (url: string) => void;
+  onRemoveTask?: (taskId: Id<"tasks">, name: string) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -83,6 +85,7 @@ export function TodaySlate({
             onUnclaim={onUnclaim}
             onUpload={onUpload}
             onOpenProof={onOpenProof}
+            onRemoveTask={onRemoveTask}
           />
         );
       })}
@@ -98,6 +101,7 @@ function SlateRow({
   onUnclaim,
   onUpload,
   onOpenProof,
+  onRemoveTask,
 }: {
   task: SlateItem;
   mode: Mode;
@@ -106,6 +110,7 @@ function SlateRow({
   onUnclaim: (id: Id<"completions">) => void;
   onUpload: (id: Id<"completions">, file: File) => void;
   onOpenProof: (url: string) => void;
+  onRemoveTask?: (id: Id<"tasks">, name: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -196,6 +201,18 @@ function SlateRow({
           <span className="num">+{task.points}</span>
           <span className="pts-label">pts</span>
         </div>
+        {onRemoveTask && (
+          <button
+            className="btn-link btn-link-danger slate-remove"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveTask(task._id, task.name);
+            }}
+            aria-label={`Remove ${task.name}`}
+          >
+            Remove
+          </button>
+        )}
       </div>
 
       <input

@@ -12,6 +12,7 @@ import { firstName } from "@/lib/utils";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
+import { ConfirmDialog } from "./confirm-dialog";
 import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
 import { ProofLightbox } from "./proof-lightbox";
@@ -39,6 +40,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
   );
   const attachProof = useMutation(api.completions.attachProof);
   const createTask = useMutation(api.tasks.create);
+  const removeTaskMutation = useMutation(api.tasks.remove);
   const toggleChallenge = useMutation(api.challenges.toggle);
   const addComment = useMutation(api.comments.add);
 
@@ -46,6 +48,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [adding, setAdding] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{
+    taskId: Id<"tasks">;
+    name: string;
+  } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -166,6 +173,31 @@ export function GroupPage({ groupId }: { groupId: string }) {
     }
   };
 
+  const askRemoveTask = (taskId: Id<"tasks">, name: string) => {
+    setRemoveTarget({ taskId, name });
+  };
+
+  const confirmRemoveTask = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      const result = await removeTaskMutation({ taskId: removeTarget.taskId });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+        return;
+      }
+      setToast({
+        message: `Removed ${removeTarget.name}`,
+        tone: "neutral",
+      });
+      setRemoveTarget(null);
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
     <div className="page-wrap page-group">
       <header className="page-wrap-bar">
@@ -241,6 +273,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
             onUnclaim={onUnclaim}
             onUpload={onUpload}
             onOpenProof={(url) => setLightboxUrl(url)}
+            onRemoveTask={isAdmin ? askRemoveTask : undefined}
           />
 
           {isAdmin && (
@@ -325,6 +358,22 @@ export function GroupPage({ groupId }: { groupId: string }) {
       )}
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title={removeTarget ? `Remove ${removeTarget.name}?` : ""}
+        body={
+          <p>
+            This deletes the task and all its history (completions, proof
+            photos, comments, caps) from this group. Members will no longer see
+            it on their slate.
+          </p>
+        }
+        confirmLabel="Remove task"
+        danger
+        busy={removing}
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={confirmRemoveTask}
+      />
       <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
