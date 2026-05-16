@@ -378,26 +378,32 @@ export const homeView = query({
           .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
           .collect();
 
+        const groupWeekCompletions = await ctx.db
+          .query("completions")
+          .withIndex("by_group_week", (q) =>
+            q.eq("groupId", m.groupId).eq("weekKey", wk),
+          )
+          .collect();
+        const groupPointsByUser = new Map<Id<"users">, number>();
+        for (const c of groupWeekCompletions) {
+          if (c.verifiedAt === undefined) continue;
+          groupPointsByUser.set(
+            c.userId,
+            (groupPointsByUser.get(c.userId) ?? 0) + c.points,
+          );
+        }
+
         const memberStandings = await Promise.all(
           groupMemberships.map(async (gm) => {
             const memberProfile = await ctx.db
               .query("profiles")
               .withIndex("by_user", (q) => q.eq("userId", gm.userId))
               .unique();
-            const memberCompletions = await ctx.db
-              .query("completions")
-              .withIndex("by_user_week", (q) =>
-                q.eq("userId", gm.userId).eq("weekKey", wk),
-              )
-              .collect();
-            const verifiedPoints = memberCompletions
-              .filter((c) => c.verifiedAt !== undefined)
-              .reduce((s, c) => s + c.points, 0);
             return {
               userId: gm.userId,
               displayName: memberProfile?.displayName ?? "Unknown",
               avatarUrl: memberProfile?.avatarUrl,
-              weekPoints: verifiedPoints,
+              weekPoints: groupPointsByUser.get(gm.userId) ?? 0,
             };
           }),
         );
@@ -481,21 +487,27 @@ export const weeklyStandings = query({
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
 
+    const groupWeekCompletions = await ctx.db
+      .query("completions")
+      .withIndex("by_group_week", (q) =>
+        q.eq("groupId", groupId).eq("weekKey", wk),
+      )
+      .collect();
+    const pointsByUser = new Map<Id<"users">, number>();
+    for (const c of groupWeekCompletions) {
+      if (c.verifiedAt === undefined) continue;
+      pointsByUser.set(
+        c.userId,
+        (pointsByUser.get(c.userId) ?? 0) + c.points,
+      );
+    }
+
     const rows = await Promise.all(
       memberships.map(async (m) => {
         const profile = await ctx.db
           .query("profiles")
           .withIndex("by_user", (q) => q.eq("userId", m.userId))
           .unique();
-        const completions = await ctx.db
-          .query("completions")
-          .withIndex("by_user_week", (q) =>
-            q.eq("userId", m.userId).eq("weekKey", wk),
-          )
-          .collect();
-        const weekPoints = completions
-          .filter((c) => c.verifiedAt !== undefined)
-          .reduce((s, c) => s + c.points, 0);
         return {
           userId: m.userId,
           displayName: profile?.displayName ?? "Unknown",
@@ -503,7 +515,7 @@ export const weeklyStandings = query({
           avatarUrl: profile?.avatarUrl,
           isAdmin: m.isAdmin,
           isYou: m.userId === userId,
-          weekPoints,
+          weekPoints: pointsByUser.get(m.userId) ?? 0,
         };
       }),
     );
