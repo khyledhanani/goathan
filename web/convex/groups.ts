@@ -244,6 +244,120 @@ export const getRoster = query({
   },
 });
 
+export const homeView = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const now = Date.now();
+    const wk = weekKey(now);
+
+    const allMyWeekCompletions = await ctx.db
+      .query("completions")
+      .withIndex("by_user_week", (q) =>
+        q.eq("userId", userId).eq("weekKey", wk),
+      )
+      .collect();
+
+    const compByGroup = new Map<string, typeof allMyWeekCompletions>();
+    for (const c of allMyWeekCompletions) {
+      const list = compByGroup.get(c.groupId) ?? [];
+      list.push(c);
+      compByGroup.set(c.groupId, list);
+    }
+
+    const groups = await Promise.all(
+      memberships.map(async (m) => {
+        const group = await ctx.db.get(m.groupId);
+        if (!group) return null;
+
+        const tasks = await ctx.db
+          .query("tasks")
+          .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
+          .collect();
+
+        const myCompletions = compByGroup.get(m.groupId) ?? [];
+        const completionByTask = new Map<
+          string,
+          { completionId: Id<"completions">; periodKey: string }
+        >();
+        for (const c of myCompletions) {
+          completionByTask.set(c.taskId, {
+            completionId: c._id,
+            periodKey: c.periodKey,
+          });
+        }
+
+        const slate = tasks
+          .map((t) => {
+            const expectedKey = periodKeyFor(t.frequency, now);
+            const completion = completionByTask.get(t._id);
+            const isDone = !!completion && completion.periodKey === expectedKey;
+            return {
+              _id: t._id,
+              name: t.name,
+              description: t.description,
+              category: t.category,
+              points: t.points,
+              frequency: t.frequency,
+              proof: t.proof,
+              done: isDone,
+            };
+          })
+          .sort((a, b) => {
+            if (a.frequency !== b.frequency)
+              return a.frequency === "DAILY" ? -1 : 1;
+            return b.points - a.points;
+          });
+
+        const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
+        const todayPoints = dailyTasks
+          .filter((t) => t.done)
+          .reduce((s, t) => s + t.points, 0);
+        const todayDone = dailyTasks.filter((t) => t.done).length;
+        const weekPoints = myCompletions.reduce((s, c) => s + c.points, 0);
+
+        return {
+          _id: group._id,
+          name: group.name,
+          isAdmin: m.isAdmin,
+          joinedAt: m.joinedAt,
+          slate,
+          stats: {
+            todayPoints,
+            todayDone,
+            totalDailyTasks: dailyTasks.length,
+            weekPoints,
+          },
+        };
+      }),
+    );
+
+    const filtered = groups
+      .filter((g): g is NonNullable<typeof g> => g !== null)
+      .sort((a, b) => b.joinedAt - a.joinedAt);
+
+    const totals = {
+      todayPoints: filtered.reduce((s, g) => s + g.stats.todayPoints, 0),
+      weekPoints: filtered.reduce((s, g) => s + g.stats.weekPoints, 0),
+      todayDone: filtered.reduce((s, g) => s + g.stats.todayDone, 0),
+      totalDailyTasks: filtered.reduce(
+        (s, g) => s + g.stats.totalDailyTasks,
+        0,
+      ),
+      groupCount: filtered.length,
+    };
+
+    return { groups: filtered, totals };
+  },
+});
+
 export const weeklyStandings = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {

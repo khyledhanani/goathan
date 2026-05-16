@@ -9,6 +9,7 @@ const isAuthedOnlyRoute = createRouteMatcher([
   "/onboarding",
   "/dashboard",
   "/group(.*)",
+  "/profile",
 ]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {

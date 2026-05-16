@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
@@ -18,7 +17,6 @@ import { ActivityFeed } from "./activity-feed";
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const { signOut } = useAuthActions();
 
   const profile = useQuery(api.profiles.getCurrentProfile);
   const view = useQuery(api.groups.todayView, {
@@ -36,7 +34,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -48,16 +45,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
       router.replace("/dashboard");
     }
   }, [authLoading, isAuthenticated, view, router]);
-
-  const onLogout = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
-    }
-  };
 
   if (authLoading || profile === undefined || view === undefined) {
     return (
@@ -108,37 +95,30 @@ export function GroupPage({ groupId }: { groupId: string }) {
   return (
     <div className="page-wrap">
       <header className="page-wrap-bar">
-        <span className="entry-brand">
-          Receipts<span className="v">v0.1</span>
-        </span>
-        <div className="topbar-right">
-          <Link href="/dashboard" className="btn-link">
-            All groups
+        <div className="topbar-left">
+          <Link href="/dashboard" className="entry-brand">
+            Receipts<span className="v">v0.1</span>
           </Link>
-          <div className="user-chip">
-            {profile.avatarUrl ? (
-              <img
-                src={profile.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-                className="avatar"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {hello.charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span className="user-chip-name">{profile.displayName}</span>
-            <button
-              className="btn-link"
-              onClick={onLogout}
-              disabled={signingOut}
-            >
-              {signingOut ? "Out…" : "Log out"}
-            </button>
-          </div>
+          <Link href="/dashboard" className="btn-link">
+            Home
+          </Link>
         </div>
+        <Link href="/profile" className="user-chip user-chip-link">
+          {profile.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt=""
+              width={28}
+              height={28}
+              className="avatar"
+            />
+          ) : (
+            <span className="avatar avatar-fallback">
+              {hello.charAt(0).toUpperCase()}
+            </span>
+          )}
+          <span className="user-chip-name">{profile.displayName}</span>
+        </Link>
       </header>
 
       <main className="page">
