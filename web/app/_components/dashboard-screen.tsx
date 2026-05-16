@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
@@ -39,8 +40,12 @@ export function DashboardScreen() {
     }
     if (!profile.onboardingCompleted) {
       router.replace("/onboarding");
+      return;
     }
-  }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
+    if (groups && groups.length === 1) {
+      router.replace(`/group/${groups[0]._id}`);
+    }
+  }, [authLoading, isAuthenticated, profile, groups, upsertFromAuth, router]);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -301,7 +306,12 @@ function GroupCard({
       <header className="group-card-head">
         <div>
           <span className="eyebrow">{group.isAdmin ? "Admin · you" : "Member"}</span>
-          <h3 className="group-card-name">{group.name}</h3>
+          <Link href={`/group/${group._id}`} className="group-card-name-link">
+            <h3 className="group-card-name">{group.name}</h3>
+          </Link>
+          <Link href={`/group/${group._id}`} className="btn-link" style={{ marginTop: 6 }}>
+            Open →
+          </Link>
         </div>
         <div className="group-card-code">
           <span className="eyebrow">Invite code</span>

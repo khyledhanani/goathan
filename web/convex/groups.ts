@@ -2,6 +2,36 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { dayKey, weekKey, periodKeyFor } from "./lib/period";
+
+const DEFAULT_TASKS = [
+  { name: "Gym check-in",     category: "GYM" as const,       points: 25, frequency: "DAILY" as const, proof: "PHOTO" as const,      description: "Scan in at the gym." },
+  { name: "10k steps",        category: "CARDIO" as const,    points: 15, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Hit 10,000 steps before midnight." },
+  { name: "Protein 1g per lb", category: "NUTRITION" as const, points: 20, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Hit your protein target." },
+  { name: "Workout logged",   category: "GYM" as const,       points: 20, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Log a full session in your tracker." },
+  { name: "Seven hours sleep", category: "RECOVERY" as const,  points: 10, frequency: "DAILY" as const, proof: "MANUAL" as const,     description: "Seven hours minimum." },
+];
+
+async function seedDefaultTasks(
+  ctx: MutationCtx,
+  groupId: Id<"groups">,
+  userId: Id<"users">,
+) {
+  const now = Date.now();
+  for (const t of DEFAULT_TASKS) {
+    await ctx.db.insert("tasks", {
+      groupId,
+      name: t.name,
+      description: t.description,
+      category: t.category,
+      points: t.points,
+      frequency: t.frequency,
+      proof: t.proof,
+      createdByUserId: userId,
+      createdAt: now,
+    });
+  }
+}
 
 const CODE_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LEN = 6;
@@ -77,6 +107,100 @@ export const getMyGroups = query({
   },
 });
 
+export const todayView = query({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!membership) return null;
+
+    const group = await ctx.db.get(groupId);
+    if (!group) return null;
+
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+
+    const now = Date.now();
+    const todayKey = dayKey(now);
+    const wk = weekKey(now);
+
+    const myWeekCompletions = await ctx.db
+      .query("completions")
+      .withIndex("by_user_week", (q) =>
+        q.eq("userId", userId).eq("weekKey", wk),
+      )
+      .collect();
+
+    const completedByTask = new Map<
+      string,
+      { completionId: Id<"completions">; periodKey: string }
+    >();
+    for (const c of myWeekCompletions) {
+      completedByTask.set(c.taskId, {
+        completionId: c._id,
+        periodKey: c.periodKey,
+      });
+    }
+
+    const slate = tasks
+      .map((t) => {
+        const expectedKey = periodKeyFor(t.frequency, now);
+        const completion = completedByTask.get(t._id);
+        const isDone = !!completion && completion.periodKey === expectedKey;
+        return {
+          _id: t._id,
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          points: t.points,
+          frequency: t.frequency,
+          proof: t.proof,
+          done: isDone,
+          completionId: isDone ? completion!.completionId : null,
+        };
+      })
+      .sort((a, b) => {
+        if (a.frequency !== b.frequency) return a.frequency === "DAILY" ? -1 : 1;
+        return b.points - a.points;
+      });
+
+    const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
+    const todayPoints = dailyTasks
+      .filter((t) => t.done)
+      .reduce((s, t) => s + t.points, 0);
+    const todayDone = dailyTasks.filter((t) => t.done).length;
+
+    const weekPoints = myWeekCompletions.reduce((s, c) => s + c.points, 0);
+
+    return {
+      group: {
+        _id: group._id,
+        name: group.name,
+        inviteCode: group.inviteCode,
+      },
+      isAdmin: membership.isAdmin,
+      slate,
+      stats: {
+        todayKey,
+        weekKey: wk,
+        todayPoints,
+        todayDone,
+        totalDailyTasks: dailyTasks.length,
+        weekPoints,
+      },
+    };
+  },
+});
+
 export const getRoster = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
@@ -146,6 +270,8 @@ export const create = mutation({
       isAdmin: true,
       joinedAt: now,
     });
+
+    await seedDefaultTasks(ctx, groupId, userId);
 
     return { ok: true as const, groupId, inviteCode };
   },

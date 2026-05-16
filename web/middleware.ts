@@ -5,7 +5,11 @@ import {
 } from "@convex-dev/auth/nextjs/server";
 
 const isPublicRoute = createRouteMatcher(["/"]);
-const isAuthedOnlyRoute = createRouteMatcher(["/onboarding", "/dashboard"]);
+const isAuthedOnlyRoute = createRouteMatcher([
+  "/onboarding",
+  "/dashboard",
+  "/group(.*)",
+]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const isAuthenticated = await convexAuth.isAuthenticated();
