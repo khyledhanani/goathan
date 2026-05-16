@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./_components/convex-client-provider";
+import { ServiceWorkerRegister } from "./_components/sw-register";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -30,6 +31,15 @@ export const metadata: Metadata = {
   title: "Receipts — bring the receipts.",
   description:
     "A private group fitness accountability app. Prove the work, compete with your crew.",
+  appleWebApp: {
+    capable: true,
+    title: "Receipts",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export const viewport = {
@@ -45,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
         <body>
           <ConvexClientProvider>{children}</ConvexClientProvider>
+          <ServiceWorkerRegister />
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>
