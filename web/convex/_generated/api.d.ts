@@ -8,13 +8,9 @@
  * @module
  */
 
-import type * as challenges from "../challenges.js";
-import type * as completions from "../completions.js";
-import type * as groups from "../groups.js";
-import type * as lib_period from "../lib/period.js";
-import type * as tasks from "../tasks.js";
-import type * as today from "../today.js";
-import type * as users from "../users.js";
+import type * as auth from "../auth.js";
+import type * as http from "../http.js";
+import type * as profiles from "../profiles.js";
 
 import type {
   ApiFromModules,
@@ -23,13 +19,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  challenges: typeof challenges;
-  completions: typeof completions;
-  groups: typeof groups;
-  "lib/period": typeof lib_period;
-  tasks: typeof tasks;
-  today: typeof today;
-  users: typeof users;
+  auth: typeof auth;
+  http: typeof http;
+  profiles: typeof profiles;
 }>;
 
 /**

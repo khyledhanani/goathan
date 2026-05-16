@@ -4,15 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import { MAIN_GOAL_OPTIONS, type MainGoal } from "@/lib/types";
 
 export function OnboardingScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
   const completeOnboarding = useMutation(api.profiles.completeOnboarding);
+  const [signingOut, setSigningOut] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -38,9 +41,18 @@ export function OnboardingScreen() {
     setMainGoal((curr) => curr ?? profile.mainGoal ?? null);
   }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
 
+  const usernameValid = /^[a-z0-9_.]{2,20}$/.test(username.trim());
+  const usernameHint =
+    username.length > 0 && !usernameValid
+      ? "2–20 chars · a–z, 0–9, _ or ."
+      : null;
+
   const canSubmit = useMemo(
-    () => displayName.trim().length > 0 && !submitting,
-    [displayName, submitting],
+    () =>
+      displayName.trim().length > 0 &&
+      usernameValid &&
+      !submitting,
+    [displayName, usernameValid, submitting],
   );
 
   const onSubmit = async () => {
@@ -50,7 +62,7 @@ export function OnboardingScreen() {
     try {
       await completeOnboarding({
         displayName: displayName.trim(),
-        username: username.trim() || undefined,
+        username: username.trim(),
         mainGoal: mainGoal ?? undefined,
       });
       router.replace("/dashboard");
@@ -70,9 +82,26 @@ export function OnboardingScreen() {
         <span className="entry-brand">
           Receipts<span className="v">v0.1</span>
         </span>
-        <span className="eyebrow">
-          Step <b>1 of 1</b> · onboarding
-        </span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+          <span className="eyebrow">
+            Step <b>1 of 1</b> · onboarding
+          </span>
+          <button
+            className="btn-link"
+            onClick={async () => {
+              setSigningOut(true);
+              try {
+                await signOut();
+                router.replace("/");
+              } catch {
+                setSigningOut(false);
+              }
+            }}
+            disabled={signingOut}
+          >
+            {signingOut ? "Out…" : "Log out"}
+          </button>
+        </div>
       </div>
 
       <div className="entry-mid">
@@ -102,7 +131,9 @@ export function OnboardingScreen() {
           <label className="field">
             <span className="field-label">
               <span>Username</span>
-              <span className="hint">Optional · a–z, 0–9, _ or .</span>
+              <span className="hint">
+                {usernameHint ?? "Required · a–z, 0–9, _ or ."}
+              </span>
             </span>
             <input
               className="field-input mono-input"

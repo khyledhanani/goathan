@@ -20,9 +20,9 @@ async function findProfileByUser(
     .unique();
 }
 
-function normalizeUsername(raw: string | undefined): string | undefined {
-  const u = raw?.trim().toLowerCase() || undefined;
-  if (!u) return undefined;
+function normalizeUsername(raw: string): string {
+  const u = raw.trim().toLowerCase();
+  if (!u) throw new Error("Username is required");
   if (!/^[a-z0-9_.]{2,20}$/.test(u)) {
     throw new Error("Username must be 2–20 chars (a–z, 0–9, _ or .)");
   }
@@ -59,12 +59,14 @@ export const upsertCurrentProfileFromAuth = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const userDoc = await ctx.db.get(userId);
     const existing = await findProfileByUser(ctx, userId);
     const now = Date.now();
 
-    const name = identity.name ?? "";
-    const email = identity.email ?? "";
-    const avatarUrl = (identity.pictureUrl as string | undefined) ?? undefined;
+    const name = userDoc?.name ?? identity.name ?? "";
+    const email = userDoc?.email ?? identity.email ?? "";
+    const avatarUrl =
+      userDoc?.image ?? (identity.pictureUrl as string | undefined) ?? undefined;
 
     if (existing) {
       const patch: Partial<Doc<"profiles">> = { updatedAt: now };
@@ -91,7 +93,7 @@ export const upsertCurrentProfileFromAuth = mutation({
 export const updateOnboardingProfile = mutation({
   args: {
     displayName: v.string(),
-    username: v.optional(v.string()),
+    username: v.string(),
     mainGoal: v.optional(mainGoalValidator),
   },
   handler: async (ctx, args) => {
@@ -103,7 +105,7 @@ export const updateOnboardingProfile = mutation({
     if (!displayName) throw new Error("Display name is required");
 
     const username = normalizeUsername(args.username);
-    if (username) await assertUsernameAvailable(ctx, username, profile._id);
+    await assertUsernameAvailable(ctx, username, profile._id);
 
     await ctx.db.patch(profile._id, {
       displayName,
@@ -119,7 +121,7 @@ export const updateOnboardingProfile = mutation({
 export const completeOnboarding = mutation({
   args: {
     displayName: v.string(),
-    username: v.optional(v.string()),
+    username: v.string(),
     mainGoal: v.optional(mainGoalValidator),
   },
   handler: async (ctx, args) => {
@@ -131,7 +133,7 @@ export const completeOnboarding = mutation({
     if (!displayName) throw new Error("Display name is required");
 
     const username = normalizeUsername(args.username);
-    if (username) await assertUsernameAvailable(ctx, username, profile._id);
+    await assertUsernameAvailable(ctx, username, profile._id);
 
     await ctx.db.patch(profile._id, {
       displayName,

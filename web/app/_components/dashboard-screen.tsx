@@ -20,7 +20,7 @@ export function DashboardScreen() {
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
     if (profile === undefined) return;
-    if (profile === null) {
+    if (profile === null || !profile.email || !profile.avatarUrl) {
       void upsertFromAuth({});
       return;
     }
