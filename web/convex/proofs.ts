@@ -3,10 +3,6 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 
-const FEED_PER_GROUP_SCAN = 60;
-const FEED_DEFAULT_LIMIT = 30;
-const FEED_MAX_LIMIT = 60;
-
 const STORIES_WINDOW_MS = 24 * 60 * 60 * 1000;
 const STORIES_PER_GROUP_SCAN = 80;
 const STORIES_MAX_ITEMS_PER_USER = 12;
@@ -46,75 +42,6 @@ async function myGroupIds(
     .collect();
   return memberships.map((m) => m.groupId);
 }
-
-export const feedAcrossMyGroups = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-
-    const take = Math.min(
-      Math.max(limit ?? FEED_DEFAULT_LIMIT, 1),
-      FEED_MAX_LIMIT,
-    );
-
-    const groupIds = await myGroupIds(ctx, userId);
-    if (groupIds.length === 0) return [];
-
-    const buckets = await Promise.all(
-      groupIds.map(async (gid) => {
-        const recent = await ctx.db
-          .query("completions")
-          .withIndex("by_group_recent", (q) => q.eq("groupId", gid))
-          .order("desc")
-          .take(FEED_PER_GROUP_SCAN);
-        return recent.filter(
-          (c) =>
-            c.verifiedAt !== undefined && c.proofStorageId !== undefined,
-        );
-      }),
-    );
-
-    const merged = buckets
-      .flat()
-      .sort((a, b) => (b.verifiedAt ?? 0) - (a.verifiedAt ?? 0))
-      .slice(0, take);
-
-    return await Promise.all(
-      merged.map(async (c) => {
-        const [task, group, profile, challenges] = await Promise.all([
-          ctx.db.get(c.taskId),
-          ctx.db.get(c.groupId),
-          profileFor(ctx, c.userId),
-          ctx.db
-            .query("challenges")
-            .withIndex("by_completion", (q) => q.eq("completionId", c._id))
-            .collect(),
-        ]);
-        const proofUrl = c.proofStorageId
-          ? await ctx.storage.getUrl(c.proofStorageId)
-          : null;
-        return {
-          completionId: c._id,
-          userId: c.userId,
-          displayName: profile.displayName,
-          username: profile.username,
-          avatarUrl: profile.avatarUrl,
-          isYou: c.userId === userId,
-          groupId: c.groupId,
-          groupName: group?.name ?? "(removed group)",
-          taskName: task?.name ?? "(removed task)",
-          taskCategory: task?.category ?? "MOVE",
-          points: c.points,
-          verifiedAt: c.verifiedAt!,
-          claimedAt: c.claimedAt,
-          proofUrl,
-          challengeCount: challenges.length,
-        };
-      }),
-    );
-  },
-});
 
 export const storiesAcrossMyGroups = query({
   args: {},

@@ -15,7 +15,6 @@ import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown } from "./countdown";
 import { StoriesRail, type StoryBundle } from "./stories-rail";
 import { StoryViewer } from "./story-viewer";
-import { ProofFeed, type ProofFeedItem } from "./proof-feed";
 
 type Member = { displayName: string; avatarUrl?: string };
 
@@ -26,7 +25,6 @@ export function DashboardScreen() {
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
   const stories = useQuery(api.proofs.storiesAcrossMyGroups);
-  const feed = useQuery(api.proofs.feedAcrossMyGroups, {});
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
   const claim = useMutation(api.completions.claim);
   const unclaim = useMutation(api.completions.unclaim);
@@ -204,25 +202,7 @@ export function DashboardScreen() {
                 />
               )}
 
-              <section className="fade-up d1 home-feed-section">
-                <header className="section-head">
-                  <h2 className="h-section">The feed.</h2>
-                  <span className="eyebrow">
-                    Cross-group · last{" "}
-                    <span className="num">{feed?.length ?? 0}</span>
-                  </span>
-                </header>
-                {feed === undefined ? (
-                  <p className="muted-line">Loading…</p>
-                ) : (
-                  <ProofFeed
-                    items={feed as ProofFeedItem[]}
-                    onOpenProof={(url) => setLightboxUrl(url)}
-                  />
-                )}
-              </section>
-
-              <section className="fade-up d2 home-groups-section">
+              <section className="fade-up d1 home-groups-section">
                 <header className="section-head">
                   <h2 className="h-section">Your groups.</h2>
                   <span className="eyebrow">
