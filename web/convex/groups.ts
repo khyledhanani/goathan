@@ -127,8 +127,8 @@ export const create = mutation({
     await requireOnboardedProfile(ctx, userId);
 
     const trimmed = name.trim();
-    if (!trimmed) throw new ConvexError("Group name is required");
-    if (trimmed.length > 40) throw new ConvexError("Group name is too long");
+    if (!trimmed) return { ok: false as const, error: "Group name is required" };
+    if (trimmed.length > 40) return { ok: false as const, error: "Group name is too long" };
 
     const inviteCode = await findFreshInviteCode(ctx);
     const now = Date.now();
@@ -147,7 +147,7 @@ export const create = mutation({
       joinedAt: now,
     });
 
-    return { groupId, inviteCode };
+    return { ok: true as const, groupId, inviteCode };
   },
 });
 
@@ -158,13 +158,17 @@ export const joinByCode = mutation({
     await requireOnboardedProfile(ctx, userId);
 
     const code = inviteCode.trim().toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(code)) throw new ConvexError("Invite codes are 6 characters");
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      return { ok: false as const, error: "Invite codes are 6 characters" };
+    }
 
     const group = await ctx.db
       .query("groups")
       .withIndex("by_invite_code", (q) => q.eq("inviteCode", code))
       .unique();
-    if (!group) throw new ConvexError("That code doesn't match any group");
+    if (!group) {
+      return { ok: false as const, error: "That code doesn't match any group" };
+    }
 
     const existing = await ctx.db
       .query("memberships")
@@ -172,7 +176,9 @@ export const joinByCode = mutation({
         q.eq("groupId", group._id).eq("userId", userId),
       )
       .unique();
-    if (existing) throw new ConvexError("You're already in this group");
+    if (existing) {
+      return { ok: false as const, error: "You're already in this group" };
+    }
 
     await ctx.db.insert("memberships", {
       groupId: group._id,
@@ -181,6 +187,6 @@ export const joinByCode = mutation({
       joinedAt: Date.now(),
     });
 
-    return { groupId: group._id };
+    return { ok: true as const, groupId: group._id };
   },
 });

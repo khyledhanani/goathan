@@ -647,13 +647,20 @@ a { color: inherit; text-decoration: none; }
   margin: 6px 0 0;
 }
 
-.group-card-code { text-align: right; }
+.group-card-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.group-card-code .eyebrow { display: block; }
 
 .group-card-code-row {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
 }
 
 .group-card-code-value {

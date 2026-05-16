@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export type ToastTone = "neutral" | "error" | "success";
 export type ToastValue = { message: string; tone: ToastTone } | null;
@@ -14,11 +14,16 @@ export function Toast({
   onDismiss: () => void;
   duration?: number;
 }) {
+  const dismissRef = useRef(onDismiss);
+  useEffect(() => {
+    dismissRef.current = onDismiss;
+  });
+
   useEffect(() => {
     if (!value) return;
-    const t = setTimeout(onDismiss, duration);
+    const t = setTimeout(() => dismissRef.current(), duration);
     return () => clearTimeout(t);
-  }, [value, duration, onDismiss]);
+  }, [value, duration]);
 
   if (!value) return null;
   return (

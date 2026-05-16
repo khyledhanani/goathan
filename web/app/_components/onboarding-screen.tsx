@@ -61,11 +61,16 @@ export function OnboardingScreen() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      await completeOnboarding({
+      const result = await completeOnboarding({
         displayName: displayName.trim(),
         username: username.trim(),
         mainGoal: mainGoal ?? undefined,
       });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+        setSubmitting(false);
+        return;
+      }
       router.replace("/dashboard");
     } catch (e) {
       setToast({ message: errorMessage(e, "Could not save. Try again."), tone: "error" });

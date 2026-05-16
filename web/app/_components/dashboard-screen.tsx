@@ -193,12 +193,20 @@ function GroupActions({
     try {
       if (mode === "create") {
         if (!canCreate) return;
-        await createGroup({ name: name.trim() });
+        const result = await createGroup({ name: name.trim() });
+        if (!result.ok) {
+          onError(result.error);
+          return;
+        }
         onCreate(name.trim());
         setName("");
       } else {
         if (!canJoin) return;
-        await joinByCode({ inviteCode: code });
+        const result = await joinByCode({ inviteCode: code });
+        if (!result.ok) {
+          onError(result.error);
+          return;
+        }
         onJoin(code);
         setCode("");
       }

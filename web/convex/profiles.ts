@@ -20,27 +20,30 @@ async function findProfileByUser(
     .unique();
 }
 
-function normalizeUsername(raw: string): string {
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+
+function normalizeUsername(raw: string): Result<string> {
   const u = raw.trim().toLowerCase();
-  if (!u) throw new ConvexError("Username is required");
+  if (!u) return { ok: false, error: "Username is required" };
   if (!/^[a-z0-9_.]{2,20}$/.test(u)) {
-    throw new ConvexError("Username must be 2–20 chars (a–z, 0–9, _ or .)");
+    return { ok: false, error: "Username must be 2–20 chars (a–z, 0–9, _ or .)" };
   }
-  return u;
+  return { ok: true, value: u };
 }
 
-async function assertUsernameAvailable(
+async function checkUsernameAvailable(
   ctx: MutationCtx,
   username: string,
   selfProfileId: Id<"profiles">,
-) {
+): Promise<Result<true>> {
   const taken = await ctx.db
     .query("profiles")
     .withIndex("by_username", (q) => q.eq("username", username))
     .unique();
   if (taken && taken._id !== selfProfileId) {
-    throw new ConvexError("That username is taken");
+    return { ok: false, error: "That username is taken" };
   }
+  return { ok: true, value: true };
 }
 
 export const getCurrentProfile = query({
@@ -102,19 +105,22 @@ export const updateOnboardingProfile = mutation({
     if (!profile) throw new ConvexError("Profile not found");
 
     const displayName = args.displayName.trim();
-    if (!displayName) throw new ConvexError("Display name is required");
+    if (!displayName) return { ok: false as const, error: "Display name is required" };
 
     const username = normalizeUsername(args.username);
-    await assertUsernameAvailable(ctx, username, profile._id);
+    if (!username.ok) return { ok: false as const, error: username.error };
+
+    const available = await checkUsernameAvailable(ctx, username.value, profile._id);
+    if (!available.ok) return { ok: false as const, error: available.error };
 
     await ctx.db.patch(profile._id, {
       displayName,
-      username,
+      username: username.value,
       mainGoal: args.mainGoal,
       updatedAt: Date.now(),
     });
 
-    return null;
+    return { ok: true as const };
   },
 });
 
@@ -130,19 +136,22 @@ export const completeOnboarding = mutation({
     if (!profile) throw new ConvexError("Profile not found");
 
     const displayName = args.displayName.trim();
-    if (!displayName) throw new ConvexError("Display name is required");
+    if (!displayName) return { ok: false as const, error: "Display name is required" };
 
     const username = normalizeUsername(args.username);
-    await assertUsernameAvailable(ctx, username, profile._id);
+    if (!username.ok) return { ok: false as const, error: username.error };
+
+    const available = await checkUsernameAvailable(ctx, username.value, profile._id);
+    if (!available.ok) return { ok: false as const, error: available.error };
 
     await ctx.db.patch(profile._id, {
       displayName,
-      username,
+      username: username.value,
       mainGoal: args.mainGoal,
       onboardingCompleted: true,
       updatedAt: Date.now(),
     });
 
-    return null;
+    return { ok: true as const };
   },
 });

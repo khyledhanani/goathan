@@ -1,15 +1,41 @@
 import { ConvexError } from "convex/values";
 
-export function errorMessage(e: unknown, fallback = "Something went wrong"): string {
+const FALLBACK = "Something went wrong";
+
+const trimToNull = (s: unknown): string | null => {
+  if (typeof s !== "string") return null;
+  const t = s.trim();
+  return t.length > 0 ? t : null;
+};
+
+export function errorMessage(e: unknown, fallback: string = FALLBACK): string {
   if (e instanceof ConvexError) {
-    return typeof e.data === "string" ? e.data : fallback;
+    return (
+      trimToNull(e.data) ??
+      (e.data && typeof e.data === "object" && "message" in e.data
+        ? trimToNull((e.data as { message: unknown }).message)
+        : null) ??
+      trimToNull(e.message) ??
+      fallback
+    );
   }
+
+  if (e && typeof e === "object" && "data" in e) {
+    const data = (e as { data: unknown }).data;
+    const fromData =
+      trimToNull(data) ??
+      (data && typeof data === "object" && "message" in data
+        ? trimToNull((data as { message: unknown }).message)
+        : null);
+    if (fromData) return fromData;
+  }
+
   if (e instanceof Error) {
     const match = e.message.match(
-      /Uncaught (?:Convex)?Error:\s*(.+?)(?:\s+at handler|\s+at\s|\s+Called by client|$)/,
+      /(?:Uncaught (?:Convex)?Error|ConvexError):\s*(.+?)(?:\s+at handler|\s+at\s|\s+Called by client|$)/,
     );
-    if (match?.[1]) return match[1].trim();
-    return e.message;
+    return trimToNull(match?.[1]) ?? trimToNull(e.message) ?? fallback;
   }
-  return fallback;
+
+  return trimToNull(e) ?? fallback;
 }
