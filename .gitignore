@@ -1,18 +1,28 @@
-# Web
-web/node_modules/
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
 web/.next/
 web/out/
 web/next-env.d.ts
 web/*.tsbuildinfo
 
-# Mobile
-mobile/node_modules/
+# Mobile generated files
 mobile/.expo/
-mobile/dist/
+mobile/web-build/
 mobile/android/
 mobile/ios/
 
+# Vercel / local tooling
+.vercel/
+
 # Common
 .DS_Store
-*.env
-*.env.local
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.*.example
