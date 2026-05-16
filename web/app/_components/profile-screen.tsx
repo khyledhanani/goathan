@@ -10,6 +10,8 @@ import { mainGoalLabel } from "@/lib/types";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { ConfirmDialog } from "./confirm-dialog";
+import { ProofLightbox } from "./proof-lightbox";
+import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -17,10 +19,15 @@ export function ProfileScreen() {
   const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const groups = useQuery(api.groups.getMyGroups);
+  const myReceipts = useQuery(
+    api.proofs.gridForUser,
+    profile ? { userId: profile.userId } : "skip",
+  );
   const leaveGroup = useMutation(api.groups.leave);
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [leaveTarget, setLeaveTarget] = useState<{
     id: string;
@@ -105,23 +112,27 @@ export function ProfileScreen() {
 
         <section className="fade-up d1">
           <header className="section-head">
-            <h2 className="h-section">Your details.</h2>
-            <span className="eyebrow">Pulled from Google</span>
+            <h2 className="h-section">Your receipts.</h2>
+            <span className="eyebrow">
+              {myReceipts === undefined
+                ? "Loading…"
+                : `${myReceipts?.items.length ?? 0}${
+                    (myReceipts?.items.length ?? 0) >= 60 ? "+" : ""
+                  } verified`}
+            </span>
           </header>
-          <dl className="profile-list">
-            <ProfileRow label="Display name" value={profile.displayName} />
-            <ProfileRow
-              label="Username"
-              value={profile.username ? `@${profile.username}` : "—"}
-              muted={!profile.username}
+          {myReceipts === undefined ? (
+            <p className="muted-line">Loading…</p>
+          ) : myReceipts === null ? (
+            <p className="muted-line">Sign in to view your receipts.</p>
+          ) : (
+            <ProfileGrid
+              items={myReceipts.items as ProfileGridItem[]}
+              onOpenProof={(url) => setLightboxUrl(url)}
+              emptyTitle="Nothing yet"
+              emptyLine="Verify a task and your receipt lands here."
             />
-            <ProfileRow label="Email" value={profile.email} />
-            <ProfileRow
-              label="Main goal"
-              value={mainGoalLabel(profile.mainGoal)}
-              muted={!profile.mainGoal}
-            />
-          </dl>
+          )}
         </section>
 
         <section className="fade-up d2" style={{ marginTop: 56 }}>
@@ -175,6 +186,27 @@ export function ProfileScreen() {
             onError={(msg) => setToast({ message: msg, tone: "error" })}
           />
         </section>
+
+        <section className="fade-up d4" style={{ marginTop: 56 }}>
+          <header className="section-head">
+            <h2 className="h-section">Your details.</h2>
+            <span className="eyebrow">Pulled from Google</span>
+          </header>
+          <dl className="profile-list">
+            <ProfileRow label="Display name" value={profile.displayName} />
+            <ProfileRow
+              label="Username"
+              value={profile.username ? `@${profile.username}` : "—"}
+              muted={!profile.username}
+            />
+            <ProfileRow label="Email" value={profile.email} />
+            <ProfileRow
+              label="Main goal"
+              value={mainGoalLabel(profile.mainGoal)}
+              muted={!profile.mainGoal}
+            />
+          </dl>
+        </section>
       </main>
 
       <ConfirmDialog
@@ -204,6 +236,7 @@ export function ProfileScreen() {
         onConfirm={confirmLeave}
       />
 
+      <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
