@@ -28,4 +28,21 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_token_identifier", ["tokenIdentifier"])
     .index("by_username", ["username"]),
+
+  groups: defineTable({
+    name: v.string(),
+    inviteCode: v.string(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_invite_code", ["inviteCode"]),
+
+  memberships: defineTable({
+    groupId: v.id("groups"),
+    userId: v.id("users"),
+    isAdmin: v.boolean(),
+    joinedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_group", ["groupId"])
+    .index("by_group_and_user", ["groupId", "userId"]),
 });

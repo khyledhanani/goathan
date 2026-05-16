@@ -116,7 +116,7 @@ export function OnboardingScreen() {
           <label className="field">
             <span className="field-label">
               <span>Display name</span>
-              <span className="hint">Visible to your squad</span>
+              <span className="hint">Visible to your group</span>
             </span>
             <input
               className="field-input"

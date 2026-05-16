@@ -29,7 +29,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Receipts — bring the receipts.",
   description:
-    "A private squad fitness accountability app. Prove the work, compete with your crew.",
+    "A private group fitness accountability app. Prove the work, compete with your crew.",
 };
 
 export const viewport = {

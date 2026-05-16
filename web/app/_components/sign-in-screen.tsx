@@ -71,7 +71,7 @@ export function SignInScreen() {
         <span className="eyebrow">© Receipts · keep score</span>
         <div className="lattice">
           <div>
-            <span className="k">Squads</span>
+            <span className="k">Groups</span>
             <span className="v">Invite&nbsp;only</span>
           </div>
           <div>
