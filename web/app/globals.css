@@ -760,31 +760,22 @@ a { color: inherit; text-decoration: none; }
 .group-card-name-link:hover { color: var(--accent); }
 .group-card-name-link .group-card-name { margin: 0; }
 
+.hero-countdown {
+  margin: 10px 0 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .countdown {
   display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: baseline;
+  gap: 8px;
 }
 
-.countdown-label {
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--fog);
-}
-
-.countdown-value {
-  font-family: var(--font-mono), monospace;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  line-height: 1;
-}
-
-.meta-block .countdown { align-items: flex-end; }
+.countdown-label { color: var(--fog); }
+.countdown-value { color: var(--ink); font-weight: 600; }
 
 /* Top bar (shared) */
 

@@ -175,9 +175,9 @@ export function GroupPage({ groupId }: { groupId: string }) {
               <span className="num">{stats.todayDone}</span>/
               <span className="num">{stats.totalDailyTasks}</span> done
             </p>
-          </div>
-          <div className="meta-block">
-            <DayResetCountdown />
+            <p className="hero-countdown">
+              <DayResetCountdown />
+            </p>
           </div>
         </div>
 

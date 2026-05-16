@@ -140,9 +140,9 @@ export function DashboardScreen() {
                     <span className="num">{home.totals.totalDailyTasks}</span>{" "}
                     done
                   </p>
-                </div>
-                <div className="meta-block">
-                  <DayResetCountdown />
+                  <p className="hero-countdown">
+                    <DayResetCountdown />
+                  </p>
                 </div>
               </div>
 
