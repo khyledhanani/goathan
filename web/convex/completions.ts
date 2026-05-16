@@ -3,7 +3,9 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { periodKeyFor, weekKey } from "./lib/period";
 
-export const toggle = mutation({
+export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
+
+export const claim = mutation({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, { taskId }) => {
     const userId = await getAuthUserId(ctx);
@@ -29,36 +31,130 @@ export const toggle = mutation({
         q.eq("userId", userId).eq("taskId", taskId).eq("periodKey", pk),
       )
       .unique();
-
     if (existing) {
-      const linkedChallenges = await ctx.db
-        .query("challenges")
-        .withIndex("by_completion", (q) => q.eq("completionId", existing._id))
-        .collect();
-      for (const ch of linkedChallenges) {
-        await ctx.db.delete(ch._id);
-      }
-      const linkedComments = await ctx.db
-        .query("comments")
-        .withIndex("by_completion", (q) => q.eq("completionId", existing._id))
-        .collect();
-      for (const cm of linkedComments) {
-        await ctx.db.delete(cm._id);
-      }
-      await ctx.db.delete(existing._id);
-      return { state: "removed" as const };
+      return { ok: false as const, error: "Already claimed this period" };
     }
 
-    await ctx.db.insert("completions", {
+    const completionId = await ctx.db.insert("completions", {
       taskId,
       userId,
       groupId: task.groupId,
       periodKey: pk,
       weekKey: weekKey(now),
       points: task.points,
-      completedAt: now,
+      claimedAt: now,
     });
 
-    return { state: "added" as const };
+    return { ok: true as const, completionId };
+  },
+});
+
+export const unclaim = mutation({
+  args: { completionId: v.id("completions") },
+  handler: async (ctx, { completionId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const completion = await ctx.db.get(completionId);
+    if (!completion) return { ok: false as const, error: "Already gone" };
+    if (completion.userId !== userId) {
+      throw new ConvexError("Not yours to unclaim");
+    }
+
+    const linkedChallenges = await ctx.db
+      .query("challenges")
+      .withIndex("by_completion", (q) => q.eq("completionId", completion._id))
+      .collect();
+    for (const ch of linkedChallenges) await ctx.db.delete(ch._id);
+
+    const linkedComments = await ctx.db
+      .query("comments")
+      .withIndex("by_completion", (q) => q.eq("completionId", completion._id))
+      .collect();
+    for (const cm of linkedComments) await ctx.db.delete(cm._id);
+
+    if (completion.proofStorageId) {
+      await ctx.storage.delete(completion.proofStorageId);
+    }
+
+    await ctx.db.delete(completion._id);
+    return { ok: true as const };
+  },
+});
+
+export const generateProofUploadUrl = mutation({
+  args: { completionId: v.id("completions") },
+  handler: async (ctx, { completionId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const completion = await ctx.db.get(completionId);
+    if (!completion) throw new ConvexError("Completion not found");
+    if (completion.userId !== userId) {
+      throw new ConvexError("Not yours");
+    }
+    if (Date.now() > completion.claimedAt + VERIFICATION_WINDOW_MS) {
+      return { ok: false as const, error: "Verification window expired" };
+    }
+
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return { ok: true as const, uploadUrl };
+  },
+});
+
+export const attachProof = mutation({
+  args: {
+    completionId: v.id("completions"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, { completionId, storageId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const completion = await ctx.db.get(completionId);
+    if (!completion) throw new ConvexError("Completion not found");
+    if (completion.userId !== userId) {
+      throw new ConvexError("Not yours");
+    }
+
+    const now = Date.now();
+    if (now > completion.claimedAt + VERIFICATION_WINDOW_MS) {
+      await ctx.storage.delete(storageId);
+      return { ok: false as const, error: "Verification window expired" };
+    }
+
+    if (completion.proofStorageId) {
+      await ctx.storage.delete(completion.proofStorageId);
+    }
+
+    await ctx.db.patch(completion._id, {
+      proofStorageId: storageId,
+      verifiedAt: now,
+    });
+
+    return { ok: true as const };
+  },
+});
+
+export const removeProof = mutation({
+  args: { completionId: v.id("completions") },
+  handler: async (ctx, { completionId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const completion = await ctx.db.get(completionId);
+    if (!completion) throw new ConvexError("Completion not found");
+    if (completion.userId !== userId) {
+      throw new ConvexError("Not yours");
+    }
+
+    if (completion.proofStorageId) {
+      await ctx.storage.delete(completion.proofStorageId);
+    }
+    await ctx.db.patch(completion._id, {
+      proofStorageId: undefined,
+      verifiedAt: undefined,
+    });
+    return { ok: true as const };
   },
 });

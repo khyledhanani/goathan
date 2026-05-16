@@ -11,6 +11,7 @@ import { firstName } from "@/lib/utils";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
+import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown } from "./countdown";
 
 type Member = { displayName: string; avatarUrl?: string };
@@ -22,9 +23,15 @@ export function DashboardScreen() {
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
-  const toggleCompletion = useMutation(api.completions.toggle);
+  const claim = useMutation(api.completions.claim);
+  const unclaim = useMutation(api.completions.unclaim);
+  const generateProofUploadUrl = useMutation(
+    api.completions.generateProofUploadUrl,
+  );
+  const attachProof = useMutation(api.completions.attachProof);
   const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -48,12 +55,50 @@ export function DashboardScreen() {
     }
   }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
 
-  const onToggle = async (taskId: Id<"tasks">) => {
+  const onClaim = async (taskId: Id<"tasks">) => {
     try {
-      const result = await toggleCompletion({ taskId });
-      if (result.state === "added") {
-        setToast({ message: "Locked in", tone: "success" });
+      const result = await claim({ taskId });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+        return;
       }
+      setToast({ message: "Claimed · upload proof within 15m", tone: "neutral" });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onUnclaim = async (completionId: Id<"completions">) => {
+    try {
+      await unclaim({ completionId });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onUpload = async (completionId: Id<"completions">, file: File) => {
+    try {
+      const urlResult = await generateProofUploadUrl({ completionId });
+      if (!urlResult.ok) {
+        setToast({ message: urlResult.error, tone: "error" });
+        return;
+      }
+      const res = await fetch(urlResult.uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) {
+        setToast({ message: "Upload failed, try again", tone: "error" });
+        return;
+      }
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      const attached = await attachProof({ completionId, storageId });
+      if (!attached.ok) {
+        setToast({ message: attached.error, tone: "error" });
+        return;
+      }
+      setToast({ message: "Verified", tone: "success" });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
@@ -204,7 +249,13 @@ export function DashboardScreen() {
                         No tasks yet in this group.
                       </p>
                     ) : (
-                      <TodaySlate slate={g.slate} onToggle={onToggle} />
+                      <TodaySlate
+                        slate={g.slate}
+                        onClaim={onClaim}
+                        onUnclaim={onUnclaim}
+                        onUpload={onUpload}
+                        onOpenProof={(url) => setLightboxUrl(url)}
+                      />
                     )}
                   </article>
                 ))}
@@ -214,6 +265,7 @@ export function DashboardScreen() {
         )}
       </main>
 
+      <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );

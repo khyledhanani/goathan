@@ -4,17 +4,16 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 
 const CATEGORY = v.union(
-  v.literal("GYM"),
-  v.literal("CARDIO"),
-  v.literal("NUTRITION"),
-  v.literal("RECOVERY"),
-  v.literal("PROGRESS"),
+  v.literal("MORNING"),
+  v.literal("MOVE"),
+  v.literal("FUEL"),
+  v.literal("MIND"),
+  v.literal("REST"),
 );
 const FREQUENCY = v.union(v.literal("DAILY"), v.literal("WEEKLY"));
 const PROOF = v.union(
   v.literal("PHOTO"),
   v.literal("SCREENSHOT"),
-  v.literal("MANUAL"),
   v.literal("VIDEO"),
 );
 

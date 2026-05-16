@@ -5,11 +5,16 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { dayKey, weekKey, periodKeyFor } from "./lib/period";
 
 const DEFAULT_TASKS = [
-  { name: "Gym check-in",     category: "GYM" as const,       points: 25, frequency: "DAILY" as const, proof: "PHOTO" as const,      description: "Scan in at the gym." },
-  { name: "10k steps",        category: "CARDIO" as const,    points: 15, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Hit 10,000 steps before midnight." },
-  { name: "Protein 1g per lb", category: "NUTRITION" as const, points: 20, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Hit your protein target." },
-  { name: "Workout logged",   category: "GYM" as const,       points: 20, frequency: "DAILY" as const, proof: "SCREENSHOT" as const, description: "Log a full session in your tracker." },
-  { name: "Seven hours sleep", category: "RECOVERY" as const,  points: 10, frequency: "DAILY" as const, proof: "MANUAL" as const,     description: "Seven hours minimum." },
+  { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
+  { name: "Morning sunlight",     category: "MORNING" as const, points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "10+ minutes outside within an hour of waking." },
+  { name: "Workout or gym",       category: "MOVE" as const,    points: 25, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Photo at the gym or mid-workout." },
+  { name: "10k steps",            category: "MOVE" as const,    points: 15, frequency: "DAILY" as const,  proof: "SCREENSHOT" as const, description: "Hit 10,000 steps before midnight." },
+  { name: "Mobility or stretch",  category: "MOVE" as const,    points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "5+ minutes of mobility work." },
+  { name: "Protein 1g per lb",    category: "FUEL" as const,    points: 20, frequency: "DAILY" as const,  proof: "SCREENSHOT" as const, description: "Hit your protein target." },
+  { name: "Home-cooked meal",     category: "FUEL" as const,    points: 15, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Cook yourself a real meal." },
+  { name: "Read or journal",      category: "MIND" as const,    points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "20+ minutes of reading or writing." },
+  { name: "Seven hours sleep",    category: "REST" as const,    points: 10, frequency: "DAILY" as const,  proof: "SCREENSHOT" as const, description: "Seven hours minimum." },
+  { name: "PR or weight target",  category: "MOVE" as const,    points: 50, frequency: "WEEKLY" as const, proof: "VIDEO" as const,      description: "Hit a personal record or weight goal this week." },
 ];
 
 async function seedDefaultTasks(
@@ -142,12 +147,24 @@ export const todayView = query({
 
     const completedByTask = new Map<
       string,
-      { completionId: Id<"completions">; periodKey: string }
+      {
+        completionId: Id<"completions">;
+        periodKey: string;
+        claimedAt: number;
+        verifiedAt?: number;
+        proofUrl: string | null;
+      }
     >();
     for (const c of myWeekCompletions) {
+      const proofUrl = c.proofStorageId
+        ? await ctx.storage.getUrl(c.proofStorageId)
+        : null;
       completedByTask.set(c.taskId, {
         completionId: c._id,
         periodKey: c.periodKey,
+        claimedAt: c.claimedAt,
+        verifiedAt: c.verifiedAt,
+        proofUrl,
       });
     }
 
@@ -155,7 +172,8 @@ export const todayView = query({
       .map((t) => {
         const expectedKey = periodKeyFor(t.frequency, now);
         const completion = completedByTask.get(t._id);
-        const isDone = !!completion && completion.periodKey === expectedKey;
+        const claimedThisPeriod =
+          !!completion && completion.periodKey === expectedKey;
         return {
           _id: t._id,
           name: t.name,
@@ -164,8 +182,13 @@ export const todayView = query({
           points: t.points,
           frequency: t.frequency,
           proof: t.proof,
-          done: isDone,
-          completionId: isDone ? completion!.completionId : null,
+          claimedThisPeriod,
+          completionId: claimedThisPeriod ? completion!.completionId : null,
+          claimedAt: claimedThisPeriod ? completion!.claimedAt : null,
+          verifiedAt: claimedThisPeriod
+            ? (completion!.verifiedAt ?? null)
+            : null,
+          proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
         };
       })
       .sort((a, b) => {
@@ -175,11 +198,15 @@ export const todayView = query({
 
     const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
     const todayPoints = dailyTasks
-      .filter((t) => t.done)
+      .filter((t) => t.claimedThisPeriod && t.verifiedAt !== null)
       .reduce((s, t) => s + t.points, 0);
-    const todayDone = dailyTasks.filter((t) => t.done).length;
+    const todayDone = dailyTasks.filter(
+      (t) => t.claimedThisPeriod && t.verifiedAt !== null,
+    ).length;
 
-    const weekPoints = myWeekCompletions.reduce((s, c) => s + c.points, 0);
+    const weekPoints = myWeekCompletions
+      .filter((c) => c.verifiedAt !== undefined)
+      .reduce((s, c) => s + c.points, 0);
 
     return {
       group: {
@@ -285,12 +312,24 @@ export const homeView = query({
         const myCompletions = compByGroup.get(m.groupId) ?? [];
         const completionByTask = new Map<
           string,
-          { completionId: Id<"completions">; periodKey: string }
+          {
+            completionId: Id<"completions">;
+            periodKey: string;
+            claimedAt: number;
+            verifiedAt?: number;
+            proofUrl: string | null;
+          }
         >();
         for (const c of myCompletions) {
+          const proofUrl = c.proofStorageId
+            ? await ctx.storage.getUrl(c.proofStorageId)
+            : null;
           completionByTask.set(c.taskId, {
             completionId: c._id,
             periodKey: c.periodKey,
+            claimedAt: c.claimedAt,
+            verifiedAt: c.verifiedAt,
+            proofUrl,
           });
         }
 
@@ -298,7 +337,8 @@ export const homeView = query({
           .map((t) => {
             const expectedKey = periodKeyFor(t.frequency, now);
             const completion = completionByTask.get(t._id);
-            const isDone = !!completion && completion.periodKey === expectedKey;
+            const claimedThisPeriod =
+              !!completion && completion.periodKey === expectedKey;
             return {
               _id: t._id,
               name: t.name,
@@ -307,7 +347,13 @@ export const homeView = query({
               points: t.points,
               frequency: t.frequency,
               proof: t.proof,
-              done: isDone,
+              claimedThisPeriod,
+              completionId: claimedThisPeriod ? completion!.completionId : null,
+              claimedAt: claimedThisPeriod ? completion!.claimedAt : null,
+              verifiedAt: claimedThisPeriod
+                ? (completion!.verifiedAt ?? null)
+                : null,
+              proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
             };
           })
           .sort((a, b) => {
@@ -318,10 +364,14 @@ export const homeView = query({
 
         const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
         const todayPoints = dailyTasks
-          .filter((t) => t.done)
+          .filter((t) => t.claimedThisPeriod && t.verifiedAt !== null)
           .reduce((s, t) => s + t.points, 0);
-        const todayDone = dailyTasks.filter((t) => t.done).length;
-        const weekPoints = myCompletions.reduce((s, c) => s + c.points, 0);
+        const todayDone = dailyTasks.filter(
+          (t) => t.claimedThisPeriod && t.verifiedAt !== null,
+        ).length;
+        const weekPoints = myCompletions
+          .filter((c) => c.verifiedAt !== undefined)
+          .reduce((s, c) => s + c.points, 0);
 
         const groupMemberships = await ctx.db
           .query("memberships")
@@ -340,11 +390,14 @@ export const homeView = query({
                 q.eq("userId", gm.userId).eq("weekKey", wk),
               )
               .collect();
+            const verifiedPoints = memberCompletions
+              .filter((c) => c.verifiedAt !== undefined)
+              .reduce((s, c) => s + c.points, 0);
             return {
               userId: gm.userId,
               displayName: memberProfile?.displayName ?? "Unknown",
               avatarUrl: memberProfile?.avatarUrl,
-              weekPoints: memberCompletions.reduce((s, c) => s + c.points, 0),
+              weekPoints: verifiedPoints,
             };
           }),
         );
@@ -440,7 +493,9 @@ export const weeklyStandings = query({
             q.eq("userId", m.userId).eq("weekKey", wk),
           )
           .collect();
-        const weekPoints = completions.reduce((s, c) => s + c.points, 0);
+        const weekPoints = completions
+          .filter((c) => c.verifiedAt !== undefined)
+          .reduce((s, c) => s + c.points, 0);
         return {
           userId: m.userId,
           displayName: profile?.displayName ?? "Unknown",
@@ -512,6 +567,10 @@ export const recentActivity = query({
         );
         comments.sort((a, b) => a.createdAt - b.createdAt);
 
+        const proofUrl = c.proofStorageId
+          ? await ctx.storage.getUrl(c.proofStorageId)
+          : null;
+
         return {
           completionId: c._id,
           memberUserId: c.userId,
@@ -519,9 +578,11 @@ export const recentActivity = query({
           memberAvatarUrl: profile?.avatarUrl,
           isYou: c.userId === userId,
           taskName: task?.name ?? "(removed task)",
-          taskCategory: task?.category ?? "GYM",
+          taskCategory: task?.category ?? "MOVE",
           points: c.points,
-          completedAt: c.completedAt,
+          claimedAt: c.claimedAt,
+          verifiedAt: c.verifiedAt ?? null,
+          proofUrl,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
             (ch) => ch.challengerUserId === userId,

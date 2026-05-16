@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as challenges from "../challenges.js";
 import type * as comments from "../comments.js";
 import type * as completions from "../completions.js";
+import type * as dev from "../dev.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as lib_period from "../lib/period.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   challenges: typeof challenges;
   comments: typeof comments;
   completions: typeof completions;
+  dev: typeof dev;
   groups: typeof groups;
   http: typeof http;
   "lib/period": typeof lib_period;

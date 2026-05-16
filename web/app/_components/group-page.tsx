@@ -14,6 +14,7 @@ import { TodaySlate } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
 import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
+import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown } from "./countdown";
 
 export function GroupPage({ groupId }: { groupId: string }) {
@@ -31,7 +32,12 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const activity = useQuery(api.groups.recentActivity, {
     groupId: groupId as Id<"groups">,
   });
-  const toggleCompletion = useMutation(api.completions.toggle);
+  const claim = useMutation(api.completions.claim);
+  const unclaim = useMutation(api.completions.unclaim);
+  const generateProofUploadUrl = useMutation(
+    api.completions.generateProofUploadUrl,
+  );
+  const attachProof = useMutation(api.completions.attachProof);
   const createTask = useMutation(api.tasks.create);
   const toggleChallenge = useMutation(api.challenges.toggle);
   const addComment = useMutation(api.comments.add);
@@ -39,6 +45,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -84,12 +91,50 @@ export function GroupPage({ groupId }: { groupId: string }) {
     day: "numeric",
   });
 
-  const onToggle = async (taskId: Id<"tasks">) => {
+  const onClaim = async (taskId: Id<"tasks">) => {
     try {
-      const result = await toggleCompletion({ taskId });
-      if (result.state === "added") {
-        setToast({ message: "Locked in", tone: "success" });
+      const result = await claim({ taskId });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+        return;
       }
+      setToast({ message: "Claimed · upload proof within 15m", tone: "neutral" });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onUnclaim = async (completionId: Id<"completions">) => {
+    try {
+      await unclaim({ completionId });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onUpload = async (completionId: Id<"completions">, file: File) => {
+    try {
+      const urlResult = await generateProofUploadUrl({ completionId });
+      if (!urlResult.ok) {
+        setToast({ message: urlResult.error, tone: "error" });
+        return;
+      }
+      const res = await fetch(urlResult.uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) {
+        setToast({ message: "Upload failed, try again", tone: "error" });
+        return;
+      }
+      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      const attached = await attachProof({ completionId, storageId });
+      if (!attached.ok) {
+        setToast({ message: attached.error, tone: "error" });
+        return;
+      }
+      setToast({ message: "Verified", tone: "success" });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
@@ -190,7 +235,13 @@ export function GroupPage({ groupId }: { groupId: string }) {
             </span>
           </header>
 
-          <TodaySlate slate={slate} onToggle={onToggle} />
+          <TodaySlate
+            slate={slate}
+            onClaim={onClaim}
+            onUnclaim={onUnclaim}
+            onUpload={onUpload}
+            onOpenProof={(url) => setLightboxUrl(url)}
+          />
 
           {isAdmin && (
             <button
@@ -229,6 +280,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
               items={activity}
               onCallCap={onCallCap}
               onComment={onComment}
+              onOpenProof={(url) => setLightboxUrl(url)}
             />
           )}
         </section>
@@ -272,6 +324,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
         />
       )}
 
+      <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
     </div>
   );
