@@ -780,38 +780,191 @@ a { color: inherit; text-decoration: none; }
 }
 .user-chip-link:hover { opacity: 0.7; }
 
-/* Home — per-group sections */
+/* Home — per-group cards */
 
-.home-group {
-  border-top: 1px solid var(--rule);
-  padding-top: 22px;
-  margin-top: 36px;
+.page-home .page-head {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 22px;
+  margin-bottom: 36px;
 }
 
-.home-group-head {
+.home-hero .eyebrow { display: inline-block; }
+
+.home-groups {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+}
+
+.home-card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  padding: 28px 28px 22px;
+  position: relative;
+}
+
+.home-card.leading {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.home-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 22px;
+  margin-bottom: 22px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
 }
 
-.home-group-head .eyebrow { display: block; }
+.home-card-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
 
-.home-group-stats {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 13px;
-  color: var(--smoke);
+.home-card-name {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(36px, 5vw, 48px);
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  color: var(--ink);
   margin: 4px 0 0;
 }
 
-.home-group-stats .num {
-  font-family: var(--font-mono), monospace;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
+.home-card-enter {
+  flex-shrink: 0;
+  font-size: 14px;
+  padding: 14px 22px;
 }
+
+.avatar-stack {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.avatar-stack-item {
+  display: inline-block;
+  margin-left: -8px;
+  line-height: 0;
+}
+
+.avatar-stack-item:first-child { margin-left: 0; }
+
+.avatar-stack-item .avatar {
+  border: 2px solid var(--paper-2);
+  background: var(--paper-2);
+}
+
+.home-card.leading .avatar-stack-item .avatar {
+  border-color: var(--accent-soft);
+}
+
+.home-card-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 18px;
+}
+
+@media (max-width: 640px) {
+  .home-card-scoreboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.score-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--rule);
+}
+
+.score-cell:last-child { border-right: none; }
+
+@media (max-width: 640px) {
+  .score-cell:nth-child(2) { border-right: none; }
+  .score-cell:nth-child(1),
+  .score-cell:nth-child(2) {
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+.score-cell-value {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.score-cell-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fog);
+}
+
+.score-cell.accent .score-cell-value { color: var(--accent); }
+.score-cell.accent .score-cell-label { color: var(--accent); }
+
+.home-card .slate { border-top: none; }
+.home-card .slate-row { padding: 14px 0; }
+.home-card .slate-row:last-child { border-bottom: none; }
+
+/* Group page contrast */
+
+.page-group {
+  background: var(--paper);
+}
+
+.page-group .page-wrap-bar {
+  border-bottom: 2px solid var(--accent);
+}
+
+.topbar-context {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  padding-left: 14px;
+  margin-left: 4px;
+  border-left: 1px solid var(--rule);
+}
+
+.h-page-serif {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Profile — group row actions */
+
+.profile-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.btn-link-danger {
+  color: var(--cap);
+}
+
+.btn-link-danger:hover { color: var(--cap); opacity: 0.8; }
+
+/* Home single-group sections (legacy class — unused now) */
 
 /* Profile — groups list */
 

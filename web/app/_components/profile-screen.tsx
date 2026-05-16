@@ -16,9 +16,11 @@ export function ProfileScreen() {
   const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const groups = useQuery(api.groups.getMyGroups);
+  const leaveGroup = useMutation(api.groups.leave);
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [leavingId, setLeavingId] = useState<string | null>(null);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -27,6 +29,36 @@ export function ProfileScreen() {
       router.replace("/");
     } catch {
       setSigningOut(false);
+    }
+  };
+
+  const onLeave = async (groupId: string, name: string, isAdmin: boolean) => {
+    const adminNote = isAdmin
+      ? " As admin, leaving will pass admin to the next member (or delete the group if you're alone)."
+      : "";
+    if (
+      !window.confirm(
+        `Leave "${name}"? You'll lose your standings here.${adminNote}`,
+      )
+    ) {
+      return;
+    }
+    setLeavingId(groupId);
+    try {
+      const result = await leaveGroup({
+        groupId: groupId as Parameters<typeof leaveGroup>[0]["groupId"],
+      });
+      setToast({
+        message:
+          result.state === "deleted"
+            ? `${name} was deleted`
+            : `You left ${name}`,
+        tone: "neutral",
+      });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    } finally {
+      setLeavingId(null);
     }
   };
 
@@ -107,9 +139,18 @@ export function ProfileScreen() {
                       {g.isAdmin ? "Admin" : "Member"}
                     </span>
                   </div>
-                  <Link href={`/group/${g._id}`} className="btn-link">
-                    Open →
-                  </Link>
+                  <div className="profile-group-actions">
+                    <Link href={`/group/${g._id}`} className="btn-link">
+                      Open →
+                    </Link>
+                    <button
+                      className="btn-link btn-link-danger"
+                      onClick={() => onLeave(g._id, g.name, g.isAdmin)}
+                      disabled={leavingId === g._id}
+                    >
+                      {leavingId === g._id ? "Leaving…" : "Leave"}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -93,15 +93,16 @@ export function GroupPage({ groupId }: { groupId: string }) {
   };
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap page-group">
       <header className="page-wrap-bar">
         <div className="topbar-left">
           <Link href="/dashboard" className="entry-brand">
             Receipts<span className="v">v0.1</span>
           </Link>
           <Link href="/dashboard" className="btn-link">
-            Home
+            ← Home
           </Link>
+          <span className="topbar-context">{group.name}</span>
         </div>
         <Link href="/profile" className="user-chip user-chip-link">
           {profile.avatarUrl ? (
@@ -125,10 +126,10 @@ export function GroupPage({ groupId }: { groupId: string }) {
         <div className="page-head fade-up">
           <div>
             <span className="eyebrow">
-              <b>{group.name}</b> · {stats.weekKey.replace("-W", " · week ")} · {dateLabel}
+              {stats.weekKey.replace("-W", " · week ")} · {dateLabel}
             </span>
-            <h1 className="h-page" style={{ marginTop: 8 }}>
-              Today<span className="roman">.</span>
+            <h1 className="h-page h-page-serif" style={{ marginTop: 8 }}>
+              {group.name}<span className="roman">.</span>
             </h1>
             <p className="entry-dek" style={{ marginTop: 14, maxWidth: 560 }}>
               <span className="num">{stats.todayPoints}</span> pts today ·{" "}

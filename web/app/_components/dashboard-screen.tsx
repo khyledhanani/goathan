@@ -11,6 +11,8 @@ import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
 
+type Member = { displayName: string; avatarUrl?: string };
+
 export function DashboardScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
@@ -67,7 +69,7 @@ export function DashboardScreen() {
   });
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap page-home">
       <header className="page-wrap-bar">
         <Link href="/dashboard" className="entry-brand">
           Receipts<span className="v">v0.1</span>
@@ -96,15 +98,15 @@ export function DashboardScreen() {
         ) : (
           home && (
             <>
-              <div className="page-head fade-up">
+              <div className="page-head fade-up home-hero">
                 <div>
                   <span className="eyebrow">
-                    Today · {dateLabel} · across{" "}
+                    Your day · {dateLabel} · across{" "}
                     <b>{home.totals.groupCount}</b>{" "}
                     {home.totals.groupCount === 1 ? "group" : "groups"}
                   </span>
                   <h1 className="h-page" style={{ marginTop: 8 }}>
-                    Today<span className="roman">.</span>
+                    {hello}<span className="roman">.</span>
                   </h1>
                   <p className="entry-dek" style={{ marginTop: 14, maxWidth: 560 }}>
                     <span className="num">{home.totals.todayPoints}</span> pts
@@ -118,47 +120,111 @@ export function DashboardScreen() {
                 </div>
               </div>
 
-              {home.groups.map((g, idx) => (
-                <section
-                  key={g._id}
-                  className="fade-up home-group"
-                  style={{ animationDelay: `${60 + idx * 60}ms` }}
-                >
-                  <header className="home-group-head">
-                    <div>
-                      <span className="eyebrow">
-                        <b>{g.name}</b>
-                        {g.isAdmin && <> · admin</>}
-                      </span>
-                      <p className="home-group-stats">
-                        <span className="num">{g.stats.todayPoints}</span> today
-                        · <span className="num">{g.stats.weekPoints}</span> this
-                        week ·{" "}
-                        <span className="num">
-                          {g.stats.todayDone}/{g.stats.totalDailyTasks}
-                        </span>{" "}
-                        done
-                      </p>
+              <div className="home-groups">
+                {home.groups.map((g, idx) => (
+                  <article
+                    key={g._id}
+                    className={`home-card fade-up ${g.isLeading ? "leading" : ""}`}
+                    style={{ animationDelay: `${60 + idx * 80}ms` }}
+                  >
+                    <header className="home-card-head">
+                      <div className="home-card-head-meta">
+                        <span className="eyebrow">
+                          {g.isAdmin ? "admin · you" : "member"} ·{" "}
+                          {g.memberCount}{" "}
+                          {g.memberCount === 1 ? "person" : "people"}
+                        </span>
+                        <h2 className="home-card-name">{g.name}</h2>
+                        <AvatarStack members={g.memberAvatars} />
+                      </div>
+                      <Link
+                        href={`/group/${g._id}`}
+                        className="btn-primary home-card-enter"
+                      >
+                        Enter group
+                        <span className="arrow">→</span>
+                      </Link>
+                    </header>
+
+                    <div className="home-card-scoreboard">
+                      <ScoreCell
+                        value={`#${g.rank}`}
+                        label={`of ${g.memberCount}`}
+                        accent={g.isLeading}
+                      />
+                      <ScoreCell
+                        value={g.isLeading ? "—" : `${g.gapToLeader}`}
+                        label={
+                          g.isLeading
+                            ? "On top"
+                            : g.leaderFirstName
+                              ? `Behind ${g.leaderFirstName}`
+                              : "Behind"
+                        }
+                        accent={g.isLeading}
+                      />
+                      <ScoreCell
+                        value={`${g.stats.todayDone}/${g.stats.totalDailyTasks}`}
+                        label="Today"
+                      />
+                      <ScoreCell
+                        value={`${g.stats.weekPoints}`}
+                        label="Week pts"
+                      />
                     </div>
-                    <Link href={`/group/${g._id}`} className="btn-link">
-                      Open →
-                    </Link>
-                  </header>
-                  {g.slate.length === 0 ? (
-                    <p className="muted-line" style={{ paddingTop: 12 }}>
-                      No tasks yet in this group.
-                    </p>
-                  ) : (
-                    <TodaySlate slate={g.slate} onToggle={onToggle} />
-                  )}
-                </section>
-              ))}
+
+                    {g.slate.length === 0 ? (
+                      <p className="muted-line" style={{ padding: "16px 0 0" }}>
+                        No tasks yet in this group.
+                      </p>
+                    ) : (
+                      <TodaySlate slate={g.slate} onToggle={onToggle} />
+                    )}
+                  </article>
+                ))}
+              </div>
             </>
           )
         )}
       </main>
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
+    </div>
+  );
+}
+
+function ScoreCell({
+  value,
+  label,
+  accent,
+}: {
+  value: string;
+  label: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`score-cell ${accent ? "accent" : ""}`}>
+      <span className="score-cell-value num">{value}</span>
+      <span className="score-cell-label">{label}</span>
+    </div>
+  );
+}
+
+function AvatarStack({ members }: { members: Member[] }) {
+  if (members.length === 0) return null;
+  return (
+    <div className="avatar-stack">
+      {members.map((m, i) => (
+        <span key={i} className="avatar-stack-item" title={m.displayName}>
+          {m.avatarUrl ? (
+            <img src={m.avatarUrl} alt="" width={28} height={28} className="avatar" />
+          ) : (
+            <span className="avatar avatar-fallback">
+              {m.displayName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </span>
+      ))}
     </div>
   );
 }

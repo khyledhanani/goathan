@@ -323,6 +323,48 @@ export const homeView = query({
         const todayDone = dailyTasks.filter((t) => t.done).length;
         const weekPoints = myCompletions.reduce((s, c) => s + c.points, 0);
 
+        const groupMemberships = await ctx.db
+          .query("memberships")
+          .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
+          .collect();
+
+        const memberStandings = await Promise.all(
+          groupMemberships.map(async (gm) => {
+            const memberProfile = await ctx.db
+              .query("profiles")
+              .withIndex("by_user", (q) => q.eq("userId", gm.userId))
+              .unique();
+            const memberCompletions = await ctx.db
+              .query("completions")
+              .withIndex("by_user_week", (q) =>
+                q.eq("userId", gm.userId).eq("weekKey", wk),
+              )
+              .collect();
+            return {
+              userId: gm.userId,
+              displayName: memberProfile?.displayName ?? "Unknown",
+              avatarUrl: memberProfile?.avatarUrl,
+              weekPoints: memberCompletions.reduce((s, c) => s + c.points, 0),
+            };
+          }),
+        );
+        memberStandings.sort((a, b) => b.weekPoints - a.weekPoints);
+
+        const rank = memberStandings.findIndex((s) => s.userId === userId) + 1;
+        const memberCount = memberStandings.length;
+        const leader = memberStandings[0];
+        const isLeading = rank === 1 && weekPoints > 0;
+        const gapToLeader = isLeading
+          ? 0
+          : Math.max(0, (leader?.weekPoints ?? 0) - weekPoints);
+        const leaderFirstName =
+          leader?.displayName?.trim().split(/\s+/)[0] ?? null;
+
+        const memberAvatars = memberStandings.slice(0, 5).map((s) => ({
+          displayName: s.displayName,
+          avatarUrl: s.avatarUrl,
+        }));
+
         return {
           _id: group._id,
           name: group.name,
@@ -335,6 +377,13 @@ export const homeView = query({
             totalDailyTasks: dailyTasks.length,
             weekPoints,
           },
+          rank,
+          memberCount,
+          isLeading,
+          leaderFirstName,
+          leaderPoints: leader?.weekPoints ?? 0,
+          gapToLeader,
+          memberAvatars,
         };
       }),
     );
@@ -491,6 +540,96 @@ export const create = mutation({
     await seedDefaultTasks(ctx, groupId, userId);
 
     return { ok: true as const, groupId, inviteCode };
+  },
+});
+
+async function deleteGroupCascade(
+  ctx: MutationCtx,
+  groupId: Id<"groups">,
+) {
+  const challenges = await ctx.db
+    .query("challenges")
+    .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+    .collect();
+  for (const ch of challenges) await ctx.db.delete(ch._id);
+
+  const completions = await ctx.db
+    .query("completions")
+    .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+    .collect();
+  for (const c of completions) await ctx.db.delete(c._id);
+
+  const tasks = await ctx.db
+    .query("tasks")
+    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .collect();
+  for (const t of tasks) await ctx.db.delete(t._id);
+
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .collect();
+  for (const m of memberships) await ctx.db.delete(m._id);
+
+  await ctx.db.delete(groupId);
+}
+
+export const leave = mutation({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const userId = await requireAuthUserId(ctx);
+
+    const myMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!myMembership) throw new ConvexError("Not a member of this group");
+
+    const allMemberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+
+    if (allMemberships.length === 1) {
+      await deleteGroupCascade(ctx, groupId);
+      return { state: "deleted" as const };
+    }
+
+    if (myMembership.isAdmin) {
+      const others = allMemberships.filter((m) => m._id !== myMembership._id);
+      const otherAdmins = others.filter((m) => m.isAdmin);
+      if (otherAdmins.length === 0) {
+        const oldest = [...others].sort((a, b) => a.joinedAt - b.joinedAt)[0];
+        await ctx.db.patch(oldest._id, { isAdmin: true });
+      }
+    }
+
+    const completionsInGroup = await ctx.db
+      .query("completions")
+      .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+      .collect();
+    for (const c of completionsInGroup) {
+      if (c.userId !== userId) continue;
+      const linked = await ctx.db
+        .query("challenges")
+        .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+        .collect();
+      for (const ch of linked) await ctx.db.delete(ch._id);
+      await ctx.db.delete(c._id);
+    }
+
+    const challengesInGroup = await ctx.db
+      .query("challenges")
+      .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+      .collect();
+    for (const ch of challengesInGroup) {
+      if (ch.challengerUserId === userId) await ctx.db.delete(ch._id);
+    }
+
+    await ctx.db.delete(myMembership._id);
+    return { state: "left" as const };
   },
 });
 
