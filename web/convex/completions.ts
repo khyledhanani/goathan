@@ -38,6 +38,13 @@ export const toggle = mutation({
       for (const ch of linkedChallenges) {
         await ctx.db.delete(ch._id);
       }
+      const linkedComments = await ctx.db
+        .query("comments")
+        .withIndex("by_completion", (q) => q.eq("completionId", existing._id))
+        .collect();
+      for (const cm of linkedComments) {
+        await ctx.db.delete(cm._id);
+      }
       await ctx.db.delete(existing._id);
       return { state: "removed" as const };
     }

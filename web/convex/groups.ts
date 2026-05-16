@@ -490,6 +490,28 @@ export const recentActivity = query({
           .query("challenges")
           .withIndex("by_completion", (q) => q.eq("completionId", c._id))
           .collect();
+        const rawComments = await ctx.db
+          .query("comments")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .collect();
+        const comments = await Promise.all(
+          rawComments.map(async (cm) => {
+            const authorProfile = await ctx.db
+              .query("profiles")
+              .withIndex("by_user", (q) => q.eq("userId", cm.authorUserId))
+              .unique();
+            return {
+              _id: cm._id,
+              authorUserId: cm.authorUserId,
+              authorName: authorProfile?.displayName ?? "Unknown",
+              isYou: cm.authorUserId === userId,
+              body: cm.body,
+              createdAt: cm.createdAt,
+            };
+          }),
+        );
+        comments.sort((a, b) => a.createdAt - b.createdAt);
+
         return {
           completionId: c._id,
           memberUserId: c.userId,
@@ -504,6 +526,7 @@ export const recentActivity = query({
           challengedByYou: challenges.some(
             (ch) => ch.challengerUserId === userId,
           ),
+          comments,
         };
       }),
     );
@@ -547,6 +570,12 @@ async function deleteGroupCascade(
   ctx: MutationCtx,
   groupId: Id<"groups">,
 ) {
+  const comments = await ctx.db
+    .query("comments")
+    .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+    .collect();
+  for (const cm of comments) await ctx.db.delete(cm._id);
+
   const challenges = await ctx.db
     .query("challenges")
     .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
@@ -612,11 +641,16 @@ export const leave = mutation({
       .collect();
     for (const c of completionsInGroup) {
       if (c.userId !== userId) continue;
-      const linked = await ctx.db
+      const linkedChallenges = await ctx.db
         .query("challenges")
         .withIndex("by_completion", (q) => q.eq("completionId", c._id))
         .collect();
-      for (const ch of linked) await ctx.db.delete(ch._id);
+      for (const ch of linkedChallenges) await ctx.db.delete(ch._id);
+      const linkedComments = await ctx.db
+        .query("comments")
+        .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+        .collect();
+      for (const cm of linkedComments) await ctx.db.delete(cm._id);
       await ctx.db.delete(c._id);
     }
 
@@ -626,6 +660,14 @@ export const leave = mutation({
       .collect();
     for (const ch of challengesInGroup) {
       if (ch.challengerUserId === userId) await ctx.db.delete(ch._id);
+    }
+
+    const commentsInGroup = await ctx.db
+      .query("comments")
+      .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+      .collect();
+    for (const cm of commentsInGroup) {
+      if (cm.authorUserId === userId) await ctx.db.delete(cm._id);
     }
 
     await ctx.db.delete(myMembership._id);

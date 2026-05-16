@@ -1,6 +1,16 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
+
+type CommentItem = {
+  _id: Id<"comments">;
+  authorUserId: Id<"users">;
+  authorName: string;
+  isYou: boolean;
+  body: string;
+  createdAt: number;
+};
 
 type FeedItem = {
   completionId: Id<"completions">;
@@ -14,6 +24,7 @@ type FeedItem = {
   completedAt: number;
   challengeCount: number;
   challengedByYou: boolean;
+  comments: CommentItem[];
 };
 
 const verbFor = (category: FeedItem["taskCategory"]): string => {
@@ -36,9 +47,11 @@ function timeAgo(ts: number): string {
 export function ActivityFeed({
   items,
   onCallCap,
+  onComment,
 }: {
   items: FeedItem[];
   onCallCap: (completionId: Id<"completions">) => void;
+  onComment: (completionId: Id<"completions">, body: string) => Promise<void>;
 }) {
   if (items.length === 0) {
     return (
@@ -58,43 +71,108 @@ export function ActivityFeed({
           key={item.completionId}
           className={`activity-row ${item.challengeCount > 0 ? "challenged" : ""}`}
         >
-          {item.memberAvatarUrl ? (
-            <img
-              src={item.memberAvatarUrl}
-              alt=""
-              width={32}
-              height={32}
-              className="avatar"
-            />
-          ) : (
-            <span className="avatar avatar-fallback">
-              {item.memberDisplayName.charAt(0).toUpperCase()}
-            </span>
-          )}
-          <div className="activity-main">
-            <p className="activity-line">
-              <span className="activity-name">{item.memberDisplayName}</span>{" "}
-              <span className="activity-verb">{verbFor(item.taskCategory)}</span>{" "}
-              <span className="activity-task">{item.taskName}</span>
-              {item.challengeCount > 0 && (
-                <span className="activity-cap-count">
-                  · {item.challengeCount} cap
-                  {item.challengeCount > 1 ? "s" : ""}
-                </span>
-              )}
-            </p>
-            <span className="activity-time mono">{timeAgo(item.completedAt)}</span>
+          <div className="activity-top">
+            {item.memberAvatarUrl ? (
+              <img
+                src={item.memberAvatarUrl}
+                alt=""
+                width={32}
+                height={32}
+                className="avatar"
+              />
+            ) : (
+              <span className="avatar avatar-fallback">
+                {item.memberDisplayName.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="activity-main">
+              <p className="activity-line">
+                <span className="activity-name">{item.memberDisplayName}</span>{" "}
+                <span className="activity-verb">{verbFor(item.taskCategory)}</span>{" "}
+                <span className="activity-task">{item.taskName}</span>
+                {item.challengeCount > 0 && (
+                  <span className="activity-cap-count">
+                    · {item.challengeCount} cap
+                    {item.challengeCount > 1 ? "s" : ""}
+                  </span>
+                )}
+              </p>
+              <span className="activity-time mono">{timeAgo(item.completedAt)}</span>
+            </div>
+            {!item.isYou && (
+              <button
+                className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
+                onClick={() => onCallCap(item.completionId)}
+              >
+                {item.challengedByYou ? "Cap called" : "Call cap"}
+              </button>
+            )}
           </div>
-          {!item.isYou && (
-            <button
-              className={`btn-cap ${item.challengedByYou ? "called" : ""}`}
-              onClick={() => onCallCap(item.completionId)}
-            >
-              {item.challengedByYou ? "Cap called" : "Call cap"}
-            </button>
-          )}
+
+          <CommentThread
+            comments={item.comments}
+            onSubmit={(body) => onComment(item.completionId, body)}
+          />
         </li>
       ))}
     </ul>
+  );
+}
+
+function CommentThread({
+  comments,
+  onSubmit,
+}: {
+  comments: CommentItem[];
+  onSubmit: (body: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const body = draft.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    try {
+      await onSubmit(body);
+      setDraft("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="thread">
+      {comments.length > 0 && (
+        <ul className="thread-list">
+          {comments.map((c) => (
+            <li key={c._id} className="thread-comment">
+              <span className="thread-author">{c.authorName}</span>
+              <span className="thread-body">{c.body}</span>
+              <span className="thread-time mono">{timeAgo(c.createdAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="thread-form" onSubmit={submit}>
+        <input
+          className="thread-input"
+          placeholder={comments.length > 0 ? "Reply…" : "Comment…"}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={240}
+          disabled={busy}
+        />
+        <button
+          type="submit"
+          className="thread-submit"
+          disabled={!draft.trim() || busy}
+          aria-label="Post comment"
+        >
+          ↵
+        </button>
+      </form>
+    </div>
   );
 }

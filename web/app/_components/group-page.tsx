@@ -33,6 +33,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const toggleCompletion = useMutation(api.completions.toggle);
   const createTask = useMutation(api.tasks.create);
   const toggleChallenge = useMutation(api.challenges.toggle);
+  const addComment = useMutation(api.comments.add);
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
@@ -100,6 +101,20 @@ export function GroupPage({ groupId }: { groupId: string }) {
         message: result.state === "added" ? "Cap called" : "Cap retracted",
         tone: result.state === "added" ? "error" : "neutral",
       });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onComment = async (
+    completionId: Id<"completions">,
+    body: string,
+  ): Promise<void> => {
+    try {
+      const result = await addComment({ completionId, body });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+      }
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
@@ -206,7 +221,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
           {activity === undefined ? (
             <p className="muted-line">Loading…</p>
           ) : (
-            <ActivityFeed items={activity} onCallCap={onCallCap} />
+            <ActivityFeed
+              items={activity}
+              onCallCap={onCallCap}
+              onComment={onComment}
+            />
           )}
         </section>
 

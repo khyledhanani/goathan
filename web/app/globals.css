@@ -1394,16 +1394,19 @@ a { color: inherit; text-decoration: none; }
 }
 
 .activity-row {
-  display: grid;
-  grid-template-columns: 32px 1fr auto;
-  gap: 14px;
-  align-items: center;
   padding: 14px 4px;
   border-bottom: 1px solid var(--rule);
 }
 
 .activity-row.challenged {
   background: linear-gradient(90deg, var(--cap-soft), transparent 60%);
+}
+
+.activity-top {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 14px;
+  align-items: center;
 }
 
 .activity-main {
@@ -1504,4 +1507,113 @@ a { color: inherit; text-decoration: none; }
   font-size: 18px;
   color: var(--smoke);
   margin: 0;
+}
+
+/* Comment thread under each activity */
+
+.thread {
+  margin: 12px 0 4px 46px;
+  padding-left: 14px;
+  border-left: 1px solid var(--rule);
+}
+
+.thread-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.thread-comment {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--smoke);
+}
+
+.thread-author {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  flex-shrink: 0;
+}
+
+.thread-body {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.thread-time {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--fog);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.thread-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  transition: border-color 140ms ease;
+}
+
+.thread-form:focus-within {
+  border-color: var(--ink);
+}
+
+.thread-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 6px 0;
+}
+
+.thread-input::placeholder {
+  color: var(--fog);
+}
+
+.thread-submit {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, transform 120ms ease;
+}
+
+.thread-submit:hover:not(:disabled) { background: var(--accent); }
+.thread-submit:active:not(:disabled) { transform: scale(0.94); }
+
+.thread-submit:disabled {
+  background: var(--paper-3);
+  color: var(--mist);
+  cursor: not-allowed;
 }
