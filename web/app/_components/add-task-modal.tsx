@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 
-type Category = "GYM" | "CARDIO" | "NUTRITION" | "RECOVERY" | "PROGRESS";
+type Category = "MORNING" | "MOVE" | "FUEL" | "MIND" | "REST";
 type Frequency = "DAILY" | "WEEKLY";
-type Proof = "PHOTO" | "SCREENSHOT" | "MANUAL" | "VIDEO";
+type Proof = "PHOTO" | "SCREENSHOT" | "VIDEO";
 
-const CATEGORIES: Category[] = ["GYM", "CARDIO", "NUTRITION", "RECOVERY", "PROGRESS"];
+const CATEGORIES: Category[] = ["MORNING", "MOVE", "FUEL", "MIND", "REST"];
 const FREQUENCIES: Frequency[] = ["DAILY", "WEEKLY"];
-const PROOFS: Proof[] = ["PHOTO", "SCREENSHOT", "MANUAL", "VIDEO"];
+const PROOFS: Proof[] = ["PHOTO", "SCREENSHOT", "VIDEO"];
 
 export type AddTaskInput = {
   name: string;
@@ -29,9 +29,9 @@ export function AddTaskModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState<number>(15);
-  const [category, setCategory] = useState<Category>("GYM");
+  const [category, setCategory] = useState<Category>("MOVE");
   const [frequency, setFrequency] = useState<Frequency>("DAILY");
-  const [proof, setProof] = useState<Proof>("MANUAL");
+  const [proof, setProof] = useState<Proof>("PHOTO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

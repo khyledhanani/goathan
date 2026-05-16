@@ -51,18 +51,17 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.union(
-      v.literal("GYM"),
-      v.literal("CARDIO"),
-      v.literal("NUTRITION"),
-      v.literal("RECOVERY"),
-      v.literal("PROGRESS"),
+      v.literal("MORNING"),
+      v.literal("MOVE"),
+      v.literal("FUEL"),
+      v.literal("MIND"),
+      v.literal("REST"),
     ),
     points: v.number(),
     frequency: v.union(v.literal("DAILY"), v.literal("WEEKLY")),
     proof: v.union(
       v.literal("PHOTO"),
       v.literal("SCREENSHOT"),
-      v.literal("MANUAL"),
       v.literal("VIDEO"),
     ),
     createdByUserId: v.id("users"),
@@ -76,10 +75,12 @@ export default defineSchema({
     periodKey: v.string(),
     weekKey: v.string(),
     points: v.number(),
-    completedAt: v.number(),
+    claimedAt: v.number(),
+    proofStorageId: v.optional(v.id("_storage")),
+    verifiedAt: v.optional(v.number()),
   })
     .index("by_user_task_period", ["userId", "taskId", "periodKey"])
-    .index("by_group_recent", ["groupId", "completedAt"])
+    .index("by_group_recent", ["groupId", "claimedAt"])
     .index("by_group_week", ["groupId", "weekKey"])
     .index("by_user_week", ["userId", "weekKey"]),
 
