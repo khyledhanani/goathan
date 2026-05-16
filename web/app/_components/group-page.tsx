@@ -12,6 +12,8 @@ import { firstName } from "@/lib/utils";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
+import { StandingsTable } from "./standings-table";
+import { ActivityFeed } from "./activity-feed";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -22,8 +24,15 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const view = useQuery(api.groups.todayView, {
     groupId: groupId as Id<"groups">,
   });
+  const standings = useQuery(api.groups.weeklyStandings, {
+    groupId: groupId as Id<"groups">,
+  });
+  const activity = useQuery(api.groups.recentActivity, {
+    groupId: groupId as Id<"groups">,
+  });
   const toggleCompletion = useMutation(api.completions.toggle);
   const createTask = useMutation(api.tasks.create);
+  const toggleChallenge = useMutation(api.challenges.toggle);
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
@@ -79,6 +88,18 @@ export function GroupPage({ groupId }: { groupId: string }) {
       if (result.state === "added") {
         setToast({ message: "Locked in", tone: "success" });
       }
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onCallCap = async (completionId: Id<"completions">) => {
+    try {
+      const result = await toggleChallenge({ completionId });
+      setToast({
+        message: result.state === "added" ? "Cap called" : "Cap retracted",
+        tone: result.state === "added" ? "error" : "neutral",
+      });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
@@ -161,6 +182,32 @@ export function GroupPage({ groupId }: { groupId: string }) {
         </section>
 
         <section className="fade-up d2" style={{ marginTop: 56 }}>
+          <header className="section-head">
+            <h2 className="h-section">Standings.</h2>
+            <span className="eyebrow">This week</span>
+          </header>
+          {standings === undefined ? (
+            <p className="muted-line">Loading…</p>
+          ) : standings === null ? (
+            <p className="muted-line">Standings unavailable.</p>
+          ) : (
+            <StandingsTable rows={standings} />
+          )}
+        </section>
+
+        <section className="fade-up d3" style={{ marginTop: 56 }}>
+          <header className="section-head">
+            <h2 className="h-section">On the board.</h2>
+            <span className="eyebrow">Live · last {activity?.length ?? 0}</span>
+          </header>
+          {activity === undefined ? (
+            <p className="muted-line">Loading…</p>
+          ) : (
+            <ActivityFeed items={activity} onCallCap={onCallCap} />
+          )}
+        </section>
+
+        <section className="fade-up d4" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Invite to {group.name}.</h2>
             <span className="eyebrow">Anyone with the code can join</span>

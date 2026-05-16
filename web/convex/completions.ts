@@ -31,6 +31,13 @@ export const toggle = mutation({
       .unique();
 
     if (existing) {
+      const linkedChallenges = await ctx.db
+        .query("challenges")
+        .withIndex("by_completion", (q) => q.eq("completionId", existing._id))
+        .collect();
+      for (const ch of linkedChallenges) {
+        await ctx.db.delete(ch._id);
+      }
       await ctx.db.delete(existing._id);
       return { state: "removed" as const };
     }

@@ -244,6 +244,109 @@ export const getRoster = query({
   },
 });
 
+export const weeklyStandings = query({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const myMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!myMembership) return null;
+
+    const wk = weekKey(Date.now());
+
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+
+    const rows = await Promise.all(
+      memberships.map(async (m) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", m.userId))
+          .unique();
+        const completions = await ctx.db
+          .query("completions")
+          .withIndex("by_user_week", (q) =>
+            q.eq("userId", m.userId).eq("weekKey", wk),
+          )
+          .collect();
+        const weekPoints = completions.reduce((s, c) => s + c.points, 0);
+        return {
+          userId: m.userId,
+          displayName: profile?.displayName ?? "Unknown",
+          username: profile?.username,
+          avatarUrl: profile?.avatarUrl,
+          isAdmin: m.isAdmin,
+          isYou: m.userId === userId,
+          weekPoints,
+        };
+      }),
+    );
+
+    return rows.sort((a, b) => b.weekPoints - a.weekPoints);
+  },
+});
+
+export const recentActivity = query({
+  args: { groupId: v.id("groups"), limit: v.optional(v.number()) },
+  handler: async (ctx, { groupId, limit }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const myMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!myMembership) return [];
+
+    const take = Math.min(Math.max(limit ?? 20, 1), 50);
+
+    const recent = await ctx.db
+      .query("completions")
+      .withIndex("by_group_recent", (q) => q.eq("groupId", groupId))
+      .order("desc")
+      .take(take);
+
+    return await Promise.all(
+      recent.map(async (c) => {
+        const task = await ctx.db.get(c.taskId);
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", c.userId))
+          .unique();
+        const challenges = await ctx.db
+          .query("challenges")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .collect();
+        return {
+          completionId: c._id,
+          memberUserId: c.userId,
+          memberDisplayName: profile?.displayName ?? "Unknown",
+          memberAvatarUrl: profile?.avatarUrl,
+          isYou: c.userId === userId,
+          taskName: task?.name ?? "(removed task)",
+          taskCategory: task?.category ?? "GYM",
+          points: c.points,
+          completedAt: c.completedAt,
+          challengeCount: challenges.length,
+          challengedByYou: challenges.some(
+            (ch) => ch.challengerUserId === userId,
+          ),
+        };
+      }),
+    );
+  },
+});
+
 export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, { name }) => {

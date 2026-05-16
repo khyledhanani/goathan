@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as challenges from "../challenges.js";
 import type * as completions from "../completions.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
@@ -24,6 +25,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  challenges: typeof challenges;
   completions: typeof completions;
   groups: typeof groups;
   http: typeof http;

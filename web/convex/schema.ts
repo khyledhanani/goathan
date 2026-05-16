@@ -82,4 +82,14 @@ export default defineSchema({
     .index("by_group_recent", ["groupId", "completedAt"])
     .index("by_group_week", ["groupId", "weekKey"])
     .index("by_user_week", ["userId", "weekKey"]),
+
+  challenges: defineTable({
+    completionId: v.id("completions"),
+    challengerUserId: v.id("users"),
+    groupId: v.id("groups"),
+    createdAt: v.number(),
+  })
+    .index("by_completion", ["completionId"])
+    .index("by_completion_and_challenger", ["completionId", "challengerUserId"])
+    .index("by_group_recent", ["groupId", "createdAt"]),
 });

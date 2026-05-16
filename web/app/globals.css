@@ -1010,3 +1010,229 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.18em;
   color: var(--ink);
 }
+
+/* Standings */
+
+.standings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.standings-row {
+  display: grid;
+  grid-template-columns: 36px 36px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+
+.standings-row.you {
+  padding-left: 14px;
+}
+
+.standings-row.you::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 16%; bottom: 16%;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.standings-rank {
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--smoke);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.standings-row:nth-child(1) .standings-rank,
+.standings-row:nth-child(2) .standings-rank,
+.standings-row:nth-child(3) .standings-rank {
+  color: var(--accent);
+}
+
+.standings-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.standings-name {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.standings-you {
+  font-family: var(--font-mono), monospace;
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.standings-sub {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--fog);
+}
+
+.standings-pts {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.standings-pts .num {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.standings-pts .pts-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fog);
+  text-transform: uppercase;
+}
+
+/* Activity feed */
+
+.activity-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.activity-row.challenged {
+  background: linear-gradient(90deg, var(--cap-soft), transparent 60%);
+}
+
+.activity-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-line {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--smoke);
+  margin: 0;
+}
+
+.activity-name {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 18px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  margin-right: 2px;
+}
+
+.activity-verb { color: var(--smoke); }
+
+.activity-task {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.activity-row.challenged .activity-task {
+  color: var(--cap);
+}
+
+.activity-cap-count {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--cap);
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+
+.activity-time {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--fog);
+}
+
+.btn-cap {
+  padding: 7px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+  cursor: pointer;
+}
+
+.btn-cap:hover {
+  border-color: var(--cap);
+  color: var(--cap);
+}
+
+.btn-cap.called {
+  background: var(--cap);
+  border-color: var(--cap);
+  color: var(--paper);
+}
+
+.btn-cap.called:hover {
+  background: transparent;
+  color: var(--cap);
+}
+
+.activity-empty {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 32px 4px;
+  text-align: center;
+}
+
+.activity-empty .eyebrow { display: block; margin-bottom: 6px; }
+
+.activity-empty-line {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--smoke);
+  margin: 0;
+}
