@@ -138,12 +138,15 @@ export const todayView = query({
     const todayKey = dayKey(now);
     const wk = weekKey(now);
 
-    const myWeekCompletions = await ctx.db
+    const groupWeekRows = await ctx.db
       .query("completions")
-      .withIndex("by_user_week", (q) =>
-        q.eq("userId", userId).eq("weekKey", wk),
+      .withIndex("by_group_week", (q) =>
+        q.eq("groupId", groupId).eq("weekKey", wk),
       )
       .collect();
+    const myWeekCompletions = groupWeekRows.filter(
+      (c) => c.userId === userId,
+    );
 
     const completedByTask = new Map<
       string,
