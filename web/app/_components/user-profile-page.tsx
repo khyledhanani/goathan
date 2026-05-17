@@ -11,6 +11,7 @@ import { firstName } from "@/lib/utils";
 import { Toast, type ToastValue } from "./toast";
 import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
+import { BottomNav } from "./bottom-nav";
 
 export function UserProfilePage({ userId }: { userId: string }) {
   const router = useRouter();
@@ -67,7 +68,7 @@ export function UserProfilePage({ userId }: { userId: string }) {
   const countLabel = items.length >= 60 ? "60+" : `${items.length}`;
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap has-bottom-nav">
       <header className="page-wrap-bar">
         <div className="topbar-left">
           <Link href="/dashboard" className="entry-brand">
@@ -173,6 +174,7 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomNav />
     </div>
   );
 }

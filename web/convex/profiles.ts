@@ -155,3 +155,17 @@ export const completeOnboarding = mutation({
     return { ok: true as const };
   },
 });
+
+export const markFeedSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuthUserId(ctx);
+    const profile = await findProfileByUser(ctx, userId);
+    if (!profile) return { ok: false as const, error: "Profile not found" };
+    await ctx.db.patch(profile._id, {
+      lastSeenFeedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return { ok: true as const };
+  },
+});

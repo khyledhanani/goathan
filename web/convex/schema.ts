@@ -22,6 +22,7 @@ export default defineSchema({
     avatarUrl: v.optional(v.string()),
     mainGoal: v.optional(mainGoalValidator),
     onboardingCompleted: v.boolean(),
+    lastSeenFeedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -103,4 +104,14 @@ export default defineSchema({
   })
     .index("by_completion", ["completionId", "createdAt"])
     .index("by_group_recent", ["groupId", "createdAt"]),
+
+  likes: defineTable({
+    completionId: v.id("completions"),
+    userId: v.id("users"),
+    groupId: v.id("groups"),
+    createdAt: v.number(),
+  })
+    .index("by_completion", ["completionId"])
+    .index("by_completion_and_user", ["completionId", "userId"])
+    .index("by_user", ["userId"]),
 });

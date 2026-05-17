@@ -11,6 +11,10 @@ const GRID_DEFAULT_LIMIT = 60;
 const GRID_MAX_LIMIT = 120;
 const GRID_PER_GROUP_SCAN = 200;
 
+const FEED_DEFAULT_LIMIT = 30;
+const FEED_MAX_LIMIT = 60;
+const FEED_PER_GROUP_SCAN = 80;
+
 type ProfileLite = {
   displayName: string;
   username?: string;
@@ -42,6 +46,121 @@ async function myGroupIds(
     .collect();
   return memberships.map((m) => m.groupId);
 }
+
+export const feedAcrossMyGroups = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId)
+      return { items: [], lastSeenFeedAt: 0 } as const;
+
+    const take = Math.min(
+      Math.max(limit ?? FEED_DEFAULT_LIMIT, 1),
+      FEED_MAX_LIMIT,
+    );
+
+    const groupIds = await myGroupIds(ctx, userId);
+    if (groupIds.length === 0)
+      return { items: [], lastSeenFeedAt: 0 } as const;
+
+    const buckets = await Promise.all(
+      groupIds.map(async (gid) => {
+        const recent = await ctx.db
+          .query("completions")
+          .withIndex("by_group_recent", (q) => q.eq("groupId", gid))
+          .order("desc")
+          .take(FEED_PER_GROUP_SCAN);
+        return recent.filter(
+          (c) => c.verifiedAt !== undefined && c.proofStorageId !== undefined,
+        );
+      }),
+    );
+
+    const merged = buckets
+      .flat()
+      .sort((a, b) => (b.verifiedAt ?? 0) - (a.verifiedAt ?? 0))
+      .slice(0, take);
+
+    const myProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    const items = await Promise.all(
+      merged.map(async (c) => {
+        const [task, group, author, likes, rawComments, challenges] =
+          await Promise.all([
+            ctx.db.get(c.taskId),
+            ctx.db.get(c.groupId),
+            profileFor(ctx, c.userId),
+            ctx.db
+              .query("likes")
+              .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+              .collect(),
+            ctx.db
+              .query("comments")
+              .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+              .collect(),
+            ctx.db
+              .query("challenges")
+              .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+              .collect(),
+          ]);
+
+        const comments = await Promise.all(
+          rawComments.map(async (cm) => {
+            const aprofile = await ctx.db
+              .query("profiles")
+              .withIndex("by_user", (q) => q.eq("userId", cm.authorUserId))
+              .unique();
+            return {
+              _id: cm._id,
+              authorUserId: cm.authorUserId,
+              authorName: aprofile?.displayName ?? "Unknown",
+              isYou: cm.authorUserId === userId,
+              body: cm.body,
+              createdAt: cm.createdAt,
+            };
+          }),
+        );
+        comments.sort((a, b) => a.createdAt - b.createdAt);
+
+        const proofUrl = c.proofStorageId
+          ? await ctx.storage.getUrl(c.proofStorageId)
+          : null;
+
+        return {
+          completionId: c._id,
+          userId: c.userId,
+          displayName: author.displayName,
+          username: author.username,
+          avatarUrl: author.avatarUrl,
+          isYou: c.userId === userId,
+          groupId: c.groupId,
+          groupName: group?.name ?? "(removed group)",
+          taskName: task?.name ?? "(removed task)",
+          taskCategory: task?.category ?? "MOVE",
+          points: c.points,
+          verifiedAt: c.verifiedAt!,
+          claimedAt: c.claimedAt,
+          proofUrl,
+          likeCount: likes.length,
+          likedByYou: likes.some((l) => l.userId === userId),
+          challengeCount: challenges.length,
+          challengedByYou: challenges.some(
+            (ch) => ch.challengerUserId === userId,
+          ),
+          comments,
+        };
+      }),
+    );
+
+    return {
+      items,
+      lastSeenFeedAt: myProfile?.lastSeenFeedAt ?? 0,
+    } as const;
+  },
+});
 
 export const storiesAcrossMyGroups = query({
   args: {},

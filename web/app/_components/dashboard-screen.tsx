@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -10,13 +10,12 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { firstName } from "@/lib/utils";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
-import { TodaySlate } from "./today-slate";
 import { ProofLightbox } from "./proof-lightbox";
-import { DayResetCountdown } from "./countdown";
 import { StoriesRail, type StoryBundle } from "./stories-rail";
 import { StoryViewer } from "./story-viewer";
-
-type Member = { displayName: string; avatarUrl?: string };
+import { FeedCard, type FeedCardItem } from "./feed-card";
+import { FeedStatsBar } from "./feed-stats-bar";
+import { BottomNav } from "./bottom-nav";
 
 export function DashboardScreen() {
   const router = useRouter();
@@ -25,17 +24,47 @@ export function DashboardScreen() {
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
   const stories = useQuery(api.proofs.storiesAcrossMyGroups);
+  const feed = useQuery(api.proofs.feedAcrossMyGroups, {});
+
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
-  const claim = useMutation(api.completions.claim);
-  const unclaim = useMutation(api.completions.unclaim);
-  const generateProofUploadUrl = useMutation(
-    api.completions.generateProofUploadUrl,
-  );
-  const attachProof = useMutation(api.completions.attachProof);
+  const toggleLike = useMutation(api.likes.toggle);
+  const toggleChallenge = useMutation(api.challenges.toggle);
+  const addComment = useMutation(api.comments.add);
+  const markFeedSeen = useMutation(api.profiles.markFeedSeen);
+
   const [toast, setToast] = useState<ToastValue>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [storyStart, setStoryStart] = useState<number | null>(null);
+
+  const seenSnapshotRef = useRef<number | null>(null);
+  const hasMarkedRef = useRef(false);
+  if (seenSnapshotRef.current === null && feed) {
+    seenSnapshotRef.current = feed.lastSeenFeedAt;
+  }
+  const seenThreshold = seenSnapshotRef.current ?? 0;
+
+  useEffect(() => {
+    if (!feed || hasMarkedRef.current) return;
+    hasMarkedRef.current = true;
+    void markFeedSeen({});
+  }, [feed, markFeedSeen]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/");
+      return;
+    }
+    if (profile === undefined) return;
+    if (profile === null || !profile.email || !profile.avatarUrl) {
+      void upsertFromAuth({});
+      return;
+    }
+    if (!profile.onboardingCompleted) {
+      router.replace("/onboarding");
+    }
+  }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
 
   const onLogout = async () => {
     setSigningOut(true);
@@ -47,66 +76,50 @@ export function DashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    if (profile === undefined) return;
-    if (profile === null || !profile.email || !profile.avatarUrl) {
-      void upsertFromAuth({});
-      return;
-    }
-    if (!profile.onboardingCompleted) {
-      router.replace("/onboarding");
-    }
-  }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
-
-  const onClaim = async (taskId: Id<"tasks">) => {
+  const onToggleLike = async (completionId: Id<"completions">) => {
     try {
-      const result = await claim({ taskId });
+      await toggleLike({ completionId });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onToggleCap = async (completionId: Id<"completions">) => {
+    try {
+      const result = await toggleChallenge({ completionId });
+      setToast({
+        message: result.state === "added" ? "Cap called" : "Cap retracted",
+        tone: result.state === "added" ? "error" : "neutral",
+      });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onComment = async (
+    completionId: Id<"completions">,
+    body: string,
+  ): Promise<void> => {
+    try {
+      const result = await addComment({ completionId, body });
       if (!result.ok) {
         setToast({ message: result.error, tone: "error" });
-        return;
       }
-      setToast({ message: "Claimed · upload proof within 15m", tone: "neutral" });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
   };
 
-  const onUnclaim = async (completionId: Id<"completions">) => {
-    try {
-      await unclaim({ completionId });
-    } catch (e) {
-      setToast({ message: errorMessage(e), tone: "error" });
+  const splitItems = useMemo(() => {
+    if (!feed) return { fresh: [] as FeedCardItem[], older: [] as FeedCardItem[] };
+    const fresh: FeedCardItem[] = [];
+    const older: FeedCardItem[] = [];
+    for (const it of feed.items as FeedCardItem[]) {
+      if (seenThreshold > 0 && it.verifiedAt > seenThreshold) fresh.push(it);
+      else older.push(it);
     }
-  };
-
-  const onUpload = async (completionId: Id<"completions">, file: File) => {
-    try {
-      const urlResult = await generateProofUploadUrl({ completionId });
-      if (!urlResult.ok) {
-        setToast({ message: urlResult.error, tone: "error" });
-        return;
-      }
-      const res = await fetch(urlResult.uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!res.ok) {
-        setToast({ message: "Upload failed, try again", tone: "error" });
-        return;
-      }
-      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      const attached = await attachProof({ completionId, storageId });
-      if (!attached.ok) {
-        setToast({ message: attached.error, tone: "error" });
-        return;
-      }
-      setToast({ message: "Verified", tone: "success" });
-    } catch (e) {
-      setToast({ message: errorMessage(e), tone: "error" });
-    }
-  };
+    return { fresh, older };
+  }, [feed, seenThreshold]);
 
   if (
     authLoading ||
@@ -125,21 +138,19 @@ export function DashboardScreen() {
   }
 
   const hello = firstName(profile.displayName);
-  const dateLabel = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  const hasGroups = (home?.totals.groupCount ?? 0) > 0;
+  const totalItems = feed?.items.length ?? 0;
 
   return (
-    <div className="page-wrap page-home">
-      <header className="page-wrap-bar">
+    <div className="page-wrap page-feed has-bottom-nav">
+      <header className="page-wrap-bar page-wrap-bar-feed">
         <Link href="/dashboard" className="entry-brand">
           Receipts<span className="v">v0.1</span>
         </Link>
         <div className="topbar-right">
           <Link href="/profile" className="user-chip user-chip-link">
             {profile.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profile.avatarUrl}
                 alt=""
@@ -164,124 +175,73 @@ export function DashboardScreen() {
         </div>
       </header>
 
-      <main className="page">
-        {home && home.groups.length === 0 ? (
-          <EmptyHome hello={hello} />
+      <FeedStatsBar
+        todayDone={home?.totals.todayDone ?? 0}
+        totalDailyTasks={home?.totals.totalDailyTasks ?? 0}
+        todayPoints={home?.totals.todayPoints ?? 0}
+        groupCount={home?.totals.groupCount ?? 0}
+      />
+
+      <main className="page page-feed-main">
+        {!hasGroups ? (
+          <EmptyFeed hello={hello} />
         ) : (
-          home && (
-            <>
-              <div className="page-head fade-up home-hero">
-                <div>
-                  <span className="eyebrow">
-                    Your day · {dateLabel} · across{" "}
-                    <b>{home.totals.groupCount}</b>{" "}
-                    {home.totals.groupCount === 1 ? "group" : "groups"}
-                  </span>
-                  <h1 className="h-page" style={{ marginTop: 8 }}>
-                    {hello}<span className="roman">.</span>
-                  </h1>
-                  <p className="entry-dek" style={{ marginTop: 14, maxWidth: 560 }}>
-                    <span className="num">{home.totals.todayPoints}</span> pts
-                    today ·{" "}
-                    <span className="num">{home.totals.weekPoints}</span> this
-                    week ·{" "}
-                    <span className="num">{home.totals.todayDone}</span>/
-                    <span className="num">{home.totals.totalDailyTasks}</span>{" "}
-                    done
-                  </p>
-                  <p className="hero-countdown">
-                    <DayResetCountdown />
-                  </p>
-                </div>
+          <>
+            {stories && stories.length > 0 && (
+              <StoriesRail
+                stories={stories as StoryBundle[]}
+                onOpen={(i) => setStoryStart(i)}
+              />
+            )}
+
+            {feed === undefined ? (
+              <p className="muted-line" style={{ marginTop: 28 }}>
+                Loading feed…
+              </p>
+            ) : totalItems === 0 ? (
+              <div className="activity-empty" style={{ marginTop: 28 }}>
+                <p className="eyebrow">Quiet here</p>
+                <p className="activity-empty-line">
+                  No verified receipts yet. Be the first to post.
+                </p>
               </div>
+            ) : (
+              <div className="feed-list">
+                {splitItems.fresh.map((item) => (
+                  <FeedCard
+                    key={item.completionId}
+                    item={item}
+                    onOpenProof={(url) => setLightboxUrl(url)}
+                    onToggleLike={onToggleLike}
+                    onToggleCap={onToggleCap}
+                    onComment={onComment}
+                  />
+                ))}
 
-              {stories && stories.length > 0 && (
-                <StoriesRail
-                  stories={stories as StoryBundle[]}
-                  onOpen={(i) => setStoryStart(i)}
-                />
-              )}
-
-              <section className="fade-up d1 home-groups-section">
-                <header className="section-head">
-                  <h2 className="h-section">Your groups.</h2>
-                  <span className="eyebrow">
-                    <span className="num">{home.totals.groupCount}</span> active
-                  </span>
-                </header>
-              </section>
-
-              <div className="home-groups">
-                {home.groups.map((g, idx) => (
-                  <article
-                    key={g._id}
-                    className={`home-card fade-up ${g.isLeading ? "leading" : ""}`}
-                    style={{ animationDelay: `${60 + idx * 80}ms` }}
-                  >
-                    <header className="home-card-head">
-                      <div className="home-card-head-meta">
-                        <span className="eyebrow">
-                          {g.isAdmin ? "admin · you" : "member"} ·{" "}
-                          {g.memberCount}{" "}
-                          {g.memberCount === 1 ? "person" : "people"}
-                        </span>
-                        <h2 className="home-card-name">{g.name}</h2>
-                        <AvatarStack members={g.memberAvatars} />
-                      </div>
-                      <Link
-                        href={`/group/${g._id}`}
-                        className="btn-primary home-card-enter"
-                      >
-                        Enter group
-                        <span className="arrow">→</span>
-                      </Link>
-                    </header>
-
-                    <div className="home-card-scoreboard">
-                      <ScoreCell
-                        value={`#${g.rank}`}
-                        label={`of ${g.memberCount}`}
-                        accent={g.isLeading}
-                      />
-                      <ScoreCell
-                        value={g.isLeading ? "—" : `${g.gapToLeader}`}
-                        label={
-                          g.isLeading
-                            ? "On top"
-                            : g.leaderFirstName
-                              ? `Behind ${g.leaderFirstName}`
-                              : "Behind"
-                        }
-                        accent={g.isLeading}
-                      />
-                      <ScoreCell
-                        value={`${g.stats.todayDone}/${g.stats.totalDailyTasks}`}
-                        label="Today"
-                      />
-                      <ScoreCell
-                        value={`${g.stats.weekPoints}`}
-                        label="Week pts"
-                      />
+                {splitItems.fresh.length > 0 &&
+                  splitItems.older.length > 0 && (
+                    <div className="feed-divider" role="separator">
+                      <span className="feed-divider-line" aria-hidden />
+                      <span className="feed-divider-label mono">
+                        Older · seen before
+                      </span>
+                      <span className="feed-divider-line" aria-hidden />
                     </div>
+                  )}
 
-                    {g.slate.length === 0 ? (
-                      <p className="muted-line" style={{ padding: "16px 0 0" }}>
-                        No tasks yet in this group.
-                      </p>
-                    ) : (
-                      <TodaySlate
-                        slate={g.slate}
-                        onClaim={onClaim}
-                        onUnclaim={onUnclaim}
-                        onUpload={onUpload}
-                        onOpenProof={(url) => setLightboxUrl(url)}
-                      />
-                    )}
-                  </article>
+                {splitItems.older.map((item) => (
+                  <FeedCard
+                    key={item.completionId}
+                    item={item}
+                    onOpenProof={(url) => setLightboxUrl(url)}
+                    onToggleLike={onToggleLike}
+                    onToggleCap={onToggleCap}
+                    onComment={onComment}
+                  />
                 ))}
               </div>
-            </>
-          )
+            )}
+          </>
         )}
       </main>
 
@@ -292,47 +252,12 @@ export function DashboardScreen() {
         onClose={() => setStoryStart(null)}
       />
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomNav />
     </div>
   );
 }
 
-function ScoreCell({
-  value,
-  label,
-  accent,
-}: {
-  value: string;
-  label: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className={`score-cell ${accent ? "accent" : ""}`}>
-      <span className="score-cell-value num">{value}</span>
-      <span className="score-cell-label">{label}</span>
-    </div>
-  );
-}
-
-function AvatarStack({ members }: { members: Member[] }) {
-  if (members.length === 0) return null;
-  return (
-    <div className="avatar-stack">
-      {members.map((m, i) => (
-        <span key={i} className="avatar-stack-item" title={m.displayName}>
-          {m.avatarUrl ? (
-            <img src={m.avatarUrl} alt="" width={28} height={28} className="avatar" />
-          ) : (
-            <span className="avatar avatar-fallback">
-              {m.displayName.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function EmptyHome({ hello }: { hello: string }) {
+function EmptyFeed({ hello }: { hello: string }) {
   return (
     <div className="page-head fade-up">
       <div>
@@ -341,12 +266,12 @@ function EmptyHome({ hello }: { hello: string }) {
           {hello}<span className="roman">.</span>
         </h1>
         <p className="entry-dek" style={{ marginTop: 14, maxWidth: 520 }}>
-          You&apos;re in, but not in a group yet. Head to your profile to spin
-          one up or join with a code.
+          You&apos;re in, but not in a group yet. Head to Groups to spin one up
+          or join with a code.
         </p>
         <div style={{ marginTop: 22 }}>
-          <Link href="/profile" className="btn-primary">
-            Go to profile
+          <Link href="/groups" className="btn-primary">
+            Go to Groups
             <span className="arrow">→</span>
           </Link>
         </div>

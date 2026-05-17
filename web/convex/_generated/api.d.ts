@@ -16,6 +16,7 @@ import type * as dev from "../dev.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as lib_period from "../lib/period.js";
+import type * as likes from "../likes.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
 import type * as tasks from "../tasks.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   groups: typeof groups;
   http: typeof http;
   "lib/period": typeof lib_period;
+  likes: typeof likes;
   profiles: typeof profiles;
   proofs: typeof proofs;
   tasks: typeof tasks;

@@ -12,6 +12,7 @@ import { Toast, type ToastValue } from "./toast";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
+import { BottomNav } from "./bottom-nav";
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export function ProfileScreen() {
   if (!profile) return null;
 
   return (
-    <div className="page-wrap">
+    <div className="page-wrap has-bottom-nav">
       <header className="page-wrap-bar">
         <div className="topbar-left">
           <Link href="/dashboard" className="entry-brand">
@@ -238,6 +239,7 @@ export function ProfileScreen() {
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomNav />
     </div>
   );
 }

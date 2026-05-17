@@ -17,6 +17,7 @@ import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
 import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown } from "./countdown";
+import { BottomNav } from "./bottom-nav";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -199,7 +200,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
   };
 
   return (
-    <div className="page-wrap page-group">
+    <div className="page-wrap page-group has-bottom-nav">
       <header className="page-wrap-bar">
         <div className="topbar-left">
           <Link href="/dashboard" className="entry-brand">
@@ -375,6 +376,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
         onConfirm={confirmRemoveTask}
       />
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomNav />
     </div>
   );
 }
