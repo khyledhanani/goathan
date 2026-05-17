@@ -11,6 +11,7 @@ import { firstName } from "@/lib/utils";
 import { Toast, type ToastValue } from "./toast";
 import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
+import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
 
 export function UserProfilePage({ userId }: { userId: string }) {
@@ -20,6 +21,9 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   const me = useQuery(api.profiles.getCurrentProfile);
   const data = useQuery(api.proofs.gridForUser, {
+    userId: userId as Id<"users">,
+  });
+  const trophies = useQuery(api.weekResults.trophiesForUser, {
     userId: userId as Id<"users">,
   });
 
@@ -157,6 +161,18 @@ export function UserProfilePage({ userId }: { userId: string }) {
             </div>
 
             <section className="fade-up d1" style={{ marginTop: 36 }}>
+              <header className="section-head">
+                <h2 className="h-section">Trophy cabinet.</h2>
+                <span className="eyebrow">
+                  {trophies === undefined
+                    ? "Loading…"
+                    : `${(trophies?.counts.gold ?? 0) + (trophies?.counts.silver ?? 0) + (trophies?.counts.bronze ?? 0)} medals`}
+                </span>
+              </header>
+              <TrophyCabinet data={trophies ?? null} emptyOwn={false} />
+            </section>
+
+            <section className="fade-up d2" style={{ marginTop: 56 }}>
               <header className="section-head">
                 <h2 className="h-section">Receipts.</h2>
                 <span className="eyebrow">Verified · across shared groups</span>

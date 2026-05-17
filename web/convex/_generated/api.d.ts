@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as challenges from "../challenges.js";
 import type * as comments from "../comments.js";
 import type * as completions from "../completions.js";
+import type * as crons from "../crons.js";
 import type * as dev from "../dev.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
@@ -20,6 +21,7 @@ import type * as likes from "../likes.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
 import type * as tasks from "../tasks.js";
+import type * as weekResults from "../weekResults.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   challenges: typeof challenges;
   comments: typeof comments;
   completions: typeof completions;
+  crons: typeof crons;
   dev: typeof dev;
   groups: typeof groups;
   http: typeof http;
@@ -40,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   proofs: typeof proofs;
   tasks: typeof tasks;
+  weekResults: typeof weekResults;
 }>;
 
 /**

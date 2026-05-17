@@ -2,20 +2,47 @@
 
 import { useEffect, useState } from "react";
 
-function nextLocalMidnightUTC(now: number): number {
+function nextUtcMidnight(now: number): number {
   const d = new Date(now);
-  const next = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0),
+  return Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + 1,
+    0,
+    0,
+    0,
   );
-  return next.getTime();
 }
 
-function formatRemaining(ms: number): string {
+function nextMondayUtc(now: number): number {
+  const d = new Date(now);
+  const day = d.getUTCDay();
+  const daysFromMonday = (day + 6) % 7;
+  const startOfThisWeek = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() - daysFromMonday,
+    0,
+    0,
+    0,
+  );
+  return startOfThisWeek + 7 * 24 * 60 * 60 * 1000;
+}
+
+function formatHM(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hr = Math.floor(total / 3600);
   const min = Math.floor((total % 3600) / 60);
   if (hr > 0) return `${hr}h ${min}m`;
   return `${min}m`;
+}
+
+function formatDH(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const day = Math.floor(total / 86400);
+  const hr = Math.floor((total % 86400) / 3600);
+  if (day > 0) return `${day}d ${hr}h`;
+  return `${hr}h`;
 }
 
 export function FeedStatsBar({
@@ -36,7 +63,8 @@ export function FeedStatsBar({
   }, []);
   void tick;
 
-  const remaining = formatRemaining(nextLocalMidnightUTC(Date.now()) - Date.now());
+  const dayRemaining = formatHM(nextUtcMidnight(Date.now()) - Date.now());
+  const weekRemaining = formatDH(nextMondayUtc(Date.now()) - Date.now());
 
   return (
     <div className="feed-stats-bar fade-up">
@@ -48,7 +76,7 @@ export function FeedStatsBar({
       </span>
       <span className="feed-stats-cell">
         <span className="num">{todayPoints}</span>
-        <span className="feed-stats-label">pts</span>
+        <span className="feed-stats-label">pts today</span>
       </span>
       <span className="feed-stats-cell">
         <span className="num">{groupCount}</span>
@@ -57,8 +85,14 @@ export function FeedStatsBar({
         </span>
       </span>
       <span className="feed-stats-cell feed-stats-countdown">
-        <span className="feed-stats-label">resets in</span>
-        <span className="num">{remaining}</span>
+        <span className="feed-stats-cd-row">
+          <span className="feed-stats-label">day</span>
+          <span className="num">{dayRemaining}</span>
+        </span>
+        <span className="feed-stats-cd-row feed-stats-cd-week">
+          <span className="feed-stats-label">comp</span>
+          <span className="num">{weekRemaining}</span>
+        </span>
       </span>
     </div>
   );

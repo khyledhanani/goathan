@@ -16,7 +16,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
 import { ProofLightbox } from "./proof-lightbox";
-import { DayResetCountdown } from "./countdown";
+import { DayResetCountdown, WeekResetCountdown } from "./countdown";
 import { BottomNav } from "./bottom-nav";
 
 export function GroupPage({ groupId }: { groupId: string }) {
@@ -255,6 +255,8 @@ export function GroupPage({ groupId }: { groupId: string }) {
             </p>
             <p className="hero-countdown">
               <DayResetCountdown />
+              <span className="hero-countdown-sep" aria-hidden> · </span>
+              <WeekResetCountdown />
             </p>
           </div>
         </div>

@@ -114,4 +114,23 @@ export default defineSchema({
     .index("by_completion", ["completionId"])
     .index("by_completion_and_user", ["completionId", "userId"])
     .index("by_user", ["userId"]),
+
+  weekResults: defineTable({
+    groupId: v.id("groups"),
+    groupName: v.string(),
+    weekKey: v.string(),
+    userId: v.id("users"),
+    rank: v.number(),
+    weekPoints: v.number(),
+    medal: v.union(
+      v.literal("GOLD"),
+      v.literal("SILVER"),
+      v.literal("BRONZE"),
+    ),
+    weekEndMs: v.number(),
+    finalizedAt: v.number(),
+  })
+    .index("by_user_end", ["userId", "weekEndMs"])
+    .index("by_group_week", ["groupId", "weekKey"])
+    .index("by_user_medal", ["userId", "medal"]),
 });

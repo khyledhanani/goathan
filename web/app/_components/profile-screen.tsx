@@ -12,6 +12,7 @@ import { Toast, type ToastValue } from "./toast";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
+import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
 
 export function ProfileScreen() {
@@ -22,6 +23,10 @@ export function ProfileScreen() {
   const groups = useQuery(api.groups.getMyGroups);
   const myReceipts = useQuery(
     api.proofs.gridForUser,
+    profile ? { userId: profile.userId } : "skip",
+  );
+  const myTrophies = useQuery(
+    api.weekResults.trophiesForUser,
     profile ? { userId: profile.userId } : "skip",
   );
   const leaveGroup = useMutation(api.groups.leave);
@@ -113,6 +118,18 @@ export function ProfileScreen() {
 
         <section className="fade-up d1">
           <header className="section-head">
+            <h2 className="h-section">Trophy cabinet.</h2>
+            <span className="eyebrow">
+              {myTrophies === undefined
+                ? "Loading…"
+                : `${(myTrophies?.counts.gold ?? 0) + (myTrophies?.counts.silver ?? 0) + (myTrophies?.counts.bronze ?? 0)} medals`}
+            </span>
+          </header>
+          <TrophyCabinet data={myTrophies ?? null} emptyOwn />
+        </section>
+
+        <section className="fade-up d2" style={{ marginTop: 56 }}>
+          <header className="section-head">
             <h2 className="h-section">Your receipts.</h2>
             <span className="eyebrow">
               {myReceipts === undefined
@@ -136,7 +153,7 @@ export function ProfileScreen() {
           )}
         </section>
 
-        <section className="fade-up d2" style={{ marginTop: 56 }}>
+        <section className="fade-up d3" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Your groups.</h2>
             <span className="eyebrow">
@@ -177,7 +194,7 @@ export function ProfileScreen() {
           )}
         </section>
 
-        <section className="fade-up d3" style={{ marginTop: 56 }}>
+        <section className="fade-up d4" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Manage groups.</h2>
             <span className="eyebrow">Create or join</span>
@@ -188,7 +205,7 @@ export function ProfileScreen() {
           />
         </section>
 
-        <section className="fade-up d4" style={{ marginTop: 56 }}>
+        <section className="fade-up d5" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Your details.</h2>
             <span className="eyebrow">Pulled from Google</span>

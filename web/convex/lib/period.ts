@@ -19,3 +19,23 @@ export const periodKeyFor = (
   frequency: "DAILY" | "WEEKLY",
   now: number,
 ): string => (frequency === "DAILY" ? dayKey(now) : weekKey(now));
+
+export const weekStartMs = (now: number): number => {
+  const d = new Date(now);
+  const day = d.getUTCDay();
+  const daysFromMonday = (day + 6) % 7;
+  return Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() - daysFromMonday,
+    0,
+    0,
+    0,
+  );
+};
+
+export const weekEndMs = (now: number): number =>
+  weekStartMs(now) + 7 * 24 * 60 * 60 * 1000;
+
+export const previousWeekKey = (now: number): string =>
+  weekKey(weekStartMs(now) - 1);
