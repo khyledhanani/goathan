@@ -3690,7 +3690,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+  :root[data-theme="system"] {
     --paper: #1c1a14;
     --paper-2: #25221a;
     --paper-3: #2f2b20;

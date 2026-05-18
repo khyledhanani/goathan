@@ -56,7 +56,7 @@ export const viewport = {
   ],
 };
 
-const THEME_INIT = `(function(){try{var t=localStorage.getItem('receipts.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();`;
+const THEME_INIT = `(function(){try{var t=localStorage.getItem('receipts.theme');if(t==='dark'||t==='light'||t==='system')document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

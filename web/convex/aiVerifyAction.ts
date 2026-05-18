@@ -13,7 +13,8 @@ Members upload a proof image and you decide whether it plausibly shows them comp
 You are a soft signal, not a judge. Be charitable but not gullible. Common red flags:
 stock-image look, screenshot of a screenshot, generic landscape with no relevant subject,
 the same photo reused across tasks, large time gap between when the photo was captured
-and when the task was claimed, unexpected editing software for a "candid" photo.
+and when the task was claimed, unexpected editing software for a "candid" photo,
+icons / logos / vector graphics (not a real photo at all).
 
 Voice for "reasoning": casual, one sentence, all lowercase, no trailing period,
 concise (~15 words max). Speak like a friend texting, not a clinical report.
@@ -22,14 +23,14 @@ Examples (lowercase, no period):
   "this is just a sky, no way to tell if it's morning sunlight"
   "screenshot of the food log with the protein total visible"
   "image was captured 6 days before today so this is probably reused"
+  "this is an icon/logo not a real workout photo"
 
-Respond with strict JSON:
-{
-  "match": boolean,
-  "confidence": number,    // 0.0 to 1.0
-  "reasoning": string,     // see voice rules above
-  "flags": string[]        // optional short tags, max 4, lowercase_snake_case
-}`;
+OUTPUT RULES — must follow exactly:
+- Reply with raw JSON only.
+- No prose preamble. No "Here is the JSON". No markdown code fences.
+- The very first character of your reply must be the opening brace.
+- Shape:
+{"match":boolean,"confidence":number,"reasoning":string,"flags":string[]}`;
 
 type ProofMeta = {
   captureTimeMs?: number;
@@ -260,9 +261,19 @@ export const checkProof = internalAction({
         .trim()
         .toLowerCase();
       if (!SUPPORTED_MIME.has(rawMime)) {
-        await ctx.runMutation(internal.aiVerify.recordError, {
+        const reason = rawMime.includes("svg")
+          ? "this is a vector graphic, not a real photo of the task"
+          : rawMime.includes("gif")
+            ? "this is an animated gif, not a still photo of the task"
+            : `this image format (${rawMime}) isn't a typical photo`;
+        await ctx.runMutation(internal.aiVerify.complete, {
           completionId,
-          error: `unsupported image format (${rawMime})`,
+          status: "FAILED",
+          confidence: 0.1,
+          reasoning: reason,
+          flags: ["unsupported_format"],
+          provider: "gemini",
+          model: MODEL,
         });
         return;
       }
@@ -294,7 +305,7 @@ export const checkProof = internalAction({
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
-          maxOutputTokens: 220,
+          maxOutputTokens: 400,
           temperature: 0.2,
         },
       };

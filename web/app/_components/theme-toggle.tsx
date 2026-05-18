@@ -7,23 +7,19 @@ type Choice = "system" | "light" | "dark";
 const STORAGE_KEY = "receipts.theme";
 
 function apply(choice: Choice) {
-  const root = document.documentElement;
-  if (choice === "system") {
-    delete root.dataset.theme;
-  } else {
-    root.dataset.theme = choice;
-  }
+  document.documentElement.dataset.theme = choice;
 }
 
 export function ThemeToggle() {
-  const [choice, setChoice] = useState<Choice>("system");
+  const [choice, setChoice] = useState<Choice>("light");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    let initial: Choice = "system";
+    let initial: Choice = "light";
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "light" || stored === "dark") initial = stored;
+      if (stored === "light" || stored === "dark" || stored === "system")
+        initial = stored;
     } catch {
       /* */
     }
@@ -35,8 +31,7 @@ export function ThemeToggle() {
     setChoice(next);
     apply(next);
     try {
-      if (next === "system") localStorage.removeItem(STORAGE_KEY);
-      else localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* */
     }
