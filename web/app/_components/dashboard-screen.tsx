@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { firstName } from "@/lib/utils";
@@ -21,11 +20,11 @@ import {
 import { FeedStatsBar } from "./feed-stats-bar";
 import { BottomNav } from "./bottom-nav";
 import { PushPrompt } from "./push-prompt";
+import { UserMenu } from "./user-menu";
 
 export function DashboardScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
   const stories = useQuery(api.proofs.storiesAcrossMyGroups);
@@ -39,7 +38,6 @@ export function DashboardScreen() {
   const markFeedSeen = useMutation(api.profiles.markFeedSeen);
 
   const [toast, setToast] = useState<ToastValue>(null);
-  const [signingOut, setSigningOut] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [storyStart, setStoryStart] = useState<number | null>(null);
 
@@ -81,16 +79,6 @@ export function DashboardScreen() {
       // storage blocked, nothing to do
     }
   }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
-
-  const onLogout = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
-    }
-  };
 
   const onToggleLike = async (
     completionId: Id<"completions">,
@@ -202,30 +190,12 @@ export function DashboardScreen() {
               <span className="inbox-bell-dot" aria-hidden />
             )}
           </Link>
-          <Link href="/profile" className="user-chip user-chip-link">
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-                className="avatar"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {hello.charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span className="user-chip-name">{profile.displayName}</span>
-          </Link>
-          <button
-            className="btn-link"
-            onClick={onLogout}
-            disabled={signingOut}
-          >
-            {signingOut ? "Out…" : "Log out"}
-          </button>
+          <UserMenu
+            profile={{
+              displayName: profile.displayName,
+              avatarUrl: profile.avatarUrl,
+            }}
+          />
         </div>
       </header>
 

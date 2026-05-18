@@ -15,7 +15,11 @@ export function BottomNav() {
   const activeKey = (() => {
     if (pathname.startsWith("/groups") || pathname.startsWith("/group/"))
       return "groups";
-    if (pathname.startsWith("/profile") || pathname.startsWith("/u/"))
+    if (
+      pathname.startsWith("/profile") ||
+      pathname.startsWith("/u/") ||
+      pathname.startsWith("/settings")
+    )
       return "profile";
     return "feed";
   })();

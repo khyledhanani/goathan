@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { firstName } from "@/lib/utils";
@@ -13,11 +12,11 @@ import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
+import { UserMenu } from "./user-menu";
 
 export function UserProfilePage({ userId }: { userId: string }) {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const { signOut } = useAuthActions();
 
   const me = useQuery(api.profiles.getCurrentProfile);
   const data = useQuery(api.proofs.gridForUser, {
@@ -32,7 +31,6 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -47,16 +45,6 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   void toast;
 
-  const onLogout = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
-    }
-  };
-
   if (authLoading || me === undefined || data === undefined) {
     return (
       <div className="entry">
@@ -69,7 +57,6 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   if (!me || data === null) return null;
 
-  const hello = firstName(me.displayName);
   const target = data.profile;
   const items = data.items as ProfileGridItem[];
   const countLabel = items.length >= 60 ? "60+" : `${items.length}`;
@@ -86,30 +73,12 @@ export function UserProfilePage({ userId }: { userId: string }) {
           </Link>
         </div>
         <div className="topbar-right">
-          <Link href="/profile" className="user-chip user-chip-link">
-            {me.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={me.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-                className="avatar"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {hello.charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span className="user-chip-name">{me.displayName}</span>
-          </Link>
-          <button
-            className="btn-link"
-            onClick={onLogout}
-            disabled={signingOut}
-          >
-            {signingOut ? "Out…" : "Log out"}
-          </button>
+          <UserMenu
+            profile={{
+              displayName: me.displayName,
+              avatarUrl: me.avatarUrl,
+            }}
+          />
         </div>
       </header>
 

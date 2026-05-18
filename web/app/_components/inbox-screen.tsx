@@ -4,13 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { firstName } from "@/lib/utils";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { BottomNav } from "./bottom-nav";
+import { UserMenu } from "./user-menu";
 
 function timeAgo(ts: number): string {
   const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -50,28 +49,15 @@ function kindLabel(kind: string): string {
 export function InboxScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const data = useQuery(api.notifications.recent, {});
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
   const [toast, setToast] = useState<ToastValue>(null);
-  const [signingOut, setSigningOut] = useState(false);
-
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) router.replace("/");
   }, [authLoading, isAuthenticated, router]);
-
-  const onLogout = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
-    }
-  };
 
   const onTap = async (id: Id<"notifications">, deepLinkPath: string) => {
     try {
@@ -103,7 +89,6 @@ export function InboxScreen() {
 
   if (!profile) return null;
 
-  const hello = firstName(profile.displayName);
   const unread = data?.unreadCount ?? 0;
   const items = data?.items ?? [];
 
@@ -119,30 +104,12 @@ export function InboxScreen() {
           </Link>
         </div>
         <div className="topbar-right">
-          <Link href="/profile" className="user-chip user-chip-link">
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-                className="avatar"
-              />
-            ) : (
-              <span className="avatar avatar-fallback">
-                {hello.charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span className="user-chip-name">{profile.displayName}</span>
-          </Link>
-          <button
-            className="btn-link"
-            onClick={onLogout}
-            disabled={signingOut}
-          >
-            {signingOut ? "Out…" : "Log out"}
-          </button>
+          <UserMenu
+            profile={{
+              displayName: profile.displayName,
+              avatarUrl: profile.avatarUrl,
+            }}
+          />
         </div>
       </header>
 

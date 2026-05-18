@@ -3,23 +3,18 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useConvexAuth } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { mainGoalLabel } from "@/lib/types";
-import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
-import { ConfirmDialog } from "./confirm-dialog";
 import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
-import { NotificationSettings } from "./notification-settings";
+import { UserMenu } from "./user-menu";
 
 export function ProfileScreen() {
   const router = useRouter();
   const { isLoading: authLoading } = useConvexAuth();
-  const { signOut } = useAuthActions();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const groups = useQuery(api.groups.getMyGroups);
   const myReceipts = useQuery(
@@ -34,54 +29,11 @@ export function ProfileScreen() {
     api.streaks.forUser,
     profile ? { userId: profile.userId } : "skip",
   );
-  const leaveGroup = useMutation(api.groups.leave);
 
   const [toast, setToast] = useState<ToastValue>(null);
-  const [signingOut, setSigningOut] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [leavingId, setLeavingId] = useState<string | null>(null);
-  const [leaveTarget, setLeaveTarget] = useState<{
-    id: string;
-    name: string;
-    isAdmin: boolean;
-  } | null>(null);
 
-  const onLogout = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
-    }
-  };
-
-  const onLeaveClick = (groupId: string, name: string, isAdmin: boolean) => {
-    setLeaveTarget({ id: groupId, name, isAdmin });
-  };
-
-  const confirmLeave = async () => {
-    if (!leaveTarget) return;
-    const { id, name } = leaveTarget;
-    setLeavingId(id);
-    try {
-      const result = await leaveGroup({
-        groupId: id as Parameters<typeof leaveGroup>[0]["groupId"],
-      });
-      setToast({
-        message:
-          result.state === "deleted"
-            ? `${name} was deleted`
-            : `You left ${name}`,
-        tone: "neutral",
-      });
-      setLeaveTarget(null);
-    } catch (e) {
-      setToast({ message: errorMessage(e), tone: "error" });
-    } finally {
-      setLeavingId(null);
-    }
-  };
+  void router;
 
   if (authLoading || profile === undefined) {
     return (
@@ -106,9 +58,14 @@ export function ProfileScreen() {
             ← Home
           </Link>
         </div>
-        <button className="btn-link" onClick={onLogout} disabled={signingOut}>
-          {signingOut ? "Out…" : "Log out"}
-        </button>
+        <div className="topbar-right">
+          <UserMenu
+            profile={{
+              displayName: profile.displayName,
+              avatarUrl: profile.avatarUrl,
+            }}
+          />
+        </div>
       </header>
 
       <main className="page">
@@ -186,7 +143,10 @@ export function ProfileScreen() {
             <p className="muted-line">Loading…</p>
           ) : groups.length === 0 ? (
             <p className="muted-line">
-              No groups yet. Create one or join with a code below.
+              No groups yet.{" "}
+              <Link href="/settings" className="btn-link">
+                Create or join one →
+              </Link>
             </p>
           ) : (
             <ul className="profile-groups">
@@ -202,235 +162,24 @@ export function ProfileScreen() {
                     <Link href={`/group/${g._id}`} className="btn-link">
                       Open →
                     </Link>
-                    <button
-                      className="btn-link btn-link-danger"
-                      onClick={() => onLeaveClick(g._id, g.name, g.isAdmin)}
-                      disabled={leavingId === g._id}
-                    >
-                      Leave
-                    </button>
                   </div>
                 </li>
               ))}
             </ul>
           )}
-        </section>
-
-        <section className="fade-up d4" style={{ marginTop: 56 }}>
-          <header className="section-head">
-            <h2 className="h-section">Manage groups.</h2>
-            <span className="eyebrow">Create or join</span>
-          </header>
-          <GroupActions
-            onSuccess={(msg) => setToast({ message: msg, tone: "success" })}
-            onError={(msg) => setToast({ message: msg, tone: "error" })}
-          />
-        </section>
-
-        <section className="fade-up d5" style={{ marginTop: 56 }}>
-          <header className="section-head">
-            <h2 className="h-section">Notifications.</h2>
-            <span className="eyebrow">Push + inbox</span>
-          </header>
-          <NotificationSettings
-            onToast={(message, tone) =>
-              setToast({ message, tone: tone ?? "neutral" })
-            }
-          />
-        </section>
-
-        <section className="fade-up d6" style={{ marginTop: 56 }}>
-          <header className="section-head">
-            <h2 className="h-section">Your details.</h2>
-            <span className="eyebrow">Pulled from Google</span>
-          </header>
-          <dl className="profile-list">
-            <ProfileRow label="Display name" value={profile.displayName} />
-            <ProfileRow
-              label="Username"
-              value={profile.username ? `@${profile.username}` : "—"}
-              muted={!profile.username}
-            />
-            <ProfileRow label="Email" value={profile.email} />
-            <ProfileRow
-              label="Main goal"
-              value={mainGoalLabel(profile.mainGoal)}
-              muted={!profile.mainGoal}
-            />
-          </dl>
+          <p className="muted-line" style={{ marginTop: 16 }}>
+            Manage groups in{" "}
+            <Link href="/settings" className="btn-link">
+              Settings
+            </Link>
+            .
+          </p>
         </section>
       </main>
-
-      <ConfirmDialog
-        open={leaveTarget !== null}
-        title={leaveTarget ? `Leave ${leaveTarget.name}?` : ""}
-        body={
-          leaveTarget && (
-            <>
-              <p>
-                You&apos;ll lose your standings in this group and your
-                completions will be removed.
-              </p>
-              {leaveTarget.isAdmin && (
-                <p className="confirm-note">
-                  You&apos;re admin. If anyone else is in the group, admin
-                  passes to the longest-tenured member. If you&apos;re alone,
-                  the group is deleted permanently.
-                </p>
-              )}
-            </>
-          )
-        }
-        confirmLabel={leaveTarget?.isAdmin ? "Leave anyway" : "Leave group"}
-        danger
-        busy={leavingId !== null}
-        onCancel={() => setLeaveTarget(null)}
-        onConfirm={confirmLeave}
-      />
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <Toast value={toast} onDismiss={() => setToast(null)} />
       <BottomNav />
-    </div>
-  );
-}
-
-function ProfileRow({
-  label,
-  value,
-  muted,
-}: {
-  label: string;
-  value: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className="profile-row">
-      <dt className="eyebrow">{label}</dt>
-      <dd className={`profile-row-v ${muted ? "muted" : ""}`}>{value}</dd>
-    </div>
-  );
-}
-
-function GroupActions({
-  onSuccess,
-  onError,
-}: {
-  onSuccess: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [mode, setMode] = useState<"create" | "join">("create");
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const createGroup = useMutation(api.groups.create);
-  const joinByCode = useMutation(api.groups.joinByCode);
-
-  const canCreate = name.trim().length > 0 && !busy;
-  const canJoin = /^[A-Z0-9]{6}$/.test(code) && !busy;
-
-  const submit = async () => {
-    setBusy(true);
-    try {
-      if (mode === "create") {
-        if (!canCreate) return;
-        const result = await createGroup({ name: name.trim() });
-        if (!result.ok) {
-          onError(result.error);
-          return;
-        }
-        onSuccess(`Created ${name.trim()}`);
-        setName("");
-      } else {
-        if (!canJoin) return;
-        const result = await joinByCode({ inviteCode: code });
-        if (!result.ok) {
-          onError(result.error);
-          return;
-        }
-        onSuccess("You're in the group");
-        setCode("");
-      }
-    } catch (e) {
-      onError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="group-actions">
-      <div className="seg">
-        <button
-          className={mode === "create" ? "active" : ""}
-          onClick={() => setMode("create")}
-        >
-          Create a group
-        </button>
-        <span className="seg-dot">/</span>
-        <button
-          className={mode === "join" ? "active" : ""}
-          onClick={() => setMode("join")}
-        >
-          Join with code
-        </button>
-      </div>
-
-      {mode === "create" ? (
-        <label className="field">
-          <span className="field-label">
-            <span>Group name</span>
-            <span className="hint">You&apos;ll be admin</span>
-          </span>
-          <input
-            className="field-input"
-            placeholder="The Sunday Crew"
-            value={name}
-            maxLength={40}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canCreate) void submit();
-            }}
-          />
-        </label>
-      ) : (
-        <label className="field">
-          <span className="field-label">
-            <span>Invite code</span>
-            <span className="hint">6 characters</span>
-          </span>
-          <input
-            className="field-input mono-input"
-            placeholder="ABC123"
-            value={code}
-            maxLength={6}
-            onChange={(e) =>
-              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canJoin) void submit();
-            }}
-          />
-        </label>
-      )}
-
-      <div style={{ marginTop: 22 }}>
-        <button
-          className="btn-primary"
-          disabled={mode === "create" ? !canCreate : !canJoin}
-          onClick={submit}
-        >
-          {mode === "create"
-            ? busy
-              ? "Creating…"
-              : "Create group"
-            : busy
-              ? "Joining…"
-              : "Join group"}
-          <span className="arrow">→</span>
-        </button>
-      </div>
     </div>
   );
 }
