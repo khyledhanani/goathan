@@ -143,6 +143,7 @@ export const feedAcrossMyGroups = query({
           points: c.points,
           verifiedAt: c.verifiedAt!,
           claimedAt: c.claimedAt,
+          revokedAt: c.revokedAt ?? null,
           proofUrl,
           likeCount: likes.length,
           likedByYou: likes.some((l) => l.userId === userId),
@@ -184,6 +185,7 @@ export const storiesAcrossMyGroups = query({
           (c) =>
             c.verifiedAt !== undefined &&
             c.proofStorageId !== undefined &&
+            c.revokedAt === undefined &&
             (c.verifiedAt ?? 0) >= cutoff,
         );
       }),
@@ -292,7 +294,8 @@ export const gridForUser = query({
           (c) =>
             c.userId === targetUserId &&
             c.verifiedAt !== undefined &&
-            c.proofStorageId !== undefined,
+            c.proofStorageId !== undefined &&
+            c.revokedAt === undefined,
         );
       }),
     );

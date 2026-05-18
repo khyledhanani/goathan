@@ -87,8 +87,16 @@ export function DashboardScreen() {
   const onToggleCap = async (completionId: Id<"completions">) => {
     try {
       const result = await toggleChallenge({ completionId });
+      const message =
+        result.state === "added"
+          ? result.revoked
+            ? "Cap upheld — points revoked"
+            : "Cap called"
+          : result.revoked
+            ? "Cap retracted"
+            : "Cap retracted — points restored";
       setToast({
-        message: result.state === "added" ? "Cap called" : "Cap retracted",
+        message,
         tone: result.state === "added" ? "error" : "neutral",
       });
     } catch (e) {

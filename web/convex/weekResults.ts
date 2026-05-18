@@ -38,6 +38,7 @@ async function finalizeOneGroupWeek(
   const pointsByUser = new Map<Id<"users">, number>();
   for (const c of completions) {
     if (c.verifiedAt === undefined) continue;
+    if (c.revokedAt !== undefined) continue;
     pointsByUser.set(
       c.userId,
       (pointsByUser.get(c.userId) ?? 0) + c.points,

@@ -24,6 +24,7 @@ type FeedItem = {
   points: number;
   claimedAt: number;
   verifiedAt: number | null;
+  revokedAt: number | null;
   proofUrl: string | null;
   challengeCount: number;
   challengedByYou: boolean;
@@ -121,9 +122,11 @@ function ActivityRow({
         ? ""
         : "expired";
 
+  const isRevoked = item.revokedAt !== null;
+
   return (
     <li
-      className={`activity-row activity-${mode} ${item.challengeCount > 0 ? "challenged" : ""}`}
+      className={`activity-row activity-${mode} ${item.challengeCount > 0 ? "challenged" : ""} ${isRevoked ? "revoked" : ""}`}
     >
       <div className="activity-top">
         {item.memberAvatarUrl ? (
@@ -153,6 +156,9 @@ function ActivityRow({
               <span className="activity-cap-count">
                 · {item.challengeCount} cap{item.challengeCount > 1 ? "s" : ""}
               </span>
+            )}
+            {isRevoked && (
+              <span className="activity-revoked-tag">· revoked</span>
             )}
           </p>
           <span className="activity-time mono">

@@ -79,6 +79,7 @@ export default defineSchema({
     claimedAt: v.number(),
     proofStorageId: v.optional(v.id("_storage")),
     verifiedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
   })
     .index("by_user_task_period", ["userId", "taskId", "periodKey"])
     .index("by_group_recent", ["groupId", "claimedAt"])

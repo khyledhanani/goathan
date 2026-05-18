@@ -27,6 +27,7 @@ export type FeedCardItem = {
   points: number;
   verifiedAt: number;
   claimedAt: number;
+  revokedAt: number | null;
   proofUrl: string | null;
   likeCount: number;
   likedByYou: boolean;
@@ -88,8 +89,19 @@ export function FeedCard({
     }
   };
 
+  const isRevoked = item.revokedAt !== null;
+
   return (
-    <article className="feed-card">
+    <article className={`feed-card ${isRevoked ? "is-revoked" : ""}`}>
+      {isRevoked && (
+        <div className="feed-card-revoked-banner">
+          <span className="feed-card-revoked-label">Revoked</span>
+          <span className="feed-card-revoked-sub mono">
+            {item.challengeCount} cap{item.challengeCount === 1 ? "" : "s"} —
+            points pulled
+          </span>
+        </div>
+      )}
       <header className="feed-card-head">
         <Link
           href={item.isYou ? "/profile" : `/u/${item.userId}`}
@@ -200,7 +212,11 @@ export function FeedCard({
 
       <div className="feed-card-task-row">
         <span className="feed-card-task">{item.taskName}</span>
-        <span className="feed-card-pts num">+{item.points}</span>
+        <span
+          className={`feed-card-pts num ${isRevoked ? "is-revoked" : ""}`}
+        >
+          +{item.points}
+        </span>
       </div>
 
       {!showThread && item.comments.length > 0 && (

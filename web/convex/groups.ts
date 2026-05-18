@@ -155,6 +155,7 @@ export const todayView = query({
         periodKey: string;
         claimedAt: number;
         verifiedAt?: number;
+        revokedAt?: number;
         proofUrl: string | null;
       }
     >();
@@ -167,6 +168,7 @@ export const todayView = query({
         periodKey: c.periodKey,
         claimedAt: c.claimedAt,
         verifiedAt: c.verifiedAt,
+        revokedAt: c.revokedAt,
         proofUrl,
       });
     }
@@ -191,6 +193,9 @@ export const todayView = query({
           verifiedAt: claimedThisPeriod
             ? (completion!.verifiedAt ?? null)
             : null,
+          revokedAt: claimedThisPeriod
+            ? (completion!.revokedAt ?? null)
+            : null,
           proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
         };
       })
@@ -201,14 +206,22 @@ export const todayView = query({
 
     const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
     const todayPoints = dailyTasks
-      .filter((t) => t.claimedThisPeriod && t.verifiedAt !== null)
+      .filter(
+        (t) =>
+          t.claimedThisPeriod &&
+          t.verifiedAt !== null &&
+          t.revokedAt === null,
+      )
       .reduce((s, t) => s + t.points, 0);
     const todayDone = dailyTasks.filter(
-      (t) => t.claimedThisPeriod && t.verifiedAt !== null,
+      (t) =>
+        t.claimedThisPeriod &&
+        t.verifiedAt !== null &&
+        t.revokedAt === null,
     ).length;
 
     const weekPoints = myWeekCompletions
-      .filter((c) => c.verifiedAt !== undefined)
+      .filter((c) => c.verifiedAt !== undefined && c.revokedAt === undefined)
       .reduce((s, c) => s + c.points, 0);
 
     return {
@@ -320,6 +333,7 @@ export const homeView = query({
             periodKey: string;
             claimedAt: number;
             verifiedAt?: number;
+            revokedAt?: number;
             proofUrl: string | null;
           }
         >();
@@ -332,6 +346,7 @@ export const homeView = query({
             periodKey: c.periodKey,
             claimedAt: c.claimedAt,
             verifiedAt: c.verifiedAt,
+            revokedAt: c.revokedAt,
             proofUrl,
           });
         }
@@ -356,6 +371,9 @@ export const homeView = query({
               verifiedAt: claimedThisPeriod
                 ? (completion!.verifiedAt ?? null)
                 : null,
+              revokedAt: claimedThisPeriod
+                ? (completion!.revokedAt ?? null)
+                : null,
               proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
             };
           })
@@ -367,13 +385,23 @@ export const homeView = query({
 
         const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
         const todayPoints = dailyTasks
-          .filter((t) => t.claimedThisPeriod && t.verifiedAt !== null)
+          .filter(
+            (t) =>
+              t.claimedThisPeriod &&
+              t.verifiedAt !== null &&
+              t.revokedAt === null,
+          )
           .reduce((s, t) => s + t.points, 0);
         const todayDone = dailyTasks.filter(
-          (t) => t.claimedThisPeriod && t.verifiedAt !== null,
+          (t) =>
+            t.claimedThisPeriod &&
+            t.verifiedAt !== null &&
+            t.revokedAt === null,
         ).length;
         const weekPoints = myCompletions
-          .filter((c) => c.verifiedAt !== undefined)
+          .filter(
+            (c) => c.verifiedAt !== undefined && c.revokedAt === undefined,
+          )
           .reduce((s, c) => s + c.points, 0);
 
         const groupMemberships = await ctx.db
@@ -390,6 +418,7 @@ export const homeView = query({
         const groupPointsByUser = new Map<Id<"users">, number>();
         for (const c of groupWeekCompletions) {
           if (c.verifiedAt === undefined) continue;
+          if (c.revokedAt !== undefined) continue;
           groupPointsByUser.set(
             c.userId,
             (groupPointsByUser.get(c.userId) ?? 0) + c.points,
@@ -499,6 +528,7 @@ export const weeklyStandings = query({
     const pointsByUser = new Map<Id<"users">, number>();
     for (const c of groupWeekCompletions) {
       if (c.verifiedAt === undefined) continue;
+      if (c.revokedAt !== undefined) continue;
       pointsByUser.set(
         c.userId,
         (pointsByUser.get(c.userId) ?? 0) + c.points,
@@ -597,6 +627,7 @@ export const recentActivity = query({
           points: c.points,
           claimedAt: c.claimedAt,
           verifiedAt: c.verifiedAt ?? null,
+          revokedAt: c.revokedAt ?? null,
           proofUrl,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(

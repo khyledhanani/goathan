@@ -2834,3 +2834,55 @@ a { color: inherit; text-decoration: none; }
   color: var(--mist);
   margin: 0 4px;
 }
+
+/* --- Revoked completion styling --- */
+.feed-card.is-revoked {
+  border-color: var(--cap);
+  background: var(--cap-soft);
+}
+
+.feed-card-revoked-banner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--cap);
+  color: var(--paper);
+}
+
+.feed-card-revoked-label {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.feed-card-revoked-sub {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--paper-2);
+  opacity: 0.92;
+}
+
+.feed-card-pts.is-revoked {
+  color: var(--cap);
+  text-decoration: line-through;
+  text-decoration-color: var(--cap);
+  text-decoration-thickness: 2px;
+}
+
+.activity-row.revoked .activity-task {
+  text-decoration: line-through;
+  text-decoration-color: var(--cap);
+  color: var(--smoke);
+}
+
+.activity-revoked-tag {
+  color: var(--cap);
+  font-weight: 600;
+  margin-left: 2px;
+}

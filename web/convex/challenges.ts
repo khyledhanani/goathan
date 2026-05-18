@@ -1,6 +1,38 @@
-import { mutation } from "./_generated/server";
+import { mutation, type MutationCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
+
+async function recomputeRevocation(
+  ctx: MutationCtx,
+  completionId: Id<"completions">,
+): Promise<void> {
+  const completion = await ctx.db.get(completionId);
+  if (!completion) return;
+
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_group", (q) => q.eq("groupId", completion.groupId))
+    .collect();
+  const nonPosterCount = memberships.filter(
+    (m) => m.userId !== completion.userId,
+  ).length;
+
+  const caps = await ctx.db
+    .query("challenges")
+    .withIndex("by_completion", (q) => q.eq("completionId", completionId))
+    .collect();
+  const capCount = caps.length;
+
+  const threshold = Math.floor(nonPosterCount / 2) + 1;
+  const shouldRevoke = nonPosterCount > 0 && capCount >= threshold;
+
+  if (shouldRevoke && completion.revokedAt === undefined) {
+    await ctx.db.patch(completionId, { revokedAt: Date.now() });
+  } else if (!shouldRevoke && completion.revokedAt !== undefined) {
+    await ctx.db.patch(completionId, { revokedAt: undefined });
+  }
+}
 
 export const toggle = mutation({
   args: { completionId: v.id("completions") },
@@ -30,17 +62,26 @@ export const toggle = mutation({
       )
       .unique();
 
+    let state: "added" | "removed";
     if (existing) {
       await ctx.db.delete(existing._id);
-      return { state: "removed" as const };
+      state = "removed";
+    } else {
+      await ctx.db.insert("challenges", {
+        completionId,
+        challengerUserId: userId,
+        groupId: completion.groupId,
+        createdAt: Date.now(),
+      });
+      state = "added";
     }
 
-    await ctx.db.insert("challenges", {
-      completionId,
-      challengerUserId: userId,
-      groupId: completion.groupId,
-      createdAt: Date.now(),
-    });
-    return { state: "added" as const };
+    await recomputeRevocation(ctx, completionId);
+
+    const refreshed = await ctx.db.get(completionId);
+    return {
+      state,
+      revoked: refreshed?.revokedAt !== undefined,
+    };
   },
 });
