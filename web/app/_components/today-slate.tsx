@@ -137,70 +137,70 @@ function SlateRow({
       ? task.claimedAt + VERIFICATION_WINDOW_MS - now
       : 0;
 
+  const proofLabel = task.proof.toLowerCase();
+
   return (
     <li className={`slate-row slate-${mode}`}>
-      <button
-        className={`task-check ${mode === "verified" ? "verified" : mode === "claimed" ? "claimed" : mode === "expired" ? "expired" : ""}`}
-        aria-label={
-          mode === "untouched"
-            ? "Claim task"
-            : mode === "claimed"
-              ? "Unclaim"
-              : ""
-        }
-        onClick={onCircle}
-        disabled={mode === "verified" || mode === "expired"}
-      >
-        {mode === "verified" && (
-          <svg viewBox="0 0 24 24">
-            <path d="M5 12l5 5L20 7" />
-          </svg>
-        )}
-        {mode === "claimed" && <span className="check-dot" />}
-        {mode === "expired" && <span className="check-x">×</span>}
-      </button>
-
-      <div className="slate-main">
-        <h3 className="slate-name">{task.name}</h3>
-        <div className="slate-meta">
-          <span><b>{task.category}</b></span>
-          <span className="sep">·</span>
-          <span>{task.frequency === "DAILY" ? "Daily" : "Weekly"}</span>
-          <span className="sep">·</span>
-          <span>Proof <b>{task.proof}</b></span>
-          {mode === "claimed" && (
-            <span className="slate-tag claim-tag">
-              Unverified · {formatMs(timeLeftMs)} left
-            </span>
-          )}
+      <div className="slate-row-head">
+        <button
+          className={`task-check ${mode === "verified" ? "verified" : mode === "claimed" ? "claimed" : mode === "expired" ? "expired" : ""}`}
+          aria-label={
+            mode === "untouched"
+              ? "Claim task"
+              : mode === "claimed"
+                ? "Unclaim"
+                : ""
+          }
+          onClick={onCircle}
+          disabled={mode === "verified" || mode === "expired"}
+        >
           {mode === "verified" && (
-            <span className="slate-tag verify-tag">Verified</span>
+            <svg viewBox="0 0 24 24">
+              <path d="M5 12l5 5L20 7" />
+            </svg>
           )}
-          {mode === "expired" && (
-            <span className="slate-tag expired-tag">Claim expired</span>
-          )}
+          {mode === "claimed" && <span className="check-dot" />}
+          {mode === "expired" && <span className="check-x">×</span>}
+        </button>
+
+        <div className="slate-row-title">
+          <h3 className="slate-name">{task.name}</h3>
+          <span className="slate-pts">
+            <span className="num">+{task.points}</span>
+          </span>
         </div>
       </div>
 
-      <div className="slate-tail">
-        {mode === "verified" && task.proofUrl && (
-          <button
-            className="proof-thumb"
-            onClick={() => onOpenProof(task.proofUrl!)}
-            aria-label="View proof"
-          >
-            <img src={task.proofUrl} alt="" />
-          </button>
+      <div className="slate-row-meta">
+        <span><b>{task.category}</b></span>
+        <span className="sep">·</span>
+        <span>{task.frequency === "DAILY" ? "Daily" : "Weekly"}</span>
+        {mode === "untouched" && (
+          <>
+            <span className="sep">·</span>
+            <span>{proofLabel} proof</span>
+          </>
         )}
         {mode === "claimed" && (
-          <button className="btn-upload" onClick={onPickFile}>
-            Upload proof
-          </button>
+          <>
+            <span className="sep">·</span>
+            <span className="slate-tag claim-tag">
+              {formatMs(timeLeftMs)} left to verify
+            </span>
+          </>
         )}
-        <div className="slate-pts">
-          <span className="num">+{task.points}</span>
-          <span className="pts-label">pts</span>
-        </div>
+        {mode === "verified" && (
+          <>
+            <span className="sep">·</span>
+            <span className="slate-tag verify-tag">Verified</span>
+          </>
+        )}
+        {mode === "expired" && (
+          <>
+            <span className="sep">·</span>
+            <span className="slate-tag expired-tag">Claim expired</span>
+          </>
+        )}
         {onRemoveTask && (
           <button
             className="btn-link btn-link-danger slate-remove"
@@ -214,6 +214,27 @@ function SlateRow({
           </button>
         )}
       </div>
+
+      {mode === "claimed" && (
+        <div className="slate-row-action">
+          <button className="btn-upload" onClick={onPickFile}>
+            Upload {proofLabel}
+          </button>
+        </div>
+      )}
+
+      {mode === "verified" && task.proofUrl && (
+        <div className="slate-row-action">
+          <button
+            className="proof-thumb proof-thumb-lg"
+            onClick={() => onOpenProof(task.proofUrl!)}
+            aria-label="View proof"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={task.proofUrl} alt="" />
+          </button>
+        </div>
+      )}
 
       <input
         ref={fileInputRef}
