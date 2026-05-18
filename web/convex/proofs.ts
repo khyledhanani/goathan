@@ -48,6 +48,109 @@ async function myGroupIds(
   return memberships.map((m) => m.groupId);
 }
 
+export const byCompletionId = query({
+  args: { completionId: v.id("completions") },
+  handler: async (ctx, { completionId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const c = await ctx.db.get(completionId);
+    if (!c) return null;
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", c.groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!membership) return null;
+
+    const [task, group, author, likes, rawComments, challenges, verification] =
+      await Promise.all([
+        ctx.db.get(c.taskId),
+        ctx.db.get(c.groupId),
+        profileFor(ctx, c.userId),
+        ctx.db
+          .query("likes")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .collect(),
+        ctx.db
+          .query("comments")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .collect(),
+        ctx.db
+          .query("challenges")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .collect(),
+        ctx.db
+          .query("proofVerifications")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .unique(),
+      ]);
+
+    const comments = await Promise.all(
+      rawComments.map(async (cm) => {
+        const aprofile = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", cm.authorUserId))
+          .unique();
+        return {
+          _id: cm._id,
+          authorUserId: cm.authorUserId,
+          authorName: aprofile?.displayName ?? "Unknown",
+          isYou: cm.authorUserId === userId,
+          body: cm.body,
+          createdAt: cm.createdAt,
+        };
+      }),
+    );
+    comments.sort((a, b) => a.createdAt - b.createdAt);
+
+    const proofUrl = c.proofStorageId
+      ? await ctx.storage.getUrl(c.proofStorageId)
+      : null;
+
+    const REACTIONS: Array<"HEART" | "FIRE" | "EYES"> = [
+      "HEART",
+      "FIRE",
+      "EYES",
+    ];
+    const reactions = REACTIONS.map((kind) => {
+      const matching = likes.filter((l) => (l.kind ?? "HEART") === kind);
+      return {
+        kind,
+        count: matching.length,
+        byYou: matching.some((l) => l.userId === userId),
+      };
+    });
+
+    return {
+      completionId: c._id,
+      userId: c.userId,
+      displayName: author.displayName,
+      username: author.username,
+      avatarUrl: author.avatarUrl,
+      isYou: c.userId === userId,
+      groupId: c.groupId,
+      groupName: group?.name ?? "(removed group)",
+      taskName: task?.name ?? "(removed task)",
+      taskCategory: task?.category ?? "MOVE",
+      points: c.points,
+      verifiedAt: c.verifiedAt ?? c.claimedAt,
+      claimedAt: c.claimedAt,
+      revokedAt: c.revokedAt ?? null,
+      proofUrl,
+      reactions,
+      challengeCount: challenges.length,
+      challengedByYou: challenges.some(
+        (ch) => ch.challengerUserId === userId,
+      ),
+      comments,
+      aiVerification: serializeVerification(verification),
+    };
+  },
+});
+
 export const feedAcrossMyGroups = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
