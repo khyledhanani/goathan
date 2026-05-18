@@ -12,6 +12,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { BottomNav } from "./bottom-nav";
 import { UserMenu } from "./user-menu";
 import { NotificationSettings } from "./notification-settings";
+import { ThemeToggle } from "./theme-toggle";
 
 export function SettingsScreen() {
   const router = useRouter();
@@ -100,6 +101,14 @@ export function SettingsScreen() {
 
         <section className="fade-up d1">
           <header className="section-head">
+            <h2 className="h-section">Appearance.</h2>
+            <span className="eyebrow">Theme</span>
+          </header>
+          <ThemeToggle />
+        </section>
+
+        <section className="fade-up d2" style={{ marginTop: 56 }}>
+          <header className="section-head">
             <h2 className="h-section">Notifications.</h2>
             <span className="eyebrow">Push + inbox</span>
           </header>
@@ -110,7 +119,7 @@ export function SettingsScreen() {
           />
         </section>
 
-        <section className="fade-up d2" style={{ marginTop: 56 }}>
+        <section className="fade-up d3" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Your details.</h2>
             <span className="eyebrow">Pulled from Google</span>
@@ -131,7 +140,7 @@ export function SettingsScreen() {
           </dl>
         </section>
 
-        <section className="fade-up d3" style={{ marginTop: 56 }}>
+        <section className="fade-up d4" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Your groups.</h2>
             <span className="eyebrow">
@@ -172,7 +181,7 @@ export function SettingsScreen() {
           )}
         </section>
 
-        <section className="fade-up d4" style={{ marginTop: 56 }}>
+        <section className="fade-up d5" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Manage groups.</h2>
             <span className="eyebrow">Create or join</span>

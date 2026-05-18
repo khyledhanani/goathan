@@ -2,6 +2,7 @@
   --paper: #f3efe2;
   --paper-2: #ece6d2;
   --paper-3: #e5dfc8;
+  --paper-translucent: rgba(243, 239, 226, 0.94);
   --ink: #14130e;
   --smoke: #57523f;
   --fog: #8f8772;
@@ -2336,7 +2337,7 @@ a { color: inherit; text-decoration: none; }
   position: fixed;
   inset: auto 0 0 0;
   z-index: 60;
-  background: rgba(243, 239, 226, 0.94);
+  background: var(--paper-translucent);
   backdrop-filter: saturate(140%) blur(10px);
   -webkit-backdrop-filter: saturate(140%) blur(10px);
   border-top: 1px solid var(--rule);
@@ -3653,7 +3654,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .profile-grid-ai .ai-badge-trigger {
-  background: rgba(243, 239, 226, 0.92);
+  background: var(--paper-translucent);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-color: transparent;
@@ -3662,4 +3663,107 @@ a { color: inherit; text-decoration: none; }
 .slate-ai-slot {
   display: inline-flex;
   margin-left: 4px;
+}
+
+/* --- Dark mode --- */
+:root[data-theme="dark"] {
+  --paper: #1c1a14;
+  --paper-2: #25221a;
+  --paper-3: #2f2b20;
+  --paper-translucent: rgba(28, 26, 20, 0.94);
+  --ink: #f0ebd8;
+  --smoke: #c4bea8;
+  --fog: #8f8772;
+  --mist: #574f3d;
+  --rule: #3a3528;
+  --accent: #7ec4a3;
+  --accent-hover: #92d3b5;
+  --accent-soft: #1f3329;
+  --cap: #df705a;
+  --cap-soft: #3c1d17;
+  --medal-gold: #d8b048;
+  --medal-silver: #c0c0c0;
+  --medal-bronze: #cd8959;
+  --medal-gold-soft: #3b2f0f;
+  --medal-silver-soft: #2c2c2c;
+  --medal-bronze-soft: #3a1f10;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --paper: #1c1a14;
+    --paper-2: #25221a;
+    --paper-3: #2f2b20;
+    --paper-translucent: rgba(28, 26, 20, 0.94);
+    --ink: #f0ebd8;
+    --smoke: #c4bea8;
+    --fog: #8f8772;
+    --mist: #574f3d;
+    --rule: #3a3528;
+    --accent: #7ec4a3;
+    --accent-hover: #92d3b5;
+    --accent-soft: #1f3329;
+    --cap: #df705a;
+    --cap-soft: #3c1d17;
+    --medal-gold: #d8b048;
+    --medal-silver: #c0c0c0;
+    --medal-bronze: #cd8959;
+    --medal-gold-soft: #3b2f0f;
+    --medal-silver-soft: #2c2c2c;
+    --medal-bronze-soft: #3a1f10;
+  }
+}
+
+/* --- Theme toggle UI --- */
+.theme-toggle {
+  display: inline-flex;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.theme-toggle-opt {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--smoke);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.theme-toggle-opt:hover {
+  color: var(--ink);
+}
+
+.theme-toggle-opt.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .theme-toggle-opt.active,
+:root:not([data-theme="light"]) .theme-toggle-opt.active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.theme-toggle-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-label {
+  letter-spacing: 0.01em;
 }

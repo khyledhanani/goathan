@@ -50,13 +50,21 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover" as const,
-  themeColor: "#F3EFE2",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F3EFE2" },
+    { media: "(prefers-color-scheme: dark)", color: "#1C1A14" },
+  ],
 };
+
+const THEME_INIT = `(function(){try{var t=localStorage.getItem('receipts.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+        </head>
         <body>
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <ServiceWorkerRegister />
