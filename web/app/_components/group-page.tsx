@@ -19,6 +19,7 @@ import { ActivityFeed } from "./activity-feed";
 import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown, WeekResetCountdown } from "./countdown";
 import { BottomNav } from "./bottom-nav";
+import { InviteModal } from "./invite-modal";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -48,6 +49,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{
@@ -249,7 +251,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
       </header>
 
       <main className="page">
-        <div className="page-head fade-up">
+        <div className="page-head fade-up page-head-group">
           <div>
             <span className="eyebrow">
               {stats.weekKey.replace("-W", " · week ")} · {dateLabel}
@@ -269,6 +271,12 @@ export function GroupPage({ groupId }: { groupId: string }) {
               <WeekResetCountdown />
             </p>
           </div>
+          <button
+            className="btn-ghost hero-invite-btn"
+            onClick={() => setInviteOpen(true)}
+          >
+            Invite<span className="arrow">→</span>
+          </button>
         </div>
 
         <section className="fade-up d1">
@@ -331,16 +339,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
           )}
         </section>
 
-        <section className="fade-up d4" style={{ marginTop: 56 }}>
-          <header className="section-head">
-            <h2 className="h-section">Invite to {group.name}.</h2>
-            <span className="eyebrow">Anyone with the code can join</span>
-          </header>
-          <InviteBlock
-            inviteCode={group.inviteCode}
-            groupName={group.name}
-            onToast={(msg) => setToast({ message: msg, tone: "neutral" })}
-          />        </section>
       </main>
 
       {adding && (
@@ -376,73 +374,17 @@ export function GroupPage({ groupId }: { groupId: string }) {
         onCancel={() => setRemoveTarget(null)}
         onConfirm={confirmRemoveTask}
       />
+      <InviteModal
+        open={inviteOpen}
+        inviteCode={group.inviteCode}
+        groupName={group.name}
+        onClose={() => setInviteOpen(false)}
+        onToast={(msg) => setToast({ message: msg, tone: "neutral" })}
+      />
       <Toast value={toast} onDismiss={() => setToast(null)} />
       <BottomNav />
     </div>
   );
 }
 
-function InviteBlock({
-  inviteCode,
-  groupName,
-  onToast,
-}: {
-  inviteCode: string;
-  groupName: string;
-  onToast: (msg: string) => void;
-}) {
-  const [origin, setOrigin] = useState<string>("");
-  const [canShare, setCanShare] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setOrigin(window.location.origin);
-    setCanShare(typeof navigator.share === "function");
-  }, []);
-
-  const inviteUrl = origin ? `${origin}/join/${inviteCode}` : "";
-
-  const copyLink = async () => {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard?.writeText(inviteUrl);
-      onToast("Invite link copied");
-    } catch {
-      onToast("Couldn't copy — long-press to select");
-    }
-  };
-
-  const share = async () => {
-    if (!inviteUrl) return;
-    try {
-      await navigator.share({
-        title: `Join ${groupName} on Receipts`,
-        text: `${groupName} is keeping each other honest on Receipts. Join up:`,
-        url: inviteUrl,
-      });
-    } catch {
-      // user cancelled or share unavailable — silent
-    }
-  };
-
-  return (
-    <div className="invite-block">
-      <span className="eyebrow">Invite code</span>
-      <div className="invite-block-row">
-        <span className="mono invite-block-value">{inviteCode}</span>
-      </div>
-      <div className="invite-block-actions">
-        <button className="btn-ghost btn-ghost-sm" onClick={copyLink}>
-          Copy link
-        </button>
-        {canShare && (
-          <button className="btn-primary btn-ghost-sm" onClick={share}>
-            Share
-            <span className="arrow">→</span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
