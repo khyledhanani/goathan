@@ -2,6 +2,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
+import { serializeVerification } from "./lib/aiVerifyDisplay";
 
 const STORIES_WINDOW_MS = 24 * 60 * 60 * 1000;
 const STORIES_PER_GROUP_SCAN = 80;
@@ -169,14 +170,7 @@ export const feedAcrossMyGroups = query({
             (ch) => ch.challengerUserId === userId,
           ),
           comments,
-          aiVerification: verification
-            ? {
-                status: verification.status,
-                confidence: verification.confidence ?? null,
-                reasoning: verification.reasoning ?? null,
-                flags: verification.flags ?? [],
-              }
-            : null,
+          aiVerification: serializeVerification(verification),
         };
       }),
     );
@@ -352,14 +346,7 @@ export const gridForUser = query({
           points: c.points,
           verifiedAt: c.verifiedAt!,
           proofUrl,
-          aiVerification: verification
-            ? {
-                status: verification.status,
-                confidence: verification.confidence ?? null,
-                reasoning: verification.reasoning ?? null,
-                flags: verification.flags ?? [],
-              }
-            : null,
+          aiVerification: serializeVerification(verification),
         };
       }),
     );

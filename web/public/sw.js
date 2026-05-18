@@ -81,7 +81,7 @@ self.addEventListener("notificationclick", (event) => {
               notificationId: data.notificationId,
             });
           } catch (_e) {
-            // ignore
+            /* */
           }
           return client.focus();
         }

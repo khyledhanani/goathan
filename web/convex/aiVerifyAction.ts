@@ -95,7 +95,6 @@ function buildUserPrompt(ctx: {
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  // Node has Buffer
   return Buffer.from(buffer).toString("base64");
 }
 
@@ -131,13 +130,46 @@ function clip01(n: unknown): number {
 function normalizeReasoning(s: unknown): string {
   if (typeof s !== "string") return "";
   let t = s.trim().replace(/\s+/g, " ");
-  // strip trailing period(s) and surrounding quotes
   t = t.replace(/^["'`]+|["'`]+$/g, "");
   t = t.replace(/[.!?]+\s*$/, "");
-  // lowercase the very first character (rest left alone so proper nouns survive)
   if (t.length > 0) t = t[0].toLowerCase() + t.slice(1);
   if (t.length > 200) t = t.slice(0, 199) + "…";
   return t;
+}
+
+const SUPPORTED_MIME = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
+function parsePermissive(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    /* */
+  }
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced && fenced[1]) {
+    try {
+      return JSON.parse(fenced[1]);
+    } catch {
+      /* */
+    }
+  }
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1));
+    } catch {
+      /* */
+    }
+  }
+  throw new Error("no json object in response");
 }
 
 function sanitizeFlags(arr: unknown): string[] {
@@ -203,7 +235,6 @@ export const checkProof = internalAction({
         return;
       }
 
-      // Look up completion claimedAt and proofMeta — we need them in the prompt
       const fullCompletion = await ctx.runQuery(
         internal.aiVerify.getCompletion,
         { completionId },
@@ -224,7 +255,18 @@ export const checkProof = internalAction({
       }
       const imgBuf = await imgResp.arrayBuffer();
       const base64 = arrayBufferToBase64(imgBuf);
-      const mimeType = imgResp.headers.get("content-type") ?? "image/jpeg";
+      const rawMime = (imgResp.headers.get("content-type") ?? "image/jpeg")
+        .split(";")[0]
+        .trim()
+        .toLowerCase();
+      if (!SUPPORTED_MIME.has(rawMime)) {
+        await ctx.runMutation(internal.aiVerify.recordError, {
+          completionId,
+          error: `unsupported image format (${rawMime})`,
+        });
+        return;
+      }
+      const mimeType = rawMime === "image/jpg" ? "image/jpeg" : rawMime;
 
       const userPrompt = buildUserPrompt({
         taskName: c.taskName,
@@ -279,9 +321,9 @@ export const checkProof = internalAction({
         flags?: string[];
       };
       try {
-        parsed = JSON.parse(text);
+        parsed = parsePermissive(text) as typeof parsed;
       } catch {
-        throw new Error(`gemini bad json: ${text.slice(0, 120)}`);
+        throw new Error(`gemini bad json: ${text.slice(0, 160)}`);
       }
 
       const match = parsed.match === true;

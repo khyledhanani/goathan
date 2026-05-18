@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { dayKey, weekKey, periodKeyFor } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
+import { serializeVerification } from "./lib/aiVerifyDisplay";
 
 const DEFAULT_TASKS = [
   { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
@@ -188,14 +189,7 @@ export const todayView = query({
         verifiedAt: c.verifiedAt,
         revokedAt: c.revokedAt,
         proofUrl,
-        aiVerification: verification
-          ? {
-              status: verification.status,
-              confidence: verification.confidence ?? null,
-              reasoning: verification.reasoning ?? null,
-              flags: verification.flags ?? [],
-            }
-          : null,
+        aiVerification: serializeVerification(verification),
       });
     }
 
@@ -403,14 +397,7 @@ export const homeView = query({
             verifiedAt: c.verifiedAt,
             revokedAt: c.revokedAt,
             proofUrl,
-            aiVerification: verification
-              ? {
-                  status: verification.status,
-                  confidence: verification.confidence ?? null,
-                  reasoning: verification.reasoning ?? null,
-                  flags: verification.flags ?? [],
-                }
-              : null,
+            aiVerification: serializeVerification(verification),
           });
         }
 
@@ -735,14 +722,7 @@ export const recentActivity = query({
             (ch) => ch.challengerUserId === userId,
           ),
           comments,
-          aiVerification: verification
-            ? {
-                status: verification.status,
-                confidence: verification.confidence ?? null,
-                reasoning: verification.reasoning ?? null,
-                flags: verification.flags ?? [],
-              }
-            : null,
+          aiVerification: serializeVerification(verification),
         };
       }),
     );

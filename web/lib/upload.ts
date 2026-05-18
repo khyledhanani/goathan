@@ -74,7 +74,7 @@ async function extractMeta(file: File): Promise<ProofMeta> {
       if (typeof parsed.longitude === "number") meta.longitude = parsed.longitude;
     }
   } catch {
-    // EXIF unavailable or unparseable — fine, proceed without
+    /* */
   }
   return meta;
 }

@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as dev from "../dev.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as lib_aiVerifyDisplay from "../lib/aiVerifyDisplay.js";
 import type * as lib_notify from "../lib/notify.js";
 import type * as lib_perfectDay from "../lib/perfectDay.js";
 import type * as lib_period from "../lib/period.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   dev: typeof dev;
   groups: typeof groups;
   http: typeof http;
+  "lib/aiVerifyDisplay": typeof lib_aiVerifyDisplay;
   "lib/notify": typeof lib_notify;
   "lib/perfectDay": typeof lib_perfectDay;
   "lib/period": typeof lib_period;

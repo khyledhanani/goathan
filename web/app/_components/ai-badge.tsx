@@ -43,8 +43,7 @@ export function AiBadge({
   }, [open]);
 
   if (!verification) return null;
-  if (verification.status === "ERROR" || verification.status === "SKIPPED")
-    return null;
+  if (verification.status === "SKIPPED") return null;
 
   const variant =
     verification.status === "PASSED"
@@ -53,7 +52,9 @@ export function AiBadge({
         ? "fail"
         : verification.status === "INCONCLUSIVE"
           ? "warn"
-          : "pending";
+          : verification.status === "ERROR"
+            ? "error"
+            : "pending";
 
   const label =
     verification.status === "PASSED"
@@ -62,7 +63,9 @@ export function AiBadge({
         ? "AI ✗"
         : verification.status === "INCONCLUSIVE"
           ? "AI ⚠"
-          : "AI …";
+          : verification.status === "ERROR"
+            ? "AI ?"
+            : "AI …";
 
   const interactive = verification.status !== "PENDING";
 
@@ -130,6 +133,8 @@ function variantTitle(status: AiVerification["status"]): string {
       return "Unclear";
     case "PENDING":
       return "Checking…";
+    case "ERROR":
+      return "Couldn't analyze";
     default:
       return "AI";
   }

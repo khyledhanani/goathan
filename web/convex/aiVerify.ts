@@ -3,6 +3,7 @@ import {
   internalQuery,
   query,
 } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -151,6 +152,57 @@ export const recordError = internalMutation({
       errorMessage: error.slice(0, 200),
       completedAt: now,
     });
+  },
+});
+
+export const debugRecentUploads = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("completions").take(80);
+    const recent = all
+      .filter((c) => c.verifiedAt !== undefined)
+      .sort((a, b) => (b.verifiedAt ?? 0) - (a.verifiedAt ?? 0))
+      .slice(0, 25);
+
+    return Promise.all(
+      recent.map(async (c) => {
+        const task = await ctx.db.get(c.taskId);
+        const group = await ctx.db.get(c.groupId);
+        const v = await ctx.db
+          .query("proofVerifications")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .unique();
+        return {
+          completionId: c._id,
+          groupName: group?.name ?? "(removed)",
+          taskName: task?.name ?? "(removed)",
+          frequency: task?.frequency ?? "?",
+          verifiedAt: c.verifiedAt
+            ? new Date(c.verifiedAt).toISOString()
+            : null,
+          revokedAt: c.revokedAt
+            ? new Date(c.revokedAt).toISOString()
+            : null,
+          hasProofStorage: !!c.proofStorageId,
+          verification: v
+            ? {
+                status: v.status,
+                startedAt: v.startedAt
+                  ? new Date(v.startedAt).toISOString()
+                  : null,
+                completedAt: v.completedAt
+                  ? new Date(v.completedAt).toISOString()
+                  : null,
+                errorMessage: v.errorMessage ?? null,
+                model: v.model,
+                reasoning: v.reasoning ?? null,
+                inputTokens: v.inputTokens ?? null,
+                outputTokens: v.outputTokens ?? null,
+              }
+            : "NO_VERIFICATION_ROW",
+        };
+      }),
+    );
   },
 });
 
