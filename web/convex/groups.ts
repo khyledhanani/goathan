@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { dayKey, weekKey, periodKeyFor } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
+import { enqueueNotification } from "./lib/notify";
 
 const DEFAULT_TASKS = [
   { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
@@ -858,6 +859,28 @@ export const joinByCode = mutation({
       isAdmin: false,
       joinedAt: Date.now(),
     });
+
+    const newcomer = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const existingMembers = await ctx.db
+      .query("memberships")
+      .withIndex("by_group", (q) => q.eq("groupId", group._id))
+      .collect();
+    for (const m of existingMembers) {
+      if (m.userId === userId) continue;
+      await enqueueNotification(ctx, {
+        userId: m.userId,
+        kind: "MEMBER_JOINED",
+        actorUserId: userId,
+        groupId: group._id,
+        title: newcomer?.displayName ?? "Someone",
+        body: `joined ${group.name}`,
+        deepLinkPath: `/group/${group._id}`,
+        dedupeKey: `joined:${group._id}:${userId}`,
+      });
+    }
 
     return { ok: true as const, groupId: group._id };
   },

@@ -10,4 +10,11 @@ crons.cron(
   {},
 );
 
+crons.cron(
+  "daily reset reminder",
+  "0 22 * * *",
+  internal.notificationsCron.fanOutDailyReminders,
+  {},
+);
+
 export default crons;

@@ -119,6 +119,60 @@ export default defineSchema({
     .index("by_completion_and_user", ["completionId", "userId"])
     .index("by_user", ["userId"]),
 
+  notifications: defineTable({
+    userId: v.id("users"),
+    kind: v.union(
+      v.literal("LIKE"),
+      v.literal("COMMENT"),
+      v.literal("CAP_CALLED"),
+      v.literal("CAP_REVOKED"),
+      v.literal("CAP_RESTORED"),
+      v.literal("MEDAL_AWARDED"),
+      v.literal("MEMBER_JOINED"),
+      v.literal("DAILY_RESET_REMINDER"),
+    ),
+    actorUserId: v.optional(v.id("users")),
+    groupId: v.optional(v.id("groups")),
+    completionId: v.optional(v.id("completions")),
+    commentId: v.optional(v.id("comments")),
+    medalKey: v.optional(v.string()),
+    title: v.string(),
+    body: v.string(),
+    deepLinkPath: v.string(),
+    dedupeKey: v.string(),
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+    pushDispatchStartedAt: v.optional(v.number()),
+    pushDispatchCompletedAt: v.optional(v.number()),
+    pushDeliveredCount: v.optional(v.number()),
+    pushFailedCount: v.optional(v.number()),
+  })
+    .index("by_user_recent", ["userId", "createdAt"])
+    .index("by_user_unread", ["userId", "readAt"])
+    .index("by_user_dedupe", ["userId", "dedupeKey"]),
+
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    userAgent: v.optional(v.string()),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    failureCount: v.number(),
+    lastError: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
+  notificationPreferences: defineTable({
+    userId: v.id("users"),
+    mutedKinds: v.array(v.string()),
+    pushEnabled: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   weekResults: defineTable({
     groupId: v.id("groups"),
     groupName: v.string(),

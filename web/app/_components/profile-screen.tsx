@@ -14,6 +14,7 @@ import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
+import { NotificationSettings } from "./notification-settings";
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -227,6 +228,18 @@ export function ProfileScreen() {
         </section>
 
         <section className="fade-up d5" style={{ marginTop: 56 }}>
+          <header className="section-head">
+            <h2 className="h-section">Notifications.</h2>
+            <span className="eyebrow">Push + inbox</span>
+          </header>
+          <NotificationSettings
+            onToast={(message, tone) =>
+              setToast({ message, tone: tone ?? "neutral" })
+            }
+          />
+        </section>
+
+        <section className="fade-up d6" style={{ marginTop: 56 }}>
           <header className="section-head">
             <h2 className="h-section">Your details.</h2>
             <span className="eyebrow">Pulled from Google</span>

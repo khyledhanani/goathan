@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { enqueueNotification, truncate } from "./lib/notify";
 
 const MAX_LEN = 240;
 
@@ -30,13 +31,36 @@ export const add = mutation({
       };
     }
 
-    await ctx.db.insert("comments", {
+    const commentId = await ctx.db.insert("comments", {
       completionId,
       authorUserId: userId,
       groupId: completion.groupId,
       body: trimmed,
       createdAt: Date.now(),
     });
+
+    if (
+      completion.userId !== userId &&
+      completion.revokedAt === undefined
+    ) {
+      const actor = await ctx.db
+        .query("profiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      const task = await ctx.db.get(completion.taskId);
+      await enqueueNotification(ctx, {
+        userId: completion.userId,
+        kind: "COMMENT",
+        actorUserId: userId,
+        groupId: completion.groupId,
+        completionId,
+        commentId,
+        title: actor?.displayName ?? "Someone",
+        body: `on your ${truncate(task?.name ?? "receipt", 28)}: "${truncate(trimmed, 80)}"`,
+        deepLinkPath: `/r/${completionId}`,
+        dedupeKey: `comment:${commentId}`,
+      });
+    }
 
     return { ok: true as const };
   },

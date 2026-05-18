@@ -3,6 +3,7 @@ import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from "next/font/goog
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./_components/convex-client-provider";
 import { ServiceWorkerRegister } from "./_components/sw-register";
+import { NotificationBridge } from "./_components/notification-bridge";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body>
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <ServiceWorkerRegister />
+          <NotificationBridge />
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>

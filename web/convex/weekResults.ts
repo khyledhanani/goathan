@@ -8,6 +8,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { weekKey, weekStartMs, weekEndMs } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
+import { enqueueNotification } from "./lib/notify";
 
 type Medal = "GOLD" | "SILVER" | "BRONZE";
 const MEDALS: Medal[] = ["GOLD", "SILVER", "BRONZE"];
@@ -77,6 +78,7 @@ async function finalizeOneGroupWeek(
   let inserted = 0;
   for (let i = 0; i < Math.min(3, ranked.length); i++) {
     const [userId, weekPoints] = ranked[i];
+    const medal = MEDALS[i];
     await ctx.db.insert("weekResults", {
       groupId,
       groupName: group.name,
@@ -84,11 +86,30 @@ async function finalizeOneGroupWeek(
       userId,
       rank: i + 1,
       weekPoints,
-      medal: MEDALS[i],
+      medal,
       weekEndMs: targetWeekEndMs,
       finalizedAt: now,
     });
     inserted++;
+
+    const medalEmoji =
+      medal === "GOLD" ? "🥇" : medal === "SILVER" ? "🥈" : "🥉";
+    const medalLabel =
+      medal === "GOLD"
+        ? "took gold"
+        : medal === "SILVER"
+          ? "took silver"
+          : "took bronze";
+    await enqueueNotification(ctx, {
+      userId,
+      kind: "MEDAL_AWARDED",
+      groupId,
+      medalKey: `${groupId}:${targetWeekKey}`,
+      title: `${medalEmoji} You ${medalLabel} in ${group.name}`,
+      body: `${weekPoints} pts last week`,
+      deepLinkPath: `/profile`,
+      dedupeKey: `medal:${groupId}:${targetWeekKey}:${userId}`,
+    });
   }
   return inserted;
 }

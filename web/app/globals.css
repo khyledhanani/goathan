@@ -3191,3 +3191,223 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.28em;
   color: var(--ink);
 }
+
+/* --- Inbox bell --- */
+.inbox-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--smoke);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.inbox-bell:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.inbox-bell-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cap);
+  border: 2px solid var(--paper);
+}
+
+/* --- Push pre-prompt --- */
+.push-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  margin: 14px 22px 0;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.push-prompt-body {
+  flex: 1;
+  min-width: 200px;
+}
+
+.push-prompt-line {
+  margin: 4px 0 0;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.push-prompt-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* --- Inbox list --- */
+.inbox-list {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inbox-row {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.inbox-row.unread {
+  border-left-width: 3px;
+  border-left-color: var(--accent);
+  background: var(--paper);
+}
+
+.inbox-row-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 140ms ease;
+}
+
+.inbox-row-btn:hover {
+  background: var(--paper-2);
+}
+
+.inbox-row-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inbox-row-kind {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.inbox-row-time {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fog);
+}
+
+.inbox-row-title {
+  margin: 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.inbox-row-body {
+  margin: 0;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--smoke);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* --- Notification settings card --- */
+.notify-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.notify-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: var(--paper-2);
+  border-radius: 10px;
+  border: 1px solid var(--rule);
+}
+
+.notify-state-line {
+  margin: 0;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.notify-master {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notify-master-hint {
+  margin: 0;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--fog);
+  padding-left: 26px;
+}
+
+.notify-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--rule);
+  padding-top: 14px;
+}
+
+.notify-kind-row {
+  padding: 4px 0;
+}
+
+.notify-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.notify-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.notify-toggle input[type="checkbox"]:disabled + span {
+  color: var(--mist);
+}

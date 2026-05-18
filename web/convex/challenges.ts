@@ -2,6 +2,7 @@ import { mutation, type MutationCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
+import { enqueueNotification, truncate } from "./lib/notify";
 
 async function recomputeRevocation(
   ctx: MutationCtx,
@@ -76,12 +77,67 @@ export const toggle = mutation({
       state = "added";
     }
 
+    const wasRevoked = completion.revokedAt !== undefined;
     await recomputeRevocation(ctx, completionId);
-
     const refreshed = await ctx.db.get(completionId);
+    const nowRevoked = refreshed?.revokedAt !== undefined;
+    const revokedAtTs = refreshed?.revokedAt;
+
+    // Notifications to the post owner only — never self-notify a capper
+    if (completion.userId !== userId) {
+      const actor = await ctx.db
+        .query("profiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      const task = await ctx.db.get(completion.taskId);
+      const taskLabel = truncate(task?.name ?? "receipt", 32);
+      const actorName = actor?.displayName ?? "Someone";
+
+      if (!wasRevoked && nowRevoked && revokedAtTs !== undefined) {
+        // Just crossed majority — REVOKED
+        await enqueueNotification(ctx, {
+          userId: completion.userId,
+          kind: "CAP_REVOKED",
+          actorUserId: userId,
+          groupId: completion.groupId,
+          completionId,
+          title: "Points revoked",
+          body: `Majority called cap on your ${taskLabel}`,
+          deepLinkPath: `/r/${completionId}`,
+          dedupeKey: `cap_revoked:${completionId}:${revokedAtTs}`,
+        });
+      } else if (wasRevoked && !nowRevoked) {
+        // Cap retracted below majority — RESTORED
+        await enqueueNotification(ctx, {
+          userId: completion.userId,
+          kind: "CAP_RESTORED",
+          actorUserId: userId,
+          groupId: completion.groupId,
+          completionId,
+          title: "Points restored",
+          body: `Cap fell below majority on your ${taskLabel}`,
+          deepLinkPath: `/r/${completionId}`,
+          dedupeKey: `cap_restored:${completionId}:${Date.now()}`,
+        });
+      } else if (state === "added" && !nowRevoked) {
+        // Cap called but not yet majority
+        await enqueueNotification(ctx, {
+          userId: completion.userId,
+          kind: "CAP_CALLED",
+          actorUserId: userId,
+          groupId: completion.groupId,
+          completionId,
+          title: actorName,
+          body: `called cap on your ${taskLabel}`,
+          deepLinkPath: `/r/${completionId}`,
+          dedupeKey: `cap_called:${completionId}:${userId}`,
+        });
+      }
+    }
+
     return {
       state,
-      revoked: refreshed?.revokedAt !== undefined,
+      revoked: nowRevoked,
     };
   },
 });

@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { enqueueNotification, truncate } from "./lib/notify";
 
 export const REACTION_KINDS = ["HEART", "FIRE", "EYES"] as const;
 export type ReactionKind = (typeof REACTION_KINDS)[number];
@@ -55,6 +56,35 @@ export const toggle = mutation({
       kind: reactionKind,
       createdAt: Date.now(),
     });
+
+    if (
+      completion.userId !== userId &&
+      completion.revokedAt === undefined
+    ) {
+      const actor = await ctx.db
+        .query("profiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      const task = await ctx.db.get(completion.taskId);
+      const emoji =
+        reactionKind === "HEART"
+          ? "❤️"
+          : reactionKind === "FIRE"
+            ? "🔥"
+            : "👀";
+      await enqueueNotification(ctx, {
+        userId: completion.userId,
+        kind: "LIKE",
+        actorUserId: userId,
+        groupId: completion.groupId,
+        completionId,
+        title: actor?.displayName ?? "Someone",
+        body: `reacted ${emoji} to your ${truncate(task?.name ?? "receipt", 40)}`,
+        deepLinkPath: `/r/${completionId}`,
+        dedupeKey: `like:${completionId}:${userId}:${reactionKind}`,
+      });
+    }
+
     return { state: "added" as const, kind: reactionKind };
   },
 });
