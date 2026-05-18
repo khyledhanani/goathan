@@ -159,12 +159,28 @@ export const todayView = query({
         verifiedAt?: number;
         revokedAt?: number;
         proofUrl: string | null;
+        aiVerification: {
+          status:
+            | "PENDING"
+            | "PASSED"
+            | "INCONCLUSIVE"
+            | "FAILED"
+            | "ERROR"
+            | "SKIPPED";
+          confidence: number | null;
+          reasoning: string | null;
+          flags: string[];
+        } | null;
       }
     >();
     for (const c of myWeekCompletions) {
       const proofUrl = c.proofStorageId
         ? await ctx.storage.getUrl(c.proofStorageId)
         : null;
+      const verification = await ctx.db
+        .query("proofVerifications")
+        .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+        .unique();
       completedByTask.set(c.taskId, {
         completionId: c._id,
         periodKey: c.periodKey,
@@ -172,6 +188,14 @@ export const todayView = query({
         verifiedAt: c.verifiedAt,
         revokedAt: c.revokedAt,
         proofUrl,
+        aiVerification: verification
+          ? {
+              status: verification.status,
+              confidence: verification.confidence ?? null,
+              reasoning: verification.reasoning ?? null,
+              flags: verification.flags ?? [],
+            }
+          : null,
       });
     }
 
@@ -199,6 +223,9 @@ export const todayView = query({
             ? (completion!.revokedAt ?? null)
             : null,
           proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
+          aiVerification: claimedThisPeriod
+            ? completion!.aiVerification
+            : null,
         };
       })
       .sort((a, b) => {
@@ -347,12 +374,28 @@ export const homeView = query({
             verifiedAt?: number;
             revokedAt?: number;
             proofUrl: string | null;
+            aiVerification: {
+              status:
+                | "PENDING"
+                | "PASSED"
+                | "INCONCLUSIVE"
+                | "FAILED"
+                | "ERROR"
+                | "SKIPPED";
+              confidence: number | null;
+              reasoning: string | null;
+              flags: string[];
+            } | null;
           }
         >();
         for (const c of myCompletions) {
           const proofUrl = c.proofStorageId
             ? await ctx.storage.getUrl(c.proofStorageId)
             : null;
+          const verification = await ctx.db
+            .query("proofVerifications")
+            .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+            .unique();
           completionByTask.set(c.taskId, {
             completionId: c._id,
             periodKey: c.periodKey,
@@ -360,6 +403,14 @@ export const homeView = query({
             verifiedAt: c.verifiedAt,
             revokedAt: c.revokedAt,
             proofUrl,
+            aiVerification: verification
+              ? {
+                  status: verification.status,
+                  confidence: verification.confidence ?? null,
+                  reasoning: verification.reasoning ?? null,
+                  flags: verification.flags ?? [],
+                }
+              : null,
           });
         }
 
@@ -387,6 +438,9 @@ export const homeView = query({
                 ? (completion!.revokedAt ?? null)
                 : null,
               proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
+              aiVerification: claimedThisPeriod
+                ? completion!.aiVerification
+                : null,
             };
           })
           .sort((a, b) => {

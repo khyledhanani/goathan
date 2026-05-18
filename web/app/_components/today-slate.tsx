@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
+import { AiBadge, type AiVerification } from "./ai-badge";
 
 export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
 
@@ -18,6 +19,7 @@ type SlateItem = {
   claimedAt: number | null;
   verifiedAt: number | null;
   proofUrl: string | null;
+  aiVerification?: AiVerification | null;
 };
 
 type Mode = "untouched" | "claimed" | "verified" | "expired";
@@ -193,6 +195,11 @@ function SlateRow({
           <>
             <span className="sep">·</span>
             <span className="slate-tag verify-tag">Verified</span>
+            {task.aiVerification && (
+              <span className="slate-ai-slot">
+                <AiBadge verification={task.aiVerification} />
+              </span>
+            )}
           </>
         )}
         {mode === "expired" && (

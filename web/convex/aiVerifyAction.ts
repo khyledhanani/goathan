@@ -15,12 +15,20 @@ stock-image look, screenshot of a screenshot, generic landscape with no relevant
 the same photo reused across tasks, large time gap between when the photo was captured
 and when the task was claimed, unexpected editing software for a "candid" photo.
 
+Voice for "reasoning": casual, one sentence, all lowercase, no trailing period,
+concise (~15 words max). Speak like a friend texting, not a clinical report.
+Examples (lowercase, no period):
+  "looks like a real gym selfie with weights in frame"
+  "this is just a sky, no way to tell if it's morning sunlight"
+  "screenshot of the food log with the protein total visible"
+  "image was captured 6 days before today so this is probably reused"
+
 Respond with strict JSON:
 {
   "match": boolean,
   "confidence": number,    // 0.0 to 1.0
-  "reasoning": string,     // one short sentence
-  "flags": string[]        // optional short tags, max 4
+  "reasoning": string,     // see voice rules above
+  "flags": string[]        // optional short tags, max 4, lowercase_snake_case
 }`;
 
 type ProofMeta = {
@@ -120,11 +128,16 @@ function clip01(n: unknown): number {
   return n;
 }
 
-function truncString(s: unknown, max: number): string {
+function normalizeReasoning(s: unknown): string {
   if (typeof s !== "string") return "";
-  const t = s.trim();
-  if (t.length <= max) return t;
-  return t.slice(0, max - 1) + "…";
+  let t = s.trim().replace(/\s+/g, " ");
+  // strip trailing period(s) and surrounding quotes
+  t = t.replace(/^["'`]+|["'`]+$/g, "");
+  t = t.replace(/[.!?]+\s*$/, "");
+  // lowercase the very first character (rest left alone so proper nouns survive)
+  if (t.length > 0) t = t[0].toLowerCase() + t.slice(1);
+  if (t.length > 200) t = t.slice(0, 199) + "…";
+  return t;
 }
 
 function sanitizeFlags(arr: unknown): string[] {
@@ -273,7 +286,7 @@ export const checkProof = internalAction({
 
       const match = parsed.match === true;
       const confidence = clip01(parsed.confidence);
-      const reasoning = truncString(parsed.reasoning, 200);
+      const reasoning = normalizeReasoning(parsed.reasoning);
       const flags = sanitizeFlags(parsed.flags);
 
       let status: "PASSED" | "INCONCLUSIVE" | "FAILED";

@@ -3658,3 +3658,8 @@ a { color: inherit; text-decoration: none; }
   -webkit-backdrop-filter: blur(4px);
   border-color: transparent;
 }
+
+.slate-ai-slot {
+  display: inline-flex;
+  margin-left: 4px;
+}
