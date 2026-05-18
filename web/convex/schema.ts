@@ -80,6 +80,19 @@ export default defineSchema({
     proofStorageId: v.optional(v.id("_storage")),
     verifiedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
+    proofMeta: v.optional(
+      v.object({
+        captureTimeMs: v.optional(v.number()),
+        software: v.optional(v.string()),
+        cameraMake: v.optional(v.string()),
+        cameraModel: v.optional(v.string()),
+        lensModel: v.optional(v.string()),
+        width: v.optional(v.number()),
+        height: v.optional(v.number()),
+        latitude: v.optional(v.number()),
+        longitude: v.optional(v.number()),
+      }),
+    ),
   })
     .index("by_user_task_period", ["userId", "taskId", "periodKey"])
     .index("by_group_recent", ["groupId", "claimedAt"])
@@ -172,6 +185,33 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  proofVerifications: defineTable({
+    completionId: v.id("completions"),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("PASSED"),
+      v.literal("INCONCLUSIVE"),
+      v.literal("FAILED"),
+      v.literal("ERROR"),
+      v.literal("SKIPPED"),
+    ),
+    confidence: v.optional(v.number()),
+    reasoning: v.optional(v.string()),
+    flags: v.optional(v.array(v.string())),
+    provider: v.string(),
+    model: v.string(),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    estimatedCostUsd: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_completion", ["completionId"])
+    .index("by_status_created", ["status", "createdAt"]),
 
   weekResults: defineTable({
     groupId: v.id("groups"),

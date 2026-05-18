@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { VERIFICATION_WINDOW_MS } from "./today-slate";
+import { AiBadge, type AiVerification } from "./ai-badge";
 
 type CommentItem = {
   _id: Id<"comments">;
@@ -29,6 +30,7 @@ type FeedItem = {
   challengeCount: number;
   challengedByYou: boolean;
   comments: CommentItem[];
+  aiVerification: AiVerification | null;
 };
 
 function timeAgo(ts: number): string {
@@ -159,6 +161,11 @@ function ActivityRow({
             )}
             {isRevoked && (
               <span className="activity-revoked-tag">· revoked</span>
+            )}
+            {item.aiVerification && (
+              <span className="activity-ai-slot">
+                <AiBadge verification={item.aiVerification} />
+              </span>
             )}
           </p>
           <span className="activity-time mono">

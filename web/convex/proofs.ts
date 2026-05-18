@@ -88,7 +88,7 @@ export const feedAcrossMyGroups = query({
 
     const items = await Promise.all(
       merged.map(async (c) => {
-        const [task, group, author, likes, rawComments, challenges] =
+        const [task, group, author, likes, rawComments, challenges, verification] =
           await Promise.all([
             ctx.db.get(c.taskId),
             ctx.db.get(c.groupId),
@@ -105,6 +105,10 @@ export const feedAcrossMyGroups = query({
               .query("challenges")
               .withIndex("by_completion", (q) => q.eq("completionId", c._id))
               .collect(),
+            ctx.db
+              .query("proofVerifications")
+              .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+              .unique(),
           ]);
 
         const comments = await Promise.all(
@@ -165,6 +169,14 @@ export const feedAcrossMyGroups = query({
             (ch) => ch.challengerUserId === userId,
           ),
           comments,
+          aiVerification: verification
+            ? {
+                status: verification.status,
+                confidence: verification.confidence ?? null,
+                reasoning: verification.reasoning ?? null,
+                flags: verification.flags ?? [],
+              }
+            : null,
         };
       }),
     );
@@ -320,9 +332,13 @@ export const gridForUser = query({
 
     const items = await Promise.all(
       merged.map(async (c) => {
-        const [task, group] = await Promise.all([
+        const [task, group, verification] = await Promise.all([
           ctx.db.get(c.taskId),
           ctx.db.get(c.groupId),
+          ctx.db
+            .query("proofVerifications")
+            .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+            .unique(),
         ]);
         const proofUrl = c.proofStorageId
           ? await ctx.storage.getUrl(c.proofStorageId)
@@ -336,6 +352,14 @@ export const gridForUser = query({
           points: c.points,
           verifiedAt: c.verifiedAt!,
           proofUrl,
+          aiVerification: verification
+            ? {
+                status: verification.status,
+                confidence: verification.confidence ?? null,
+                reasoning: verification.reasoning ?? null,
+                flags: verification.flags ?? [],
+              }
+            : null,
         };
       }),
     );

@@ -116,7 +116,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
         setToast({ message: urlResult.error, tone: "error" });
         return;
       }
-      const { body, contentType } = await normalizeProofMedia(file);
+      const { body, contentType, meta } = await normalizeProofMedia(file);
       const res = await fetch(urlResult.uploadUrl, {
         method: "POST",
         headers: { "Content-Type": contentType },
@@ -127,7 +127,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
         return;
       }
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      const attached = await attachProof({ completionId, storageId });
+      const attached = await attachProof({
+        completionId,
+        storageId,
+        proofMeta: meta,
+      });
       if (!attached.ok) {
         setToast({ message: attached.error, tone: "error" });
         return;

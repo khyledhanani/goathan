@@ -658,6 +658,11 @@ export const recentActivity = query({
           ? await ctx.storage.getUrl(c.proofStorageId)
           : null;
 
+        const verification = await ctx.db
+          .query("proofVerifications")
+          .withIndex("by_completion", (q) => q.eq("completionId", c._id))
+          .unique();
+
         return {
           completionId: c._id,
           memberUserId: c.userId,
@@ -676,6 +681,14 @@ export const recentActivity = query({
             (ch) => ch.challengerUserId === userId,
           ),
           comments,
+          aiVerification: verification
+            ? {
+                status: verification.status,
+                confidence: verification.confidence ?? null,
+                reasoning: verification.reasoning ?? null,
+                flags: verification.flags ?? [],
+              }
+            : null,
         };
       }),
     );

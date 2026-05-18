@@ -3489,3 +3489,172 @@ a { color: inherit; text-decoration: none; }
   opacity: 0.6;
   cursor: progress;
 }
+
+/* --- AI verification badge --- */
+.ai-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ai-badge-trigger {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.ai-badge-trigger:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.ai-badge-pass .ai-badge-trigger {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+}
+
+.ai-badge-fail .ai-badge-trigger {
+  color: var(--cap);
+  border-color: color-mix(in srgb, var(--cap) 40%, transparent);
+  background: var(--cap-soft);
+}
+
+.ai-badge-warn .ai-badge-trigger {
+  color: #b07a18;
+  border-color: rgba(176, 122, 24, 0.4);
+  background: rgba(244, 235, 198, 0.55);
+}
+
+.ai-badge-pending .ai-badge-trigger {
+  color: var(--fog);
+  border-style: dashed;
+  cursor: default;
+}
+
+.ai-badge-md .ai-badge-trigger {
+  font-size: 10.5px;
+  padding: 3px 10px;
+}
+
+.ai-badge-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  max-width: calc(100vw - 32px);
+  z-index: 50;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: default;
+  animation: aiBadgePop 140ms ease forwards;
+}
+
+@keyframes aiBadgePop {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ai-badge-pop-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.ai-badge-pop-conf {
+  font-size: 11px;
+  color: var(--smoke);
+  font-weight: 700;
+}
+
+.ai-badge-pop-body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.ai-badge-pop-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-badge-pop-flag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--smoke);
+}
+
+.ai-badge-pop-foot {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fog);
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+}
+
+/* Feed card / activity / grid specific anchors */
+.feed-card-task-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.activity-ai-slot {
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.profile-grid-ai {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+}
+
+.profile-grid-ai .ai-badge-trigger {
+  background: rgba(243, 239, 226, 0.92);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-color: transparent;
+}

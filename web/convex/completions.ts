@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 import { periodKeyFor, weekKey } from "./lib/period";
 
 export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
@@ -102,12 +103,25 @@ export const generateProofUploadUrl = mutation({
   },
 });
 
+const proofMetaValidator = v.object({
+  captureTimeMs: v.optional(v.number()),
+  software: v.optional(v.string()),
+  cameraMake: v.optional(v.string()),
+  cameraModel: v.optional(v.string()),
+  lensModel: v.optional(v.string()),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+  latitude: v.optional(v.number()),
+  longitude: v.optional(v.number()),
+});
+
 export const attachProof = mutation({
   args: {
     completionId: v.id("completions"),
     storageId: v.id("_storage"),
+    proofMeta: v.optional(proofMetaValidator),
   },
-  handler: async (ctx, { completionId, storageId }) => {
+  handler: async (ctx, { completionId, storageId, proofMeta }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Not authenticated");
 
@@ -130,7 +144,15 @@ export const attachProof = mutation({
     await ctx.db.patch(completion._id, {
       proofStorageId: storageId,
       verifiedAt: now,
+      proofMeta,
     });
+
+    const task = await ctx.db.get(completion.taskId);
+    if (task && task.frequency !== "WEEKLY") {
+      await ctx.scheduler.runAfter(0, internal.aiVerifyAction.checkProof, {
+        completionId,
+      });
+    }
 
     return { ok: true as const };
   },

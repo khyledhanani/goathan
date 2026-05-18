@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AiBadge, type AiVerification } from "./ai-badge";
 
 export type ProfileGridItem = {
   completionId: string;
@@ -11,6 +12,7 @@ export type ProfileGridItem = {
   points: number;
   verifiedAt: number;
   proofUrl: string | null;
+  aiVerification: AiVerification | null;
 };
 
 export function ProfileGrid({
@@ -81,6 +83,11 @@ function GridTile({
           {it.groupName} · +{it.points}
         </span>
       </span>
+      {it.aiVerification && (
+        <span className="profile-grid-ai">
+          <AiBadge verification={it.aiVerification} />
+        </span>
+      )}
     </button>
   );
 }

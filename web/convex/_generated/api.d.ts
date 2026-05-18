@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as aiVerify from "../aiVerify.js";
+import type * as aiVerifyAction from "../aiVerifyAction.js";
 import type * as auth from "../auth.js";
 import type * as challenges from "../challenges.js";
 import type * as comments from "../comments.js";
@@ -38,6 +40,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiVerify: typeof aiVerify;
+  aiVerifyAction: typeof aiVerifyAction;
   auth: typeof auth;
   challenges: typeof challenges;
   comments: typeof comments;

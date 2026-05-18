@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
+import { AiBadge, type AiVerification } from "./ai-badge";
 
 export type FeedComment = {
   _id: Id<"comments">;
@@ -41,6 +42,7 @@ export type FeedCardItem = {
   challengeCount: number;
   challengedByYou: boolean;
   comments: FeedComment[];
+  aiVerification: AiVerification | null;
 };
 
 function timeAgo(ts: number): string {
@@ -216,10 +218,13 @@ export function FeedCard({
 
       <div className="feed-card-task-row">
         <span className="feed-card-task">{item.taskName}</span>
-        <span
-          className={`feed-card-pts num ${isRevoked ? "is-revoked" : ""}`}
-        >
-          +{item.points}
+        <span className="feed-card-task-end">
+          <AiBadge verification={item.aiVerification} />
+          <span
+            className={`feed-card-pts num ${isRevoked ? "is-revoked" : ""}`}
+          >
+            +{item.points}
+          </span>
         </span>
       </div>
 
