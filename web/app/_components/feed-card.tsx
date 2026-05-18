@@ -13,6 +13,14 @@ export type FeedComment = {
   createdAt: number;
 };
 
+export type ReactionKind = "HEART" | "FIRE" | "EYES";
+
+export type ReactionAggregate = {
+  kind: ReactionKind;
+  count: number;
+  byYou: boolean;
+};
+
 export type FeedCardItem = {
   completionId: Id<"completions">;
   userId: Id<"users">;
@@ -29,8 +37,7 @@ export type FeedCardItem = {
   claimedAt: number;
   revokedAt: number | null;
   proofUrl: string | null;
-  likeCount: number;
-  likedByYou: boolean;
+  reactions: ReactionAggregate[];
   challengeCount: number;
   challengedByYou: boolean;
   comments: FeedComment[];
@@ -57,14 +64,17 @@ export function FeedCard({
 }: {
   item: FeedCardItem;
   onOpenProof: (url: string) => void;
-  onToggleLike: (id: Id<"completions">) => Promise<void> | void;
+  onToggleLike: (
+    id: Id<"completions">,
+    kind: ReactionKind,
+  ) => Promise<void> | void;
   onToggleCap: (id: Id<"completions">) => Promise<void> | void;
   onComment: (id: Id<"completions">, body: string) => Promise<void>;
 }) {
   const [showThread, setShowThread] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [likeBusy, setLikeBusy] = useState(false);
+  const [likeBusyKind, setLikeBusyKind] = useState<ReactionKind | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -79,13 +89,13 @@ export function FeedCard({
     }
   };
 
-  const tapLike = async () => {
-    if (likeBusy) return;
-    setLikeBusy(true);
+  const tapReaction = async (kind: ReactionKind) => {
+    if (likeBusyKind) return;
+    setLikeBusyKind(kind);
     try {
-      await onToggleLike(item.completionId);
+      await onToggleLike(item.completionId, kind);
     } finally {
-      setLikeBusy(false);
+      setLikeBusyKind(null);
     }
   };
 
@@ -153,19 +163,22 @@ export function FeedCard({
       )}
 
       <div className="feed-card-actions">
-        <button
-          type="button"
-          className={`feed-action ${item.likedByYou ? "is-liked" : ""}`}
-          onClick={tapLike}
-          disabled={likeBusy}
-          aria-pressed={item.likedByYou}
-          aria-label={item.likedByYou ? "Unlike" : "Like"}
-        >
-          <HeartIcon filled={item.likedByYou} />
-          {item.likeCount > 0 && (
-            <span className="feed-action-count num">{item.likeCount}</span>
-          )}
-        </button>
+        {item.reactions.map((r) => (
+          <button
+            key={r.kind}
+            type="button"
+            className={`feed-action feed-action-react ${r.byYou ? `is-${r.kind.toLowerCase()}` : ""}`}
+            onClick={() => tapReaction(r.kind)}
+            disabled={likeBusyKind !== null}
+            aria-pressed={r.byYou}
+            aria-label={`${r.kind.toLowerCase()} reaction`}
+          >
+            <ReactionGlyph kind={r.kind} filled={r.byYou} />
+            {r.count > 0 && (
+              <span className="feed-action-count num">{r.count}</span>
+            )}
+          </button>
+        ))}
 
         <button
           type="button"
@@ -298,6 +311,76 @@ function FeedPhoto({
         onError={() => setLoaded(true)}
       />
     </button>
+  );
+}
+
+function ReactionGlyph({
+  kind,
+  filled,
+}: {
+  kind: ReactionKind;
+  filled: boolean;
+}) {
+  if (kind === "HEART") return <HeartIcon filled={filled} />;
+  if (kind === "FIRE") return <FireIcon filled={filled} />;
+  return <EyesIcon filled={filled} />;
+}
+
+function FireIcon({ filled }: { filled: boolean }) {
+  if (filled) {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24">
+        <path
+          d="M12 2c1 2 3 3.5 3 6.5 0 2-1 3-1 3s1 0 2-1.5C16.5 12 18 14 18 16.5c0 3.5-2.7 5.5-6 5.5s-6-2-6-5.5c0-3 1.5-5 2.8-6.5C9 11 9 9 8.5 7.5c2 .5 3-2 3.5-5.5z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 3c.5 1.5 2.4 2.6 2.4 5.5 0 1.5-.7 2.5-.7 2.5s.7-.2 1.5-1.2C16.5 12 17.4 14 17.4 16.5c0 3-2.4 4.8-5.4 4.8s-5.4-1.8-5.4-4.8c0-2.7 1.4-4.6 2.5-6 .5 1.4 0 2.7-.4 3.7 1.7-.4 2.6-2.6 3.3-6.2z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function EyesIcon({ filled }: { filled: boolean }) {
+  if (filled) {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24">
+        <ellipse cx="7.5" cy="12" rx="4" ry="5" fill="currentColor" />
+        <ellipse cx="16.5" cy="12" rx="4" ry="5" fill="currentColor" />
+        <circle cx="8" cy="13" r="1.3" fill="var(--paper)" />
+        <circle cx="17" cy="13" r="1.3" fill="var(--paper)" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <ellipse
+        cx="7.5"
+        cy="12"
+        rx="3.6"
+        ry="4.6"
+        stroke="currentColor"
+        strokeWidth={1.6}
+      />
+      <ellipse
+        cx="16.5"
+        cy="12"
+        rx="3.6"
+        ry="4.6"
+        stroke="currentColor"
+        strokeWidth={1.6}
+      />
+      <circle cx="8" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="17" cy="13" r="1.1" fill="currentColor" />
+    </svg>
   );
 }
 

@@ -2956,3 +2956,108 @@ a { color: inherit; text-decoration: none; }
   font-size: 10px;
   letter-spacing: 0.1em;
 }
+
+/* --- Streak chip --- */
+.streak-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--smoke);
+  margin: 0;
+}
+
+.streak-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--cap-soft);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--cap) 22%, transparent);
+}
+
+.streak-flame {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.streak-chip .num {
+  font-family: var(--font-mono), monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cap);
+}
+
+.streak-chip-label {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--smoke);
+}
+
+.streak-longest {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fog);
+}
+
+.streak-longest .num {
+  color: var(--smoke);
+  font-weight: 700;
+}
+
+/* --- Standings perfect-day chip --- */
+.standings-perfect {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.standings-perfect .num {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* --- Reaction buttons --- */
+.feed-action-react {
+  /* base inherits from .feed-action */
+}
+
+.feed-action-react.is-heart {
+  color: var(--cap);
+}
+.feed-action-react.is-heart:hover {
+  background: var(--cap-soft);
+}
+
+.feed-action-react.is-fire {
+  color: #c95425;
+}
+.feed-action-react.is-fire:hover {
+  background: #f4dccd;
+}
+
+.feed-action-react.is-eyes {
+  color: var(--accent);
+}
+.feed-action-react.is-eyes:hover {
+  background: var(--accent-soft);
+}
+
+/* --- Invite block share row --- */
+.invite-block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.user-profile-stats-sep {
+  margin: 0 4px;
+  color: var(--mist);
+}

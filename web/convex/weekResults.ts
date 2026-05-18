@@ -5,8 +5,9 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { weekKey, weekStartMs, weekEndMs } from "./lib/period";
+import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 
 type Medal = "GOLD" | "SILVER" | "BRONZE";
 const MEDALS: Medal[] = ["GOLD", "SILVER", "BRONZE"];
@@ -28,6 +29,14 @@ async function finalizeOneGroupWeek(
   const group = await ctx.db.get(groupId);
   if (!group) return 0;
 
+  const tasks = await ctx.db
+    .query("tasks")
+    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .collect();
+  const dailyTaskIds = new Set(
+    tasks.filter((t) => t.frequency === "DAILY").map((t) => t._id),
+  );
+
   const completions = await ctx.db
     .query("completions")
     .withIndex("by_group_week", (q) =>
@@ -36,13 +45,26 @@ async function finalizeOneGroupWeek(
     .collect();
 
   const pointsByUser = new Map<Id<"users">, number>();
+  const compsByUser = new Map<Id<"users">, Doc<"completions">[]>();
   for (const c of completions) {
+    if (!compsByUser.has(c.userId)) compsByUser.set(c.userId, []);
+    compsByUser.get(c.userId)!.push(c);
     if (c.verifiedAt === undefined) continue;
     if (c.revokedAt !== undefined) continue;
     pointsByUser.set(
       c.userId,
       (pointsByUser.get(c.userId) ?? 0) + c.points,
     );
+  }
+
+  for (const [uid, comps] of compsByUser.entries()) {
+    const perfectDays = countPerfectDays(comps, dailyTaskIds);
+    if (perfectDays > 0) {
+      pointsByUser.set(
+        uid,
+        (pointsByUser.get(uid) ?? 0) + perfectDays * PERFECT_DAY_BONUS,
+      );
+    }
   }
 
   const ranked = Array.from(pointsByUser.entries())

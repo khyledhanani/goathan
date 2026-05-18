@@ -13,7 +13,11 @@ import { Toast, type ToastValue } from "./toast";
 import { ProofLightbox } from "./proof-lightbox";
 import { StoriesRail, type StoryBundle } from "./stories-rail";
 import { StoryViewer } from "./story-viewer";
-import { FeedCard, type FeedCardItem } from "./feed-card";
+import {
+  FeedCard,
+  type FeedCardItem,
+  type ReactionKind,
+} from "./feed-card";
 import { FeedStatsBar } from "./feed-stats-bar";
 import { BottomNav } from "./bottom-nav";
 
@@ -63,6 +67,16 @@ export function DashboardScreen() {
     }
     if (!profile.onboardingCompleted) {
       router.replace("/onboarding");
+      return;
+    }
+    try {
+      const pending = localStorage.getItem("receipts.pendingJoinCode");
+      if (pending && /^[A-Z0-9]{6}$/.test(pending)) {
+        localStorage.removeItem("receipts.pendingJoinCode");
+        router.replace(`/join/${pending}`);
+      }
+    } catch {
+      // storage blocked, nothing to do
     }
   }, [authLoading, isAuthenticated, profile, upsertFromAuth, router]);
 
@@ -76,9 +90,12 @@ export function DashboardScreen() {
     }
   };
 
-  const onToggleLike = async (completionId: Id<"completions">) => {
+  const onToggleLike = async (
+    completionId: Id<"completions">,
+    kind: ReactionKind,
+  ) => {
     try {
-      await toggleLike({ completionId });
+      await toggleLike({ completionId, kind });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }

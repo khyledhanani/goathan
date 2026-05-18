@@ -39,3 +39,13 @@ export const weekEndMs = (now: number): number =>
 
 export const previousWeekKey = (now: number): string =>
   weekKey(weekStartMs(now) - 1);
+
+export const previousDayKey = (key: string): string => {
+  const [y, m, d] = key.split("-").map((s) => Number(s));
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() - 1);
+  const yy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+};

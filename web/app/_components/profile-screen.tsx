@@ -29,6 +29,10 @@ export function ProfileScreen() {
     api.weekResults.trophiesForUser,
     profile ? { userId: profile.userId } : "skip",
   );
+  const myStreak = useQuery(
+    api.streaks.forUser,
+    profile ? { userId: profile.userId } : "skip",
+  );
   const leaveGroup = useMutation(api.groups.leave);
 
   const [toast, setToast] = useState<ToastValue>(null);
@@ -113,6 +117,23 @@ export function ProfileScreen() {
             <h1 className="h-page" style={{ marginTop: 8 }}>
               Profile<span className="roman">.</span>
             </h1>
+            {myStreak && (myStreak.current > 0 || myStreak.longest > 0) && (
+              <p className="streak-line" style={{ marginTop: 14 }}>
+                <span className="streak-chip">
+                  <span className="streak-flame" aria-hidden>
+                    🔥
+                  </span>
+                  <span className="num">{myStreak.current}</span>
+                  <span className="streak-chip-label">day streak</span>
+                </span>
+                {myStreak.longest > myStreak.current && (
+                  <span className="streak-longest mono">
+                    Longest{" "}
+                    <span className="num">{myStreak.longest}</span>
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

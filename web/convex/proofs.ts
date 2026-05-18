@@ -129,6 +129,20 @@ export const feedAcrossMyGroups = query({
           ? await ctx.storage.getUrl(c.proofStorageId)
           : null;
 
+        const REACTIONS: Array<"HEART" | "FIRE" | "EYES"> = [
+          "HEART",
+          "FIRE",
+          "EYES",
+        ];
+        const reactions = REACTIONS.map((kind) => {
+          const matching = likes.filter((l) => (l.kind ?? "HEART") === kind);
+          return {
+            kind,
+            count: matching.length,
+            byYou: matching.some((l) => l.userId === userId),
+          };
+        });
+
         return {
           completionId: c._id,
           userId: c.userId,
@@ -145,8 +159,7 @@ export const feedAcrossMyGroups = query({
           claimedAt: c.claimedAt,
           revokedAt: c.revokedAt ?? null,
           proofUrl,
-          likeCount: likes.length,
-          likedByYou: likes.some((l) => l.userId === userId),
+          reactions,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
             (ch) => ch.challengerUserId === userId,

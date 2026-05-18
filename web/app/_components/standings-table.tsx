@@ -10,6 +10,7 @@ type StandingsRow = {
   isAdmin: boolean;
   isYou: boolean;
   weekPoints: number;
+  perfectDays?: number;
 };
 
 export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
@@ -48,6 +49,13 @@ export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
             <span className="standings-sub">
               {row.username ? `@${row.username}` : "—"}
               {row.isAdmin && " · admin"}
+              {row.perfectDays !== undefined && row.perfectDays > 0 && (
+                <span className="standings-perfect mono">
+                  {" · "}
+                  <span className="num">{row.perfectDays}</span>{" "}
+                  perfect day{row.perfectDays === 1 ? "" : "s"}
+                </span>
+              )}
             </span>
           </div>
           <div className="standings-pts">

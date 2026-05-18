@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { dayKey, weekKey, periodKeyFor } from "./lib/period";
+import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 
 const DEFAULT_TASKS = [
   { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
@@ -205,7 +206,8 @@ export const todayView = query({
       });
 
     const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
-    const todayPoints = dailyTasks
+    const dailyTaskIds = new Set(dailyTasks.map((t) => t._id));
+    const baseTodayPoints = dailyTasks
       .filter(
         (t) =>
           t.claimedThisPeriod &&
@@ -219,10 +221,16 @@ export const todayView = query({
         t.verifiedAt !== null &&
         t.revokedAt === null,
     ).length;
+    const isPerfectToday =
+      dailyTasks.length > 0 && todayDone === dailyTasks.length;
+    const todayPoints =
+      baseTodayPoints + (isPerfectToday ? PERFECT_DAY_BONUS : 0);
 
-    const weekPoints = myWeekCompletions
+    const baseWeekPoints = myWeekCompletions
       .filter((c) => c.verifiedAt !== undefined && c.revokedAt === undefined)
       .reduce((s, c) => s + c.points, 0);
+    const perfectDayCount = countPerfectDays(myWeekCompletions, dailyTaskIds);
+    const weekPoints = baseWeekPoints + perfectDayCount * PERFECT_DAY_BONUS;
 
     return {
       group: {
@@ -239,6 +247,9 @@ export const todayView = query({
         todayDone,
         totalDailyTasks: dailyTasks.length,
         weekPoints,
+        isPerfectToday,
+        perfectDayCount,
+        perfectDayBonus: PERFECT_DAY_BONUS,
       },
     };
   },
@@ -384,7 +395,8 @@ export const homeView = query({
           });
 
         const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
-        const todayPoints = dailyTasks
+        const dailyTaskIds = new Set(dailyTasks.map((t) => t._id));
+        const baseTodayPoints = dailyTasks
           .filter(
             (t) =>
               t.claimedThisPeriod &&
@@ -398,11 +410,18 @@ export const homeView = query({
             t.verifiedAt !== null &&
             t.revokedAt === null,
         ).length;
-        const weekPoints = myCompletions
+        const isPerfectToday =
+          dailyTasks.length > 0 && todayDone === dailyTasks.length;
+        const todayPoints =
+          baseTodayPoints + (isPerfectToday ? PERFECT_DAY_BONUS : 0);
+        const baseWeekPoints = myCompletions
           .filter(
             (c) => c.verifiedAt !== undefined && c.revokedAt === undefined,
           )
           .reduce((s, c) => s + c.points, 0);
+        const myPerfectDayCount = countPerfectDays(myCompletions, dailyTaskIds);
+        const weekPoints =
+          baseWeekPoints + myPerfectDayCount * PERFECT_DAY_BONUS;
 
         const groupMemberships = await ctx.db
           .query("memberships")
@@ -416,7 +435,10 @@ export const homeView = query({
           )
           .collect();
         const groupPointsByUser = new Map<Id<"users">, number>();
+        const compsByUser = new Map<Id<"users">, Doc<"completions">[]>();
         for (const c of groupWeekCompletions) {
+          if (!compsByUser.has(c.userId)) compsByUser.set(c.userId, []);
+          compsByUser.get(c.userId)!.push(c);
           if (c.verifiedAt === undefined) continue;
           if (c.revokedAt !== undefined) continue;
           groupPointsByUser.set(
@@ -431,11 +453,14 @@ export const homeView = query({
               .query("profiles")
               .withIndex("by_user", (q) => q.eq("userId", gm.userId))
               .unique();
+            const memberComps = compsByUser.get(gm.userId) ?? [];
+            const perfectDays = countPerfectDays(memberComps, dailyTaskIds);
+            const base = groupPointsByUser.get(gm.userId) ?? 0;
             return {
               userId: gm.userId,
               displayName: memberProfile?.displayName ?? "Unknown",
               avatarUrl: memberProfile?.avatarUrl,
-              weekPoints: groupPointsByUser.get(gm.userId) ?? 0,
+              weekPoints: base + perfectDays * PERFECT_DAY_BONUS,
             };
           }),
         );
@@ -467,6 +492,7 @@ export const homeView = query({
             todayDone,
             totalDailyTasks: dailyTasks.length,
             weekPoints,
+            isPerfectToday,
           },
           rank,
           memberCount,
@@ -519,6 +545,14 @@ export const weeklyStandings = query({
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
 
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+    const dailyTaskIds = new Set(
+      tasks.filter((t) => t.frequency === "DAILY").map((t) => t._id),
+    );
+
     const groupWeekCompletions = await ctx.db
       .query("completions")
       .withIndex("by_group_week", (q) =>
@@ -526,7 +560,10 @@ export const weeklyStandings = query({
       )
       .collect();
     const pointsByUser = new Map<Id<"users">, number>();
+    const compsByUser = new Map<Id<"users">, Doc<"completions">[]>();
     for (const c of groupWeekCompletions) {
+      if (!compsByUser.has(c.userId)) compsByUser.set(c.userId, []);
+      compsByUser.get(c.userId)!.push(c);
       if (c.verifiedAt === undefined) continue;
       if (c.revokedAt !== undefined) continue;
       pointsByUser.set(
@@ -541,6 +578,9 @@ export const weeklyStandings = query({
           .query("profiles")
           .withIndex("by_user", (q) => q.eq("userId", m.userId))
           .unique();
+        const memberComps = compsByUser.get(m.userId) ?? [];
+        const perfectDays = countPerfectDays(memberComps, dailyTaskIds);
+        const base = pointsByUser.get(m.userId) ?? 0;
         return {
           userId: m.userId,
           displayName: profile?.displayName ?? "Unknown",
@@ -548,7 +588,8 @@ export const weeklyStandings = query({
           avatarUrl: profile?.avatarUrl,
           isAdmin: m.isAdmin,
           isYou: m.userId === userId,
-          weekPoints: pointsByUser.get(m.userId) ?? 0,
+          weekPoints: base + perfectDays * PERFECT_DAY_BONUS,
+          perfectDays,
         };
       }),
     );

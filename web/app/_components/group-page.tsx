@@ -336,22 +336,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
             <h2 className="h-section">Invite to {group.name}.</h2>
             <span className="eyebrow">Anyone with the code can join</span>
           </header>
-          <div className="invite-block">
-            <span className="eyebrow">Invite code</span>
-            <div className="invite-block-row">
-              <span className="mono invite-block-value">{group.inviteCode}</span>
-              <button
-                className="btn-ghost btn-ghost-sm"
-                onClick={() => {
-                  navigator.clipboard?.writeText(group.inviteCode).catch(() => {});
-                  setToast({ message: "Invite code copied", tone: "neutral" });
-                }}
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-        </section>
+          <InviteBlock
+            inviteCode={group.inviteCode}
+            groupName={group.name}
+            onToast={(msg) => setToast({ message: msg, tone: "neutral" })}
+          />        </section>
       </main>
 
       {adding && (
@@ -392,3 +381,68 @@ export function GroupPage({ groupId }: { groupId: string }) {
     </div>
   );
 }
+
+function InviteBlock({
+  inviteCode,
+  groupName,
+  onToast,
+}: {
+  inviteCode: string;
+  groupName: string;
+  onToast: (msg: string) => void;
+}) {
+  const [origin, setOrigin] = useState<string>("");
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setOrigin(window.location.origin);
+    setCanShare(typeof navigator.share === "function");
+  }, []);
+
+  const inviteUrl = origin ? `${origin}/join/${inviteCode}` : "";
+
+  const copyLink = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard?.writeText(inviteUrl);
+      onToast("Invite link copied");
+    } catch {
+      onToast("Couldn't copy — long-press to select");
+    }
+  };
+
+  const share = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.share({
+        title: `Join ${groupName} on Receipts`,
+        text: `${groupName} is keeping each other honest on Receipts. Join up:`,
+        url: inviteUrl,
+      });
+    } catch {
+      // user cancelled or share unavailable — silent
+    }
+  };
+
+  return (
+    <div className="invite-block">
+      <span className="eyebrow">Invite code</span>
+      <div className="invite-block-row">
+        <span className="mono invite-block-value">{inviteCode}</span>
+      </div>
+      <div className="invite-block-actions">
+        <button className="btn-ghost btn-ghost-sm" onClick={copyLink}>
+          Copy link
+        </button>
+        {canShare && (
+          <button className="btn-primary btn-ghost-sm" onClick={share}>
+            Share
+            <span className="arrow">→</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+

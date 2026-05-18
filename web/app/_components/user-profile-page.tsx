@@ -26,6 +26,9 @@ export function UserProfilePage({ userId }: { userId: string }) {
   const trophies = useQuery(api.weekResults.trophiesForUser, {
     userId: userId as Id<"users">,
   });
+  const streak = useQuery(api.streaks.forUser, {
+    userId: userId as Id<"users">,
+  });
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -156,6 +159,17 @@ export function UserProfilePage({ userId }: { userId: string }) {
                 )}
                 <p className="user-profile-stats">
                   <span className="num">{countLabel}</span> receipts
+                  {streak && streak.current > 0 && (
+                    <>
+                      <span className="user-profile-stats-sep" aria-hidden>
+                        {" · "}
+                      </span>
+                      <span className="streak-flame" aria-hidden>
+                        🔥
+                      </span>
+                      <span className="num">{streak.current}</span> day streak
+                    </>
+                  )}
                 </p>
               </div>
             </div>

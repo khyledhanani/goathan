@@ -110,6 +110,9 @@ export default defineSchema({
     completionId: v.id("completions"),
     userId: v.id("users"),
     groupId: v.id("groups"),
+    kind: v.optional(
+      v.union(v.literal("HEART"), v.literal("FIRE"), v.literal("EYES")),
+    ),
     createdAt: v.number(),
   })
     .index("by_completion", ["completionId"])
