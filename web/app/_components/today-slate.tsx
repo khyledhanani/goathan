@@ -219,7 +219,6 @@ function SlateRow({
         ref={fileInputRef}
         type="file"
         accept="image/*,video/*"
-        capture="environment"
         style={{ display: "none" }}
         onChange={onFile}
       />
