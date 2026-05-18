@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export type ProfileGridItem = {
   completionId: string;
   taskName: string;
@@ -36,30 +38,49 @@ export function ProfileGrid({
   return (
     <div className="profile-grid">
       {items.map((it) => (
-        <button
-          key={it.completionId}
-          type="button"
-          className="profile-grid-tile"
-          onClick={() => it.proofUrl && onOpenProof(it.proofUrl)}
-          aria-label={`${it.taskName} in ${it.groupName}, +${it.points}`}
-        >
-          {it.proofUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={it.proofUrl}
-              alt=""
-              className="profile-grid-img"
-              loading="lazy"
-            />
-          )}
-          <span className="profile-grid-overlay">
-            <span className="profile-grid-task">{it.taskName}</span>
-            <span className="profile-grid-meta mono">
-              {it.groupName} · +{it.points}
-            </span>
-          </span>
-        </button>
+        <GridTile key={it.completionId} item={it} onOpen={onOpenProof} />
       ))}
     </div>
+  );
+}
+
+function GridTile({
+  item: it,
+  onOpen,
+}: {
+  item: ProfileGridItem;
+  onOpen: (url: string) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <button
+      type="button"
+      className="profile-grid-tile"
+      onClick={() => it.proofUrl && onOpen(it.proofUrl)}
+      aria-label={`${it.taskName} in ${it.groupName}, +${it.points}`}
+    >
+      {it.proofUrl && !loaded && (
+        <span className="media-spinner" aria-hidden>
+          <span className="media-spinner-ring" />
+        </span>
+      )}
+      {it.proofUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={it.proofUrl}
+          alt=""
+          className={`profile-grid-img ${loaded ? "is-loaded" : ""}`}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+        />
+      )}
+      <span className="profile-grid-overlay">
+        <span className="profile-grid-task">{it.taskName}</span>
+        <span className="profile-grid-meta mono">
+          {it.groupName} · +{it.points}
+        </span>
+      </span>
+    </button>
   );
 }

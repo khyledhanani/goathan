@@ -2518,6 +2518,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .feed-card-image-btn {
+  position: relative;
   appearance: none;
   background: var(--paper-3);
   border: none;
@@ -2885,4 +2886,48 @@ a { color: inherit; text-decoration: none; }
   color: var(--cap);
   font-weight: 600;
   margin-left: 2px;
+}
+
+/* --- Media loading spinner --- */
+.media-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.media-spinner-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid var(--rule);
+  border-top-color: var(--smoke);
+  animation: media-spin 720ms linear infinite;
+}
+
+.media-spinner-dark .media-spinner-ring {
+  border-color: rgba(243, 239, 226, 0.18);
+  border-top-color: rgba(243, 239, 226, 0.85);
+}
+
+@keyframes media-spin {
+  to { transform: rotate(360deg); }
+}
+
+.feed-card-image,
+.profile-grid-img,
+.lightbox-media,
+.story-photo {
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.feed-card-image.is-loaded,
+.profile-grid-img.is-loaded,
+.lightbox-media.is-loaded,
+.story-photo.is-loaded {
+  opacity: 1;
 }

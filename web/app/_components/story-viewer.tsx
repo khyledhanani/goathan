@@ -4,6 +4,27 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { StoryBundle } from "./stories-rail";
 
+function StoryPhoto({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      {!loaded && (
+        <span className="media-spinner media-spinner-dark" aria-hidden>
+          <span className="media-spinner-ring" />
+        </span>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className={`story-photo ${loaded ? "is-loaded" : ""}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
 function timeAgo(ts: number): string {
   const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (sec < 60) return `${sec}s ago`;
@@ -137,8 +158,10 @@ export function StoryViewer({
         </header>
 
         <div className="story-photo-wrap">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.proofUrl} alt="" className="story-photo" />
+          <StoryPhoto
+            src={item.proofUrl}
+            key={item.completionId}
+          />
           <button
             className="story-nav story-nav-prev"
             onClick={goPrev}

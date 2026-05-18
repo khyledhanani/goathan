@@ -145,20 +145,11 @@ export function FeedCard({
       </header>
 
       {item.proofUrl && (
-        <button
-          type="button"
-          className="feed-card-image-btn"
-          onClick={() => onOpenProof(item.proofUrl!)}
-          aria-label={`View full proof from ${item.displayName}`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.proofUrl}
-            alt=""
-            className="feed-card-image"
-            loading="lazy"
-          />
-        </button>
+        <FeedPhoto
+          src={item.proofUrl}
+          displayName={item.displayName}
+          onOpen={() => onOpenProof(item.proofUrl!)}
+        />
       )}
 
       <div className="feed-card-actions">
@@ -272,6 +263,41 @@ export function FeedCard({
         </div>
       )}
     </article>
+  );
+}
+
+function FeedPhoto({
+  src,
+  displayName,
+  onOpen,
+}: {
+  src: string;
+  displayName: string;
+  onOpen: () => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <button
+      type="button"
+      className="feed-card-image-btn"
+      onClick={onOpen}
+      aria-label={`View full proof from ${displayName}`}
+    >
+      {!loaded && (
+        <span className="media-spinner" aria-hidden>
+          <span className="media-spinner-ring" />
+        </span>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className={`feed-card-image ${loaded ? "is-loaded" : ""}`}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+    </button>
   );
 }
 

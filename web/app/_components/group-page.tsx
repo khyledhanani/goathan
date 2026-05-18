@@ -9,6 +9,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
 import { firstName } from "@/lib/utils";
+import { normalizeProofMedia } from "@/lib/upload";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
@@ -127,10 +128,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
         setToast({ message: urlResult.error, tone: "error" });
         return;
       }
+      const { body, contentType } = await normalizeProofMedia(file);
       const res = await fetch(urlResult.uploadUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": contentType },
+        body,
       });
       if (!res.ok) {
         setToast({ message: "Upload failed, try again", tone: "error" });
