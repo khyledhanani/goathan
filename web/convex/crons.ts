@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.cron(
   "finalize weekly competition",
-  "5 0 * * 1",
+  "5 0 * * *",
   internal.weekResults.finalizeAllGroupsForPriorWeek,
   {},
 );

@@ -2,10 +2,19 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { dayKey, weekKey, periodKeyFor } from "./lib/period";
+import { dayKey, periodKeyFor, groupPeriodBounds } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
 import { serializeVerification } from "./lib/aiVerifyDisplay";
+
+type SeedTask = {
+  name: string;
+  description?: string;
+  category: "MORNING" | "MOVE" | "FUEL" | "MIND" | "REST";
+  points: number;
+  frequency: "DAILY" | "WEEKLY";
+  proof: "PHOTO" | "SCREENSHOT" | "VIDEO";
+};
 
 const DEFAULT_TASKS = [
   { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
@@ -18,15 +27,72 @@ const DEFAULT_TASKS = [
   { name: "Read or journal",      category: "MIND" as const,    points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "20+ minutes of reading or writing." },
   { name: "Seven hours sleep",    category: "REST" as const,    points: 10, frequency: "DAILY" as const,  proof: "SCREENSHOT" as const, description: "Seven hours minimum." },
   { name: "PR or weight target",  category: "MOVE" as const,    points: 50, frequency: "WEEKLY" as const, proof: "VIDEO" as const,      description: "Hit a personal record or weight goal this week." },
-];
+] satisfies SeedTask[];
+
+const STAKE_TEXT_MAX = 140;
+
+function normalizeStakeText(text: string | undefined): string | undefined {
+  const trimmed = text?.trim();
+  return trimmed || undefined;
+}
+
+const seedTaskValidator = v.object({
+  name: v.string(),
+  description: v.optional(v.string()),
+  category: v.union(
+    v.literal("MORNING"),
+    v.literal("MOVE"),
+    v.literal("FUEL"),
+    v.literal("MIND"),
+    v.literal("REST"),
+  ),
+  points: v.number(),
+  frequency: v.union(v.literal("DAILY"), v.literal("WEEKLY")),
+  proof: v.union(
+    v.literal("PHOTO"),
+    v.literal("SCREENSHOT"),
+    v.literal("VIDEO"),
+  ),
+});
+
+function sanitizeSeedTasks(tasks: SeedTask[]) {
+  const out: SeedTask[] = [];
+  for (const task of tasks.slice(0, 20)) {
+    const name = task.name.trim();
+    if (!name || name.length > 60) continue;
+
+    const points = Math.floor(task.points);
+    if (!Number.isFinite(points) || points < 1 || points > 200) continue;
+
+    const description = task.description?.trim() || undefined;
+    out.push({
+      name,
+      description: description?.slice(0, 120),
+      category: task.category,
+      points,
+      frequency: task.frequency,
+      proof: task.proof,
+    });
+  }
+  return out;
+}
 
 async function seedDefaultTasks(
   ctx: MutationCtx,
   groupId: Id<"groups">,
   userId: Id<"users">,
 ) {
+  await seedTasks(ctx, groupId, userId, DEFAULT_TASKS);
+}
+
+async function seedTasks(
+  ctx: MutationCtx,
+  groupId: Id<"groups">,
+  userId: Id<"users">,
+  tasks: SeedTask[],
+) {
   const now = Date.now();
-  for (const t of DEFAULT_TASKS) {
+  for (const t of sanitizeSeedTasks(tasks)) {
     await ctx.db.insert("tasks", {
       groupId,
       name: t.name,
@@ -139,15 +205,18 @@ export const todayView = query({
 
     const now = Date.now();
     const todayKey = dayKey(now);
-    const wk = weekKey(now);
+    const period = groupPeriodBounds(group, now);
 
-    const groupWeekRows = await ctx.db
+    const groupPeriodRows = await ctx.db
       .query("completions")
-      .withIndex("by_group_week", (q) =>
-        q.eq("groupId", groupId).eq("weekKey", wk),
+      .withIndex("by_group_recent", (q) =>
+        q
+          .eq("groupId", groupId)
+          .gte("claimedAt", period.periodStart)
+          .lt("claimedAt", period.periodEnd),
       )
       .collect();
-    const myWeekCompletions = groupWeekRows.filter(
+    const myWeekCompletions = groupPeriodRows.filter(
       (c) => c.userId === userId,
     );
 
@@ -259,12 +328,18 @@ export const todayView = query({
         _id: group._id,
         name: group.name,
         inviteCode: group.inviteCode,
+        stakeKind: group.stakeKind ?? null,
+        stakeText: group.stakeText ?? null,
       },
       isAdmin: membership.isAdmin,
       slate,
       stats: {
         todayKey,
-        weekKey: wk,
+        weekKey: period.periodKey,
+        periodEndMs: period.periodEnd,
+        periodEnded: period.ended,
+        durationDays: group.durationDays ?? 7,
+        cadence: group.cadence ?? null,
         todayPoints,
         todayDone,
         totalDailyTasks: dailyTasks.length,
@@ -332,33 +407,30 @@ export const homeView = query({
       .collect();
 
     const now = Date.now();
-    const wk = weekKey(now);
-
-    const allMyWeekCompletions = await ctx.db
-      .query("completions")
-      .withIndex("by_user_week", (q) =>
-        q.eq("userId", userId).eq("weekKey", wk),
-      )
-      .collect();
-
-    const compByGroup = new Map<string, typeof allMyWeekCompletions>();
-    for (const c of allMyWeekCompletions) {
-      const list = compByGroup.get(c.groupId) ?? [];
-      list.push(c);
-      compByGroup.set(c.groupId, list);
-    }
 
     const groups = await Promise.all(
       memberships.map(async (m) => {
         const group = await ctx.db.get(m.groupId);
         if (!group) return null;
 
+        const period = groupPeriodBounds(group, now);
+
         const tasks = await ctx.db
           .query("tasks")
           .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
           .collect();
 
-        const myCompletions = compByGroup.get(m.groupId) ?? [];
+        const myCompletions = (
+          await ctx.db
+            .query("completions")
+            .withIndex("by_group_recent", (q) =>
+              q
+                .eq("groupId", m.groupId)
+                .gte("claimedAt", period.periodStart)
+                .lt("claimedAt", period.periodEnd),
+            )
+            .collect()
+        ).filter((c) => c.userId === userId);
         const completionByTask = new Map<
           string,
           {
@@ -472,8 +544,11 @@ export const homeView = query({
 
         const groupWeekCompletions = await ctx.db
           .query("completions")
-          .withIndex("by_group_week", (q) =>
-            q.eq("groupId", m.groupId).eq("weekKey", wk),
+          .withIndex("by_group_recent", (q) =>
+            q
+              .eq("groupId", m.groupId)
+              .gte("claimedAt", period.periodStart)
+              .lt("claimedAt", period.periodEnd),
           )
           .collect();
         const groupPointsByUser = new Map<Id<"users">, number>();
@@ -528,6 +603,8 @@ export const homeView = query({
           name: group.name,
           isAdmin: m.isAdmin,
           joinedAt: m.joinedAt,
+          stakeKind: group.stakeKind ?? null,
+          stakeText: group.stakeText ?? null,
           slate,
           stats: {
             todayPoints,
@@ -535,6 +612,10 @@ export const homeView = query({
             totalDailyTasks: dailyTasks.length,
             weekPoints,
             isPerfectToday,
+            periodEndMs: period.periodEnd,
+            periodEnded: period.ended,
+            durationDays: group.durationDays ?? 7,
+            cadence: group.cadence ?? null,
           },
           rank,
           memberCount,
@@ -580,7 +661,11 @@ export const weeklyStandings = query({
       .unique();
     if (!myMembership) return null;
 
-    const wk = weekKey(Date.now());
+    const group = await ctx.db.get(groupId);
+    if (!group) return null;
+
+    const now = Date.now();
+    const period = groupPeriodBounds(group, now);
 
     const memberships = await ctx.db
       .query("memberships")
@@ -597,8 +682,11 @@ export const weeklyStandings = query({
 
     const groupWeekCompletions = await ctx.db
       .query("completions")
-      .withIndex("by_group_week", (q) =>
-        q.eq("groupId", groupId).eq("weekKey", wk),
+      .withIndex("by_group_recent", (q) =>
+        q
+          .eq("groupId", groupId)
+          .gte("claimedAt", period.periodStart)
+          .lt("claimedAt", period.periodEnd),
       )
       .collect();
     const pointsByUser = new Map<Id<"users">, number>();
@@ -730,8 +818,31 @@ export const recentActivity = query({
 });
 
 export const create = mutation({
-  args: { name: v.string() },
-  handler: async (ctx, { name }) => {
+  args: {
+    name: v.string(),
+    tasks: v.optional(v.array(seedTaskValidator)),
+    durationDays: v.optional(v.number()),
+    repeat: v.optional(v.boolean()),
+    cadence: v.optional(v.union(v.literal("monthly"))),
+    anchorDate: v.optional(v.number()),
+    anchorDayOfMonth: v.optional(v.number()),
+    stakeKind: v.optional(v.union(v.literal("PENALTY"), v.literal("REWARD"))),
+    stakeText: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    {
+      name,
+      tasks,
+      durationDays,
+      repeat,
+      cadence,
+      anchorDate: anchorArg,
+      anchorDayOfMonth,
+      stakeKind,
+      stakeText,
+    },
+  ) => {
     const userId = await requireAuthUserId(ctx);
     await requireOnboardedProfile(ctx, userId);
 
@@ -739,14 +850,46 @@ export const create = mutation({
     if (!trimmed) return { ok: false as const, error: "Group name is required" };
     if (trimmed.length > 40) return { ok: false as const, error: "Group name is too long" };
 
+    const normalizedStakeText = normalizeStakeText(stakeText);
+    if (normalizedStakeText && normalizedStakeText.length > STAKE_TEXT_MAX) {
+      return { ok: false as const, error: "Penalty or reward is too long" };
+    }
+
+    const dur = durationDays ?? 7;
+    if (!Number.isFinite(dur) || dur < 1 || dur > 365) {
+      return { ok: false as const, error: "Duration must be 1–365 days" };
+    }
+
     const inviteCode = await findFreshInviteCode(ctx);
     const now = Date.now();
+
+    // Use provided anchor or snap to UTC midnight of now
+    let anchorDate: number;
+    if (anchorArg !== undefined) {
+      // Snap to UTC midnight to be safe
+      const ad = new Date(anchorArg);
+      anchorDate = Date.UTC(ad.getUTCFullYear(), ad.getUTCMonth(), ad.getUTCDate());
+    } else {
+      const anchorD = new Date(now);
+      anchorDate = Date.UTC(
+        anchorD.getUTCFullYear(),
+        anchorD.getUTCMonth(),
+        anchorD.getUTCDate(),
+      );
+    }
 
     const groupId = await ctx.db.insert("groups", {
       name: trimmed,
       inviteCode,
       createdByUserId: userId,
       createdAt: now,
+      anchorDate,
+      anchorDayOfMonth: cadence === "monthly" ? anchorDayOfMonth : undefined,
+      durationDays: cadence === "monthly" ? undefined : dur,
+      repeat: repeat ?? true,
+      cadence,
+      stakeKind: normalizedStakeText ? (stakeKind ?? "PENALTY") : undefined,
+      stakeText: normalizedStakeText,
     });
 
     await ctx.db.insert("memberships", {
@@ -756,9 +899,58 @@ export const create = mutation({
       joinedAt: now,
     });
 
-    await seedDefaultTasks(ctx, groupId, userId);
+    if (tasks === undefined) {
+      await seedDefaultTasks(ctx, groupId, userId);
+    } else {
+      await seedTasks(ctx, groupId, userId, tasks);
+    }
 
     return { ok: true as const, groupId, inviteCode };
+  },
+});
+
+export const updateSettings = mutation({
+  args: {
+    groupId: v.id("groups"),
+    name: v.string(),
+    stakeKind: v.optional(v.union(v.literal("PENALTY"), v.literal("REWARD"))),
+    stakeText: v.optional(v.string()),
+  },
+  handler: async (ctx, { groupId, name, stakeKind, stakeText }) => {
+    const userId = await requireAuthUserId(ctx);
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!membership) throw new ConvexError("Not a member of this group");
+    if (!membership.isAdmin) {
+      return { ok: false as const, error: "Only admins can edit this group" };
+    }
+
+    const group = await ctx.db.get(groupId);
+    if (!group) return { ok: false as const, error: "Group not found" };
+
+    const trimmed = name.trim();
+    if (!trimmed) return { ok: false as const, error: "Group name is required" };
+    if (trimmed.length > 40) {
+      return { ok: false as const, error: "Group name is too long" };
+    }
+
+    const normalizedStakeText = normalizeStakeText(stakeText);
+    if (normalizedStakeText && normalizedStakeText.length > STAKE_TEXT_MAX) {
+      return { ok: false as const, error: "Penalty or reward is too long" };
+    }
+
+    await ctx.db.patch(groupId, {
+      name: trimmed,
+      stakeKind: normalizedStakeText ? (stakeKind ?? "PENALTY") : undefined,
+      stakeText: normalizedStakeText,
+    });
+
+    return { ok: true as const };
   },
 });
 

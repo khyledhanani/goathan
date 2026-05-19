@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AiBadge, type AiVerification } from "./ai-badge";
@@ -76,6 +77,7 @@ export function FeedCard({
   const [showThread, setShowThread] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
   const [likeBusyKind, setLikeBusyKind] = useState<ReactionKind | null>(null);
 
   const submit = async (e: FormEvent) => {
@@ -141,13 +143,25 @@ export function FeedCard({
               {item.isYou ? "You" : item.displayName}
             </span>
             <span className="feed-card-sub mono">
-              <Link
-                href={`/group/${item.groupId}`}
+              <span
+                role="link"
+                tabIndex={0}
                 className="feed-card-group"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/group/${item.groupId}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/group/${item.groupId}`);
+                  }
+                }}
               >
                 in {item.groupName}
-              </Link>
+              </span>
               <span aria-hidden> · </span>
               {timeAgo(item.verifiedAt)}
             </span>

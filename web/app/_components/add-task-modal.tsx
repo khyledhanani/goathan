@@ -1,23 +1,27 @@
 "use client";
 
 import { useState } from "react";
-
-type Category = "MORNING" | "MOVE" | "FUEL" | "MIND" | "REST";
-type Frequency = "DAILY" | "WEEKLY";
-type Proof = "PHOTO" | "SCREENSHOT" | "VIDEO";
-
-const CATEGORIES: Category[] = ["MORNING", "MOVE", "FUEL", "MIND", "REST"];
-const FREQUENCIES: Frequency[] = ["DAILY", "WEEKLY"];
-const PROOFS: Proof[] = ["PHOTO", "SCREENSHOT", "VIDEO"];
+import {
+  TASK_CATEGORIES,
+  TASK_FREQUENCIES,
+  TASK_PROOFS,
+  TASK_TEMPLATES,
+  taskTemplateById,
+  type TaskCategory,
+  type TaskFrequency,
+  type TaskProof,
+} from "@/lib/task-templates";
 
 export type AddTaskInput = {
   name: string;
   description?: string;
-  category: Category;
+  category: TaskCategory;
   points: number;
-  frequency: Frequency;
-  proof: Proof;
+  frequency: TaskFrequency;
+  proof: TaskProof;
 };
+
+const BLANK_TEMPLATE_ID = "blank";
 
 export function AddTaskModal({
   onClose,
@@ -26,16 +30,46 @@ export function AddTaskModal({
   onClose: () => void;
   onSubmit: (input: AddTaskInput) => Promise<string | null>;
 }) {
+  const [templateId, setTemplateId] = useState(BLANK_TEMPLATE_ID);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState<number>(15);
-  const [category, setCategory] = useState<Category>("MOVE");
-  const [frequency, setFrequency] = useState<Frequency>("DAILY");
-  const [proof, setProof] = useState<Proof>("PHOTO");
+  const [category, setCategory] = useState<TaskCategory>("MOVE");
+  const [frequency, setFrequency] = useState<TaskFrequency>("DAILY");
+  const [proof, setProof] = useState<TaskProof>("PHOTO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = name.trim().length > 0 && points >= 1 && !busy;
+
+  const onTemplateChange = (nextId: string) => {
+    setTemplateId(nextId);
+    setTemplateOpen(false);
+    if (nextId === BLANK_TEMPLATE_ID) {
+      setName("");
+      setDescription("");
+      setPoints(15);
+      setCategory("MOVE");
+      setFrequency("DAILY");
+      setProof("PHOTO");
+      return;
+    }
+
+    const template = taskTemplateById(nextId);
+    if (!template) return;
+    setName(template.name);
+    setDescription(template.description ?? "");
+    setPoints(template.points);
+    setCategory(template.category);
+    setFrequency(template.frequency);
+    setProof(template.proof);
+  };
+
+  const selectedTemplateLabel =
+    templateId === BLANK_TEMPLATE_ID
+      ? "Blank custom task"
+      : (taskTemplateById(templateId)?.label ?? "Blank custom task");
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -69,6 +103,76 @@ export function AddTaskModal({
         </header>
 
         <div className="modal-body">
+          <div className="field template-field">
+            <span className="field-label">
+              <span>Task template</span>
+              <span className="hint">Optional autofill</span>
+            </span>
+            <div className="template-picker">
+              <button
+                type="button"
+                className="template-trigger"
+                autoFocus
+                aria-haspopup="listbox"
+                aria-expanded={templateOpen}
+                onClick={() => setTemplateOpen((open) => !open)}
+              >
+                <span className="template-trigger-main">
+                  {selectedTemplateLabel}
+                </span>
+                <span className="template-trigger-meta">
+                  {templateId === BLANK_TEMPLATE_ID
+                    ? "Start from scratch"
+                    : "Fields prefilled"}
+                </span>
+                <span className="template-trigger-arrow" aria-hidden>
+                  ↓
+                </span>
+              </button>
+
+              {templateOpen && (
+                <div className="template-menu" role="listbox">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={templateId === BLANK_TEMPLATE_ID}
+                    className={`template-option ${
+                      templateId === BLANK_TEMPLATE_ID ? "active" : ""
+                    }`}
+                    onClick={() => onTemplateChange(BLANK_TEMPLATE_ID)}
+                  >
+                    <span className="template-option-name">
+                      Blank custom task
+                    </span>
+                    <span className="template-option-meta">
+                      No autofill
+                    </span>
+                  </button>
+                  {TASK_TEMPLATES.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      role="option"
+                      aria-selected={templateId === template.id}
+                      className={`template-option ${
+                        templateId === template.id ? "active" : ""
+                      }`}
+                      onClick={() => onTemplateChange(template.id)}
+                    >
+                      <span className="template-option-name">
+                        {template.label}
+                      </span>
+                      <span className="template-option-meta">
+                        {template.category} · {template.frequency} ·{" "}
+                        {template.points} pts
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <label className="field">
             <span className="field-label">
               <span>Task name</span>
@@ -76,7 +180,6 @@ export function AddTaskModal({
             </span>
             <input
               className="field-input"
-              autoFocus
               value={name}
               maxLength={60}
               placeholder="Leg day check"
@@ -103,7 +206,7 @@ export function AddTaskModal({
               <span>Category</span>
             </span>
             <div className="option-grid">
-              {CATEGORIES.map((c) => (
+              {TASK_CATEGORIES.map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -121,7 +224,7 @@ export function AddTaskModal({
               <span>Frequency</span>
             </span>
             <div className="option-grid">
-              {FREQUENCIES.map((f) => (
+              {TASK_FREQUENCIES.map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -139,7 +242,7 @@ export function AddTaskModal({
               <span>Proof requirement</span>
             </span>
             <div className="option-grid">
-              {PROOFS.map((p) => (
+              {TASK_PROOFS.map((p) => (
                 <button
                   key={p}
                   type="button"

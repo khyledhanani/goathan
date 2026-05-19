@@ -35,6 +35,13 @@ export default defineSchema({
     inviteCode: v.string(),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
+    anchorDate: v.optional(v.number()),
+    anchorDayOfMonth: v.optional(v.number()),
+    durationDays: v.optional(v.number()),
+    repeat: v.optional(v.boolean()),
+    cadence: v.optional(v.union(v.literal("monthly"))),
+    stakeKind: v.optional(v.union(v.literal("PENALTY"), v.literal("REWARD"))),
+    stakeText: v.optional(v.string()),
   }).index("by_invite_code", ["inviteCode"]),
 
   memberships: defineTable({
@@ -97,7 +104,8 @@ export default defineSchema({
     .index("by_user_task_period", ["userId", "taskId", "periodKey"])
     .index("by_group_recent", ["groupId", "claimedAt"])
     .index("by_group_week", ["groupId", "weekKey"])
-    .index("by_user_week", ["userId", "weekKey"]),
+    .index("by_user_week", ["userId", "weekKey"])
+    .index("by_user_recent", ["userId", "claimedAt"]),
 
   challenges: defineTable({
     completionId: v.id("completions"),

@@ -13,6 +13,7 @@ import { TodaySlate } from "./today-slate";
 import { ProofLightbox } from "./proof-lightbox";
 import { BottomNav } from "./bottom-nav";
 import { UserMenu } from "./user-menu";
+import { CreateOrJoinGroups } from "./group-actions";
 
 type Member = { displayName: string; avatarUrl?: string };
 
@@ -155,6 +156,13 @@ export function GroupsScreen() {
           </div>
         </div>
 
+        <div className="fade-up d1" style={{ marginBottom: 32 }}>
+          <CreateOrJoinGroups
+            onSuccess={(msg) => setToast({ message: msg, tone: "success" })}
+            onError={(msg) => setToast({ message: msg, tone: "error" })}
+          />
+        </div>
+
         {home && home.groups.length === 0 ? (
           <EmptyHome />
         ) : (
@@ -175,6 +183,9 @@ export function GroupsScreen() {
                       </span>
                       <h2 className="home-card-name">{g.name}</h2>
                       <AvatarStack members={g.memberAvatars} />
+                      {g.stakeText && (
+                        <GroupStake kind={g.stakeKind ?? "PENALTY"} text={g.stakeText} />
+                      )}
                     </div>
                     <Link
                       href={`/group/${g._id}`}
@@ -239,6 +250,27 @@ export function GroupsScreen() {
   );
 }
 
+function GroupStake({
+  kind,
+  text,
+}: {
+  kind: "PENALTY" | "REWARD";
+  text: string;
+}) {
+  const isReward = kind === "REWARD";
+  const label = isReward ? "Reward" : "Penalty";
+  return (
+    <span
+      className={`group-stake-badge ${kind.toLowerCase()}`}
+      aria-label={`${label}: ${text}`}
+    >
+      <span className="stake-icon" aria-hidden>{isReward ? "🏆" : "⚡"}</span>
+      <span className="stake-label">{label}</span>
+      <span className="stake-text">{text}</span>
+    </span>
+  );
+}
+
 function ScoreCell({
   value,
   label,
@@ -291,14 +323,9 @@ function EmptyHome() {
           Start one<span className="roman">.</span>
         </h1>
         <p className="entry-dek" style={{ marginTop: 14, maxWidth: 520 }}>
-          Head to your profile to create a group or join one with a code.
+          Create a group or join one with a code above. Your groups will appear
+          here once you&apos;re in.
         </p>
-        <div style={{ marginTop: 22 }}>
-          <Link href="/profile" className="btn-primary">
-            Go to profile
-            <span className="arrow">→</span>
-          </Link>
-        </div>
       </div>
     </div>
   );

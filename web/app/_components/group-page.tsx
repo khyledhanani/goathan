@@ -15,10 +15,11 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { StandingsTable } from "./standings-table";
 import { ActivityFeed } from "./activity-feed";
 import { ProofLightbox } from "./proof-lightbox";
-import { DayResetCountdown, WeekResetCountdown } from "./countdown";
+import { DayResetCountdown, CompResetCountdown } from "./countdown";
 import { BottomNav } from "./bottom-nav";
 import { InviteModal } from "./invite-modal";
 import { UserMenu } from "./user-menu";
+import { GroupEditModal } from "./group-actions";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -47,6 +48,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{
@@ -227,7 +229,19 @@ export function GroupPage({ groupId }: { groupId: string }) {
         <div className="page-head fade-up page-head-group">
           <div>
             <span className="eyebrow">
-              {stats.weekKey.replace("-W", " · week ")} · {dateLabel}
+              {(() => {
+                const d = stats.durationDays;
+                const startDate = new Date(stats.periodEndMs - d * 86400000);
+                const fmt = (dt: Date) =>
+                  dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                if (stats.cadence === "monthly") {
+                  return `month of ${startDate.toLocaleDateString("en-US", { month: "long" })}`;
+                }
+                if (d === 1) return "today";
+                if (d === 7) return `week of ${fmt(startDate)}`;
+                return `${d}-day comp · ${fmt(startDate)}`;
+              })()}
+              {" · "}{dateLabel}
             </span>
             <h1 className="h-page h-page-serif" style={{ marginTop: 8 }}>
               {group.name}<span className="roman">.</span>
@@ -238,18 +252,31 @@ export function GroupPage({ groupId }: { groupId: string }) {
               <span className="num">{stats.todayDone}</span>/
               <span className="num">{stats.totalDailyTasks}</span> done
             </p>
+            {group.stakeText && (
+              <GroupStake
+                kind={group.stakeKind ?? "PENALTY"}
+                text={group.stakeText}
+              />
+            )}
             <p className="hero-countdown">
               <DayResetCountdown />
               <span className="hero-countdown-sep" aria-hidden> · </span>
-              <WeekResetCountdown />
+              <CompResetCountdown periodEndMs={stats.periodEndMs} />
             </p>
           </div>
-          <button
-            className="btn-ghost hero-invite-btn"
-            onClick={() => setInviteOpen(true)}
-          >
-            Invite<span className="arrow">→</span>
-          </button>
+          <div className="group-hero-actions">
+            {isAdmin && (
+              <button className="btn-ghost" onClick={() => setEditing(true)}>
+                Edit<span className="arrow">→</span>
+              </button>
+            )}
+            <button
+              className="btn-ghost hero-invite-btn"
+              onClick={() => setInviteOpen(true)}
+            >
+              Invite<span className="arrow">→</span>
+            </button>
+          </div>
         </div>
 
         <section className="fade-up d1">
@@ -330,6 +357,17 @@ export function GroupPage({ groupId }: { groupId: string }) {
         />
       )}
 
+      {editing && (
+        <GroupEditModal
+          groupId={group._id}
+          initialName={group.name}
+          initialStakeKind={group.stakeKind}
+          initialStakeText={group.stakeText}
+          onClose={() => setEditing(false)}
+          onSaved={(msg) => setToast({ message: msg, tone: "success" })}
+        />
+      )}
+
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <ConfirmDialog
         open={removeTarget !== null}
@@ -360,4 +398,23 @@ export function GroupPage({ groupId }: { groupId: string }) {
   );
 }
 
-
+function GroupStake({
+  kind,
+  text,
+}: {
+  kind: "PENALTY" | "REWARD";
+  text: string;
+}) {
+  const isReward = kind === "REWARD";
+  const label = isReward ? "Reward" : "Penalty";
+  return (
+    <span
+      className={`group-stake-badge ${kind.toLowerCase()}`}
+      aria-label={`${label}: ${text}`}
+    >
+      <span className="stake-icon" aria-hidden>{isReward ? "🏆" : "⚡"}</span>
+      <span className="stake-label">{label}</span>
+      <span className="stake-text">{text}</span>
+    </span>
+  );
+}

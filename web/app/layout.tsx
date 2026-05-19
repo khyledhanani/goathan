@@ -61,7 +61,11 @@ const THEME_INIT = `(function(){try{var t=localStorage.getItem('receipts.theme')
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+      <html
+        lang="en"
+        className={`${serif.variable} ${sans.variable} ${mono.variable}`}
+        suppressHydrationWarning
+      >
         <head>
           <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         </head>

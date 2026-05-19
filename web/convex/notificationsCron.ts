@@ -1,6 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { enqueueNotification } from "./lib/notify";
-import { dayKey, periodKeyFor, weekKey } from "./lib/period";
+import { dayKey, periodKeyFor } from "./lib/period";
 import type { Id } from "./_generated/dataModel";
 
 export const fanOutDailyReminders = internalMutation({
@@ -8,7 +8,12 @@ export const fanOutDailyReminders = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const today = dayKey(now);
-    const wk = weekKey(now);
+    const todayStart = new Date(now);
+    const todayStartMs = Date.UTC(
+      todayStart.getUTCFullYear(),
+      todayStart.getUTCMonth(),
+      todayStart.getUTCDate(),
+    );
 
     const profiles = await ctx.db
       .query("profiles")
@@ -46,14 +51,14 @@ export const fanOutDailyReminders = internalMutation({
       if (totalDailyTasks === 0) continue;
 
       // Verified non-revoked daily completions today, across all groups
-      const myWeek = await ctx.db
+      const todayCompletions = await ctx.db
         .query("completions")
-        .withIndex("by_user_week", (q) =>
-          q.eq("userId", profile.userId).eq("weekKey", wk),
+        .withIndex("by_user_recent", (q) =>
+          q.eq("userId", profile.userId).gte("claimedAt", todayStartMs),
         )
         .collect();
       let doneToday = 0;
-      for (const c of myWeek) {
+      for (const c of todayCompletions) {
         if (c.verifiedAt === undefined) continue;
         if (c.revokedAt !== undefined) continue;
         if (c.periodKey !== periodKeyFor("DAILY", now)) continue;
