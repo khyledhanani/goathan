@@ -43,22 +43,6 @@ export function DayResetCountdown({ label = "Day resets in" }: { label?: string 
   );
 }
 
-function msUntilNextMonday(now: number): number {
-  const d = new Date(now);
-  const day = d.getUTCDay();
-  const daysFromMonday = (day + 6) % 7;
-  const startOfThisWeek = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate() - daysFromMonday,
-    0,
-    0,
-    0,
-  );
-  const startOfNextWeek = startOfThisWeek + 7 * 24 * 60 * 60 * 1000;
-  return Math.max(0, startOfNextWeek - now);
-}
-
 function formatLong(ms: number): string {
   const totalMinutes = Math.floor(ms / 60_000);
   const days = Math.floor(totalMinutes / (60 * 24));
@@ -70,9 +54,11 @@ function formatLong(ms: number): string {
   return "<1m";
 }
 
-export function WeekResetCountdown({
+export function CompResetCountdown({
+  periodEndMs,
   label = "Comp ends in",
 }: {
+  periodEndMs: number;
   label?: string;
 }) {
   const [tick, setTick] = useState(0);
@@ -80,7 +66,7 @@ export function WeekResetCountdown({
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
-  const remaining = msUntilNextMonday(Date.now());
+  const remaining = Math.max(0, periodEndMs - Date.now());
   void tick;
   return (
     <span className="countdown">

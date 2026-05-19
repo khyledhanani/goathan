@@ -14,21 +14,6 @@ function nextUtcMidnight(now: number): number {
   );
 }
 
-function nextMondayUtc(now: number): number {
-  const d = new Date(now);
-  const day = d.getUTCDay();
-  const daysFromMonday = (day + 6) % 7;
-  const startOfThisWeek = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate() - daysFromMonday,
-    0,
-    0,
-    0,
-  );
-  return startOfThisWeek + 7 * 24 * 60 * 60 * 1000;
-}
-
 function formatHM(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hr = Math.floor(total / 3600);
@@ -50,11 +35,13 @@ export function FeedStatsBar({
   totalDailyTasks,
   todayPoints,
   groupCount,
+  earliestPeriodEndMs,
 }: {
   todayDone: number;
   totalDailyTasks: number;
   todayPoints: number;
   groupCount: number;
+  earliestPeriodEndMs?: number;
 }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -64,7 +51,9 @@ export function FeedStatsBar({
   void tick;
 
   const dayRemaining = formatHM(nextUtcMidnight(Date.now()) - Date.now());
-  const weekRemaining = formatDH(nextMondayUtc(Date.now()) - Date.now());
+  const compRemaining = earliestPeriodEndMs
+    ? formatDH(Math.max(0, earliestPeriodEndMs - Date.now()))
+    : null;
 
   return (
     <div className="feed-stats-bar fade-up">
@@ -84,16 +73,18 @@ export function FeedStatsBar({
           {groupCount === 1 ? "group" : "groups"}
         </span>
       </span>
-      <span className="feed-stats-cell feed-stats-countdown">
-        <span className="feed-stats-cd-row">
-          <span className="feed-stats-label">day</span>
-          <span className="num">{dayRemaining}</span>
+      {compRemaining && (
+        <span className="feed-stats-cell feed-stats-countdown">
+          <span className="feed-stats-cd-row">
+            <span className="feed-stats-label">day</span>
+            <span className="num">{dayRemaining}</span>
+          </span>
+          <span className="feed-stats-cd-row feed-stats-cd-week">
+            <span className="feed-stats-label">comp</span>
+            <span className="num">{compRemaining}</span>
+          </span>
         </span>
-        <span className="feed-stats-cd-row feed-stats-cd-week">
-          <span className="feed-stats-label">comp</span>
-          <span className="num">{weekRemaining}</span>
-        </span>
-      </span>
+      )}
     </div>
   );
 }

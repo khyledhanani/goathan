@@ -2,7 +2,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { dayKey, weekKey, periodKeyFor } from "./lib/period";
+import { dayKey, periodKeyFor, groupPeriodBounds } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
 import { serializeVerification } from "./lib/aiVerifyDisplay";
@@ -198,15 +198,18 @@ export const todayView = query({
 
     const now = Date.now();
     const todayKey = dayKey(now);
-    const wk = weekKey(now);
+    const period = groupPeriodBounds(group, now);
 
-    const groupWeekRows = await ctx.db
+    const groupPeriodRows = await ctx.db
       .query("completions")
-      .withIndex("by_group_week", (q) =>
-        q.eq("groupId", groupId).eq("weekKey", wk),
+      .withIndex("by_group_recent", (q) =>
+        q
+          .eq("groupId", groupId)
+          .gte("claimedAt", period.periodStart)
+          .lt("claimedAt", period.periodEnd),
       )
       .collect();
-    const myWeekCompletions = groupWeekRows.filter(
+    const myWeekCompletions = groupPeriodRows.filter(
       (c) => c.userId === userId,
     );
 
@@ -323,7 +326,11 @@ export const todayView = query({
       slate,
       stats: {
         todayKey,
-        weekKey: wk,
+        weekKey: period.periodKey,
+        periodEndMs: period.periodEnd,
+        periodEnded: period.ended,
+        durationDays: group.durationDays ?? 7,
+        cadence: group.cadence ?? null,
         todayPoints,
         todayDone,
         totalDailyTasks: dailyTasks.length,
@@ -391,33 +398,30 @@ export const homeView = query({
       .collect();
 
     const now = Date.now();
-    const wk = weekKey(now);
-
-    const allMyWeekCompletions = await ctx.db
-      .query("completions")
-      .withIndex("by_user_week", (q) =>
-        q.eq("userId", userId).eq("weekKey", wk),
-      )
-      .collect();
-
-    const compByGroup = new Map<string, typeof allMyWeekCompletions>();
-    for (const c of allMyWeekCompletions) {
-      const list = compByGroup.get(c.groupId) ?? [];
-      list.push(c);
-      compByGroup.set(c.groupId, list);
-    }
 
     const groups = await Promise.all(
       memberships.map(async (m) => {
         const group = await ctx.db.get(m.groupId);
         if (!group) return null;
 
+        const period = groupPeriodBounds(group, now);
+
         const tasks = await ctx.db
           .query("tasks")
           .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
           .collect();
 
-        const myCompletions = compByGroup.get(m.groupId) ?? [];
+        const myCompletions = (
+          await ctx.db
+            .query("completions")
+            .withIndex("by_group_recent", (q) =>
+              q
+                .eq("groupId", m.groupId)
+                .gte("claimedAt", period.periodStart)
+                .lt("claimedAt", period.periodEnd),
+            )
+            .collect()
+        ).filter((c) => c.userId === userId);
         const completionByTask = new Map<
           string,
           {
@@ -531,8 +535,11 @@ export const homeView = query({
 
         const groupWeekCompletions = await ctx.db
           .query("completions")
-          .withIndex("by_group_week", (q) =>
-            q.eq("groupId", m.groupId).eq("weekKey", wk),
+          .withIndex("by_group_recent", (q) =>
+            q
+              .eq("groupId", m.groupId)
+              .gte("claimedAt", period.periodStart)
+              .lt("claimedAt", period.periodEnd),
           )
           .collect();
         const groupPointsByUser = new Map<Id<"users">, number>();
@@ -594,6 +601,10 @@ export const homeView = query({
             totalDailyTasks: dailyTasks.length,
             weekPoints,
             isPerfectToday,
+            periodEndMs: period.periodEnd,
+            periodEnded: period.ended,
+            durationDays: group.durationDays ?? 7,
+            cadence: group.cadence ?? null,
           },
           rank,
           memberCount,
@@ -639,7 +650,11 @@ export const weeklyStandings = query({
       .unique();
     if (!myMembership) return null;
 
-    const wk = weekKey(Date.now());
+    const group = await ctx.db.get(groupId);
+    if (!group) return null;
+
+    const now = Date.now();
+    const period = groupPeriodBounds(group, now);
 
     const memberships = await ctx.db
       .query("memberships")
@@ -656,8 +671,11 @@ export const weeklyStandings = query({
 
     const groupWeekCompletions = await ctx.db
       .query("completions")
-      .withIndex("by_group_week", (q) =>
-        q.eq("groupId", groupId).eq("weekKey", wk),
+      .withIndex("by_group_recent", (q) =>
+        q
+          .eq("groupId", groupId)
+          .gte("claimedAt", period.periodStart)
+          .lt("claimedAt", period.periodEnd),
       )
       .collect();
     const pointsByUser = new Map<Id<"users">, number>();
@@ -789,8 +807,16 @@ export const recentActivity = query({
 });
 
 export const create = mutation({
-  args: { name: v.string(), tasks: v.optional(v.array(seedTaskValidator)) },
-  handler: async (ctx, { name, tasks }) => {
+  args: {
+    name: v.string(),
+    tasks: v.optional(v.array(seedTaskValidator)),
+    durationDays: v.optional(v.number()),
+    repeat: v.optional(v.boolean()),
+    cadence: v.optional(v.union(v.literal("monthly"))),
+    anchorDate: v.optional(v.number()),
+    anchorDayOfMonth: v.optional(v.number()),
+  },
+  handler: async (ctx, { name, tasks, durationDays, repeat, cadence, anchorDate: anchorArg, anchorDayOfMonth }) => {
     const userId = await requireAuthUserId(ctx);
     await requireOnboardedProfile(ctx, userId);
 
@@ -798,14 +824,39 @@ export const create = mutation({
     if (!trimmed) return { ok: false as const, error: "Group name is required" };
     if (trimmed.length > 40) return { ok: false as const, error: "Group name is too long" };
 
+    const dur = durationDays ?? 7;
+    if (!Number.isFinite(dur) || dur < 1 || dur > 365) {
+      return { ok: false as const, error: "Duration must be 1–365 days" };
+    }
+
     const inviteCode = await findFreshInviteCode(ctx);
     const now = Date.now();
+
+    // Use provided anchor or snap to UTC midnight of now
+    let anchorDate: number;
+    if (anchorArg !== undefined) {
+      // Snap to UTC midnight to be safe
+      const ad = new Date(anchorArg);
+      anchorDate = Date.UTC(ad.getUTCFullYear(), ad.getUTCMonth(), ad.getUTCDate());
+    } else {
+      const anchorD = new Date(now);
+      anchorDate = Date.UTC(
+        anchorD.getUTCFullYear(),
+        anchorD.getUTCMonth(),
+        anchorD.getUTCDate(),
+      );
+    }
 
     const groupId = await ctx.db.insert("groups", {
       name: trimmed,
       inviteCode,
       createdByUserId: userId,
       createdAt: now,
+      anchorDate,
+      anchorDayOfMonth: cadence === "monthly" ? anchorDayOfMonth : undefined,
+      durationDays: cadence === "monthly" ? undefined : dur,
+      repeat: repeat ?? true,
+      cadence,
     });
 
     await ctx.db.insert("memberships", {

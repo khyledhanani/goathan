@@ -6,33 +6,31 @@ import {
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { weekKey, weekStartMs, weekEndMs } from "./lib/period";
+import { previousPeriodBounds } from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
 
 type Medal = "GOLD" | "SILVER" | "BRONZE";
 const MEDALS: Medal[] = ["GOLD", "SILVER", "BRONZE"];
 
-async function finalizeOneGroupWeek(
+async function finalizeOneGroupPeriod(
   ctx: MutationCtx,
-  groupId: Id<"groups">,
-  targetWeekKey: string,
-  targetWeekEndMs: number,
+  group: Doc<"groups">,
+  periodStart: number,
+  periodEnd: number,
+  periodKey: string,
 ): Promise<number> {
   const existing = await ctx.db
     .query("weekResults")
     .withIndex("by_group_week", (q) =>
-      q.eq("groupId", groupId).eq("weekKey", targetWeekKey),
+      q.eq("groupId", group._id).eq("weekKey", periodKey),
     )
     .first();
   if (existing) return 0;
 
-  const group = await ctx.db.get(groupId);
-  if (!group) return 0;
-
   const tasks = await ctx.db
     .query("tasks")
-    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .withIndex("by_group", (q) => q.eq("groupId", group._id))
     .collect();
   const dailyTaskIds = new Set(
     tasks.filter((t) => t.frequency === "DAILY").map((t) => t._id),
@@ -40,8 +38,11 @@ async function finalizeOneGroupWeek(
 
   const completions = await ctx.db
     .query("completions")
-    .withIndex("by_group_week", (q) =>
-      q.eq("groupId", groupId).eq("weekKey", targetWeekKey),
+    .withIndex("by_group_recent", (q) =>
+      q
+        .eq("groupId", group._id)
+        .gte("claimedAt", periodStart)
+        .lt("claimedAt", periodEnd),
     )
     .collect();
 
@@ -80,14 +81,14 @@ async function finalizeOneGroupWeek(
     const [userId, weekPoints] = ranked[i];
     const medal = MEDALS[i];
     await ctx.db.insert("weekResults", {
-      groupId,
+      groupId: group._id,
       groupName: group.name,
-      weekKey: targetWeekKey,
+      weekKey: periodKey,
       userId,
       rank: i + 1,
       weekPoints,
       medal,
-      weekEndMs: targetWeekEndMs,
+      weekEndMs: periodEnd,
       finalizedAt: now,
     });
     inserted++;
@@ -103,12 +104,12 @@ async function finalizeOneGroupWeek(
     await enqueueNotification(ctx, {
       userId,
       kind: "MEDAL_AWARDED",
-      groupId,
-      medalKey: `${groupId}:${targetWeekKey}`,
+      groupId: group._id,
+      medalKey: `${group._id}:${periodKey}`,
       title: `${medalEmoji} You ${medalLabel} in ${group.name}`,
-      body: `${weekPoints} pts last week`,
+      body: `${weekPoints} pts last period`,
       deepLinkPath: `/profile`,
-      dedupeKey: `medal:${groupId}:${targetWeekKey}:${userId}`,
+      dedupeKey: `medal:${group._id}:${periodKey}:${userId}`,
     });
   }
   return inserted;
@@ -118,20 +119,19 @@ export const finalizeAllGroupsForPriorWeek = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const currentWeekStart = weekStartMs(now);
-    const priorWeekRef = currentWeekStart - 1;
-    const priorWeekKey = weekKey(priorWeekRef);
-    const priorWeekEnd = weekEndMs(priorWeekRef);
 
     const groups = await ctx.db.query("groups").collect();
     let totalGroups = 0;
     let totalInserted = 0;
     for (const g of groups) {
-      const n = await finalizeOneGroupWeek(
+      const prev = previousPeriodBounds(g, now);
+      if (!prev) continue;
+      const n = await finalizeOneGroupPeriod(
         ctx,
-        g._id,
-        priorWeekKey,
-        priorWeekEnd,
+        g,
+        prev.periodStart,
+        prev.periodEnd,
+        prev.periodKey,
       );
       if (n > 0) {
         totalGroups++;
@@ -139,7 +139,6 @@ export const finalizeAllGroupsForPriorWeek = internalMutation({
       }
     }
     return {
-      weekKey: priorWeekKey,
       groupsFinalized: totalGroups,
       medalsAwarded: totalInserted,
     };

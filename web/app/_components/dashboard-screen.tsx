@@ -204,6 +204,11 @@ export function DashboardScreen() {
         totalDailyTasks={home?.totals.totalDailyTasks ?? 0}
         todayPoints={home?.totals.todayPoints ?? 0}
         groupCount={home?.totals.groupCount ?? 0}
+        earliestPeriodEndMs={
+          home?.groups.length
+            ? Math.min(...home.groups.map((g) => g.stats.periodEndMs))
+            : undefined
+        }
       />
 
       <PushPrompt eligible={(home?.totals.groupCount ?? 0) > 0} />

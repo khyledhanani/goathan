@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { mainGoalLabel } from "@/lib/types";
 import { errorMessage } from "@/lib/errors";
+import { DatePicker } from "./date-picker";
 import {
   GROUP_STARTER_PACKS,
   tasksForStarterPack,
@@ -247,6 +248,165 @@ function ProfileRow({
   );
 }
 
+function Dropdown<T extends string | number>({
+  value,
+  options,
+  onChange,
+  mono,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  mono?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="cust-dropdown" ref={ref}>
+      <button
+        type="button"
+        className={`cust-dropdown-trigger ${mono ? "mono" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span>{selected?.label ?? ""}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="cust-dropdown-menu">
+          {options.map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              className={`cust-dropdown-item ${opt.value === value ? "active" : ""} ${mono ? "mono" : ""}`}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FixedEndDateInput({
+  value,
+  onChange,
+}: {
+  value: string; // YYYY-MM-DD or ""
+  onChange: (iso: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const parts = value ? value.split("-") : ["", "", ""];
+  const mm = parts[1] ?? "";
+  const dd = parts[2] ?? "";
+  const yyyy = parts[0] ?? "";
+
+  const update = (m: string, d: string, y: string) => {
+    if (m || d || y) {
+      onChange(
+        `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`,
+      );
+    } else {
+      onChange("");
+    }
+  };
+
+  return (
+    <>
+      <span className="field-label" style={{ marginBottom: 6 }}>
+        <span>Ends on</span>
+        <span className="hint">Type or pick a date</span>
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input
+          className="field-input mono-input"
+          type="text"
+          inputMode="numeric"
+          placeholder="MM"
+          maxLength={2}
+          value={mm.replace(/^0+(\d)/, "$1")}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+            update(v, dd, yyyy);
+          }}
+          style={{ width: 52, textAlign: "center", fontSize: 18 }}
+        />
+        <span style={{ fontSize: 20, color: "var(--fog)" }}>/</span>
+        <input
+          className="field-input mono-input"
+          type="text"
+          inputMode="numeric"
+          placeholder="DD"
+          maxLength={2}
+          value={dd.replace(/^0+(\d)/, "$1")}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+            update(mm, v, yyyy);
+          }}
+          style={{ width: 52, textAlign: "center", fontSize: 18 }}
+        />
+        <span style={{ fontSize: 20, color: "var(--fog)" }}>/</span>
+        <input
+          className="field-input mono-input"
+          type="text"
+          inputMode="numeric"
+          placeholder="YYYY"
+          maxLength={4}
+          value={yyyy === "0000" ? "" : yyyy.replace(/^0+(\d+)/, "$1")}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+            update(mm, dd, v);
+          }}
+          style={{ width: 68, textAlign: "center", fontSize: 18 }}
+        />
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setOpen((o) => !o)}
+          style={{ padding: "6px 10px", marginLeft: 4 }}
+          aria-label="Open calendar"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <DatePicker
+            value={value}
+            onChange={(iso) => {
+              onChange(iso);
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 function GroupActions({
   onSuccess,
   onError,
@@ -258,6 +418,11 @@ function GroupActions({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [starterPackId, setStarterPackId] = useState("the-cut");
+  const [resetMode, setResetMode] = useState<"weekly" | "monthly" | "custom" | "fixed">("weekly");
+  const [resetDays, setResetDays] = useState("14");
+  const [resetWeekday, setResetWeekday] = useState(() => new Date().getDay()); // 0=Sun..6=Sat
+  const [resetDayOfMonth, setResetDayOfMonth] = useState(() => new Date().getDate()); // 1–31
+  const [endDate, setEndDate] = useState("");
   const [busy, setBusy] = useState(false);
 
   const createGroup = useMutation(api.groups.create);
@@ -276,9 +441,59 @@ function GroupActions({
     try {
       if (mode === "create") {
         if (!canCreate) return;
+        let durationDays: number | undefined;
+        let repeat = true;
+        let cadence: "monthly" | undefined;
+        let anchorDate: number | undefined;
+
+        const now = new Date();
+        const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+
+        if (resetMode === "weekly") {
+          durationDays = 7;
+          // Find the most recent occurrence of the chosen weekday (as UTC)
+          const todayDay = new Date(todayMs).getUTCDay(); // 0=Sun
+          const diff = ((todayDay - resetWeekday) % 7 + 7) % 7;
+          anchorDate = todayMs - diff * 86_400_000;
+        } else if (resetMode === "monthly") {
+          cadence = "monthly";
+          // Anchor to the chosen day-of-month in the current (or most recent) month
+          const y = now.getUTCFullYear();
+          const m = now.getUTCMonth();
+          const maxDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+          const day = Math.min(resetDayOfMonth, maxDay);
+          let anchor = Date.UTC(y, m, day);
+          if (anchor > todayMs) {
+            // Use previous month
+            const pm = m - 1;
+            const py = pm < 0 ? y - 1 : y;
+            const pmn = ((pm % 12) + 12) % 12;
+            const pmMax = new Date(Date.UTC(py, pmn + 1, 0)).getUTCDate();
+            anchor = Date.UTC(py, pmn, Math.min(resetDayOfMonth, pmMax));
+          }
+          anchorDate = anchor;
+        } else if (resetMode === "fixed") {
+          const [yyyy, mm, dd] = endDate.split("-").map((s) => parseInt(s, 10));
+          if (yyyy && mm && dd) {
+            const end = Date.UTC(yyyy, mm - 1, dd);
+            durationDays = Math.max(1, Math.round((end - todayMs) / 86_400_000));
+          } else {
+            durationDays = 30;
+          }
+          repeat = false;
+        } else {
+          // custom
+          durationDays = parseInt(resetDays, 10) || 7;
+        }
+
         const result = await createGroup({
           name: name.trim(),
           tasks: starterTasks,
+          durationDays,
+          repeat,
+          cadence,
+          anchorDate,
+          anchorDayOfMonth: cadence === "monthly" ? resetDayOfMonth : undefined,
         });
         if (!result.ok) {
           onError(result.error);
@@ -365,6 +580,84 @@ function GroupActions({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="field">
+            <span className="field-label">
+              <span>Competition reset</span>
+              <span className="hint">When standings reset</span>
+            </span>
+            <div className="seg" style={{ marginBottom: 12, flexWrap: "wrap" }}>
+              {([
+                { key: "weekly", label: "Weekly" },
+                { key: "monthly", label: "Monthly" },
+                { key: "custom", label: "Custom" },
+                { key: "fixed", label: "Fixed end" },
+              ] as const).map((opt, i) => (
+                <span key={opt.key} style={{ display: "contents" }}>
+                  {i > 0 && <span className="seg-dot">/</span>}
+                  <button
+                    className={resetMode === opt.key ? "active" : ""}
+                    onClick={() => setResetMode(opt.key)}
+                  >
+                    {opt.label}
+                  </button>
+                </span>
+              ))}
+            </div>
+            {resetMode === "weekly" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span className="field-label" style={{ margin: 0 }}>Standings reset every</span>
+                <Dropdown
+                  value={resetWeekday}
+                  options={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                    (day, i) => ({ value: i, label: day }),
+                  )}
+                  onChange={setResetWeekday}
+                />
+              </div>
+            )}
+            {resetMode === "monthly" && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span className="field-label" style={{ margin: 0 }}>Standings reset every</span>
+                  <Dropdown
+                    mono
+                    value={resetDayOfMonth}
+                    options={Array.from({ length: 31 }, (_, i) => {
+                      const d = i + 1;
+                      const suffix = d === 1 || d === 21 || d === 31 ? "st" : d === 2 || d === 22 ? "nd" : d === 3 || d === 23 ? "rd" : "th";
+                      return { value: d, label: `${d}${suffix}` };
+                    })}
+                    onChange={setResetDayOfMonth}
+                  />
+                  <span className="field-label" style={{ margin: 0 }}>of each month</span>
+                </div>
+                {resetDayOfMonth > 28 && (
+                  <p className="muted-line" style={{ margin: "6px 0 0", fontSize: 12 }}>
+                    In shorter months, resets on the last day instead.
+                  </p>
+                )}
+              </>
+            )}
+            {resetMode === "custom" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="field-label" style={{ margin: 0 }}>Standings reset every</span>
+                <input
+                  className="field-input mono-input"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={resetDays}
+                  onChange={(e) => setResetDays(e.target.value)}
+                  style={{ width: 64, textAlign: "center" }}
+                />
+                <span className="field-label" style={{ margin: 0 }}>days</span>
+              </div>
+            )}
+            {resetMode === "fixed" && (
+              <FixedEndDateInput value={endDate} onChange={setEndDate} />
+            )}
           </div>
 
           <div className="starter-preview">

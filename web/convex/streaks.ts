@@ -2,7 +2,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
-import { dayKey, previousDayKey, weekKey } from "./lib/period";
+import { dayKey, previousDayKey } from "./lib/period";
 
 const STREAK_SCAN_WEEKS = 52;
 
@@ -10,22 +10,19 @@ async function collectCompletedDays(
   ctx: QueryCtx,
   userId: Id<"users">,
 ): Promise<Set<string>> {
+  const now = Date.now();
+  const scanMs = STREAK_SCAN_WEEKS * 7 * 86_400_000;
+  const rows = await ctx.db
+    .query("completions")
+    .withIndex("by_user_recent", (q) =>
+      q.eq("userId", userId).gte("claimedAt", now - scanMs),
+    )
+    .collect();
   const days = new Set<string>();
-  let cursor = Date.now();
-  for (let i = 0; i < STREAK_SCAN_WEEKS; i++) {
-    const wk = weekKey(cursor);
-    const rows = await ctx.db
-      .query("completions")
-      .withIndex("by_user_week", (q) =>
-        q.eq("userId", userId).eq("weekKey", wk),
-      )
-      .collect();
-    for (const c of rows) {
-      if (c.verifiedAt === undefined) continue;
-      if (c.revokedAt !== undefined) continue;
-      days.add(dayKey(c.claimedAt));
-    }
-    cursor -= 7 * 24 * 60 * 60 * 1000;
+  for (const c of rows) {
+    if (c.verifiedAt === undefined) continue;
+    if (c.revokedAt !== undefined) continue;
+    days.add(dayKey(c.claimedAt));
   }
   return days;
 }

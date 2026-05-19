@@ -2,7 +2,7 @@ import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import { periodKeyFor, weekKey } from "./lib/period";
+import { periodKeyFor, groupPeriodBounds } from "./lib/period";
 
 export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
 
@@ -36,12 +36,15 @@ export const claim = mutation({
       return { ok: false as const, error: "Already claimed this period" };
     }
 
+    const group = await ctx.db.get(task.groupId);
+    const { periodKey } = groupPeriodBounds(group ?? {}, now);
+
     const completionId = await ctx.db.insert("completions", {
       taskId,
       userId,
       groupId: task.groupId,
       periodKey: pk,
-      weekKey: weekKey(now),
+      weekKey: periodKey,
       points: task.points,
       claimedAt: now,
     });
