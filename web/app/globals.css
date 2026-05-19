@@ -802,39 +802,150 @@ a { color: inherit; text-decoration: none; }
   display: block;
 }
 
-.group-create-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.group-actions-join {
+  max-width: none;
 }
 
-.starter-pack-grid {
+.group-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.group-entry-join-inline {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.group-entry-join-inline .group-actions-join {
+  padding: 0;
+}
+
+.group-entry-join-inline .field { margin: 0; }
+.group-entry-join-inline .field-input {
+  font-size: 20px;
+  padding: 10px 0;
+}
+
+.group-entry-join-inline .btn-primary {
+  margin-top: 12px;
+}
+
+/* Two-column create-group layout */
+
+.group-create-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 32px;
 }
 
 @media (min-width: 760px) {
-  .starter-pack-grid { grid-template-columns: repeat(2, 1fr); }
+  .group-create-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+}
+
+.group-create-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.group-create-sidebar {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--paper);
+}
+
+@media (min-width: 760px) {
+  .group-create-sidebar {
+    position: sticky;
+    top: 80px;
+  }
+}
+
+.reset-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stake-control-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.stake-control-head .seg { margin-bottom: 0; }
+.stake-optional-hint {
+  flex-shrink: 0;
+  margin-top: 6px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+
+.stake-textarea {
+  width: 100%;
+  min-height: 92px;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 21px;
+  line-height: 1.25;
+  resize: vertical;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.stake-textarea::placeholder { color: var(--mist); }
+.stake-textarea:focus {
+  border-color: var(--ink);
+  background: var(--paper-2);
+}
+.stake-char-count {
+  display: block;
+  margin-top: 6px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--fog);
+}
+
+/* Starter pack cards */
+
+.starter-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
 
 .starter-pack-card {
   display: flex;
-  min-height: 116px;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  padding: 14px 16px;
+  gap: 4px;
+  padding: 10px 12px;
   border: 1px solid var(--rule);
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   text-align: left;
-  transition: border-color 140ms ease, background 140ms ease, transform 120ms ease;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .starter-pack-card:hover {
   border-color: var(--ink);
-  background: var(--paper-2);
 }
 
 .starter-pack-card.active {
@@ -846,33 +957,21 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-serif), Georgia, serif;
   font-style: italic;
   font-weight: 400;
-  font-size: 23px;
-  line-height: 1.05;
+  font-size: 17px;
+  line-height: 1.15;
   color: var(--ink);
-  letter-spacing: 0;
 }
 
 .starter-pack-card.active .starter-pack-name { color: var(--accent); }
 
-.starter-pack-blurb {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 13px;
-  line-height: 1.35;
-  color: var(--smoke);
-}
-
 .starter-pack-count {
-  margin-top: auto;
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--fog);
   text-transform: uppercase;
 }
 
-.starter-preview {
-  border-top: 1px solid var(--rule);
-  padding-top: 16px;
-}
+/* Slate preview */
 
 .starter-preview-empty {
   margin: 0;
@@ -893,13 +992,13 @@ a { color: inherit; text-decoration: none; }
   align-items: baseline;
   justify-content: space-between;
   gap: 14px;
-  padding: 10px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--rule);
 }
 
 .starter-task-name {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -1170,6 +1269,45 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
   font-size: 14px;
   padding: 14px 22px;
+}
+
+.group-stake-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 5px 12px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  background: var(--cap-soft);
+  color: var(--cap);
+  border: 1px solid color-mix(in srgb, var(--cap) 30%, transparent);
+}
+.group-stake-badge.reward {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.group-stake-badge .stake-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+.group-stake-badge .stake-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.group-stake-badge .stake-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .avatar-stack {
@@ -2381,7 +2519,7 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0;
 }
 
-.home-groups-section { margin-top: 56px; margin-bottom: 16px; }
+.home-groups-section { margin-bottom: 32px; }
 
 /* --- Story viewer modal --- */
 .story-scrim {
@@ -3464,6 +3602,22 @@ a { color: inherit; text-decoration: none; }
 
 .hero-invite-btn {
   flex-shrink: 0;
+  margin-top: 4px;
+  padding: 8px 14px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.group-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.group-hero-actions .btn-ghost {
   margin-top: 4px;
   padding: 8px 14px;
   font-size: 11px;

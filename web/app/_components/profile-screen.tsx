@@ -144,7 +144,7 @@ export function ProfileScreen() {
           ) : groups.length === 0 ? (
             <p className="muted-line">
               No groups yet.{" "}
-              <Link href="/settings" className="btn-link">
+              <Link href="/groups" className="btn-link">
                 Create or join one →
               </Link>
             </p>
@@ -168,9 +168,9 @@ export function ProfileScreen() {
             </ul>
           )}
           <p className="muted-line" style={{ marginTop: 16 }}>
-            Manage groups in{" "}
-            <Link href="/settings" className="btn-link">
-              Settings
+            Create or join groups in{" "}
+            <Link href="/groups" className="btn-link">
+              Groups
             </Link>
             .
           </p>

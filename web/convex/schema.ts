@@ -40,6 +40,8 @@ export default defineSchema({
     durationDays: v.optional(v.number()),
     repeat: v.optional(v.boolean()),
     cadence: v.optional(v.union(v.literal("monthly"))),
+    stakeKind: v.optional(v.union(v.literal("PENALTY"), v.literal("REWARD"))),
+    stakeText: v.optional(v.string()),
   }).index("by_invite_code", ["inviteCode"]),
 
   memberships: defineTable({
