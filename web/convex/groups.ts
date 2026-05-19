@@ -328,6 +328,11 @@ export const todayView = query({
         _id: group._id,
         name: group.name,
         inviteCode: group.inviteCode,
+        anchorDate: group.anchorDate ?? null,
+        anchorDayOfMonth: group.anchorDayOfMonth ?? null,
+        durationDays: group.durationDays ?? null,
+        repeat: group.repeat ?? null,
+        cadence: group.cadence ?? null,
         stakeKind: group.stakeKind ?? null,
         stakeText: group.stakeText ?? null,
       },
@@ -420,110 +425,41 @@ export const homeView = query({
           .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
           .collect();
 
-        const myCompletions = (
-          await ctx.db
-            .query("completions")
-            .withIndex("by_group_recent", (q) =>
-              q
-                .eq("groupId", m.groupId)
-                .gte("claimedAt", period.periodStart)
-                .lt("claimedAt", period.periodEnd),
-            )
-            .collect()
-        ).filter((c) => c.userId === userId);
-        const completionByTask = new Map<
-          string,
-          {
-            completionId: Id<"completions">;
-            periodKey: string;
-            claimedAt: number;
-            verifiedAt?: number;
-            revokedAt?: number;
-            proofUrl: string | null;
-            aiVerification: {
-              status:
-                | "PENDING"
-                | "PASSED"
-                | "INCONCLUSIVE"
-                | "FAILED"
-                | "ERROR"
-                | "SKIPPED";
-              confidence: number | null;
-              reasoning: string | null;
-              flags: string[];
-            } | null;
-          }
-        >();
-        for (const c of myCompletions) {
-          const proofUrl = c.proofStorageId
-            ? await ctx.storage.getUrl(c.proofStorageId)
-            : null;
-          const verification = await ctx.db
-            .query("proofVerifications")
-            .withIndex("by_completion", (q) => q.eq("completionId", c._id))
-            .unique();
-          completionByTask.set(c.taskId, {
-            completionId: c._id,
-            periodKey: c.periodKey,
-            claimedAt: c.claimedAt,
-            verifiedAt: c.verifiedAt,
-            revokedAt: c.revokedAt,
-            proofUrl,
-            aiVerification: serializeVerification(verification),
-          });
-        }
-
-        const slate = tasks
-          .map((t) => {
-            const expectedKey = periodKeyFor(t.frequency, now);
-            const completion = completionByTask.get(t._id);
-            const claimedThisPeriod =
-              !!completion && completion.periodKey === expectedKey;
-            return {
-              _id: t._id,
-              name: t.name,
-              description: t.description,
-              category: t.category,
-              points: t.points,
-              frequency: t.frequency,
-              proof: t.proof,
-              claimedThisPeriod,
-              completionId: claimedThisPeriod ? completion!.completionId : null,
-              claimedAt: claimedThisPeriod ? completion!.claimedAt : null,
-              verifiedAt: claimedThisPeriod
-                ? (completion!.verifiedAt ?? null)
-                : null,
-              revokedAt: claimedThisPeriod
-                ? (completion!.revokedAt ?? null)
-                : null,
-              proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
-              aiVerification: claimedThisPeriod
-                ? completion!.aiVerification
-                : null,
-            };
-          })
-          .sort((a, b) => {
-            if (a.frequency !== b.frequency)
-              return a.frequency === "DAILY" ? -1 : 1;
-            return b.points - a.points;
-          });
-
-        const dailyTasks = slate.filter((t) => t.frequency === "DAILY");
-        const dailyTaskIds = new Set(dailyTasks.map((t) => t._id));
-        const baseTodayPoints = dailyTasks
-          .filter(
-            (t) =>
-              t.claimedThisPeriod &&
-              t.verifiedAt !== null &&
-              t.revokedAt === null,
+        const groupWeekCompletions = await ctx.db
+          .query("completions")
+          .withIndex("by_group_recent", (q) =>
+            q
+              .eq("groupId", m.groupId)
+              .gte("claimedAt", period.periodStart)
+              .lt("claimedAt", period.periodEnd),
           )
-          .reduce((s, t) => s + t.points, 0);
-        const todayDone = dailyTasks.filter(
-          (t) =>
-            t.claimedThisPeriod &&
-            t.verifiedAt !== null &&
-            t.revokedAt === null,
-        ).length;
+          .collect();
+        const myCompletions = groupWeekCompletions.filter(
+          (c) => c.userId === userId,
+        );
+
+        const dailyTasks = tasks.filter((t) => t.frequency === "DAILY");
+        const dailyTaskIds = new Set(dailyTasks.map((t) => t._id));
+        const dailyPointsByTask = new Map(
+          dailyTasks.map((t) => [t._id, t.points]),
+        );
+        const todayKey = periodKeyFor("DAILY", now);
+        const verifiedTodayTaskIds = new Set(
+          myCompletions
+            .filter(
+              (c) =>
+                dailyTaskIds.has(c.taskId) &&
+                c.periodKey === todayKey &&
+                c.verifiedAt !== undefined &&
+                c.revokedAt === undefined,
+            )
+            .map((c) => c.taskId),
+        );
+        const baseTodayPoints = Array.from(verifiedTodayTaskIds).reduce(
+          (sum, taskId) => sum + (dailyPointsByTask.get(taskId) ?? 0),
+          0,
+        );
+        const todayDone = verifiedTodayTaskIds.size;
         const isPerfectToday =
           dailyTasks.length > 0 && todayDone === dailyTasks.length;
         const todayPoints =
@@ -542,15 +478,6 @@ export const homeView = query({
           .withIndex("by_group", (q) => q.eq("groupId", m.groupId))
           .collect();
 
-        const groupWeekCompletions = await ctx.db
-          .query("completions")
-          .withIndex("by_group_recent", (q) =>
-            q
-              .eq("groupId", m.groupId)
-              .gte("claimedAt", period.periodStart)
-              .lt("claimedAt", period.periodEnd),
-          )
-          .collect();
         const groupPointsByUser = new Map<Id<"users">, number>();
         const compsByUser = new Map<Id<"users">, Doc<"completions">[]>();
         for (const c of groupWeekCompletions) {
@@ -605,11 +532,11 @@ export const homeView = query({
           joinedAt: m.joinedAt,
           stakeKind: group.stakeKind ?? null,
           stakeText: group.stakeText ?? null,
-          slate,
           stats: {
             todayPoints,
             todayDone,
             totalDailyTasks: dailyTasks.length,
+            taskCount: tasks.length,
             weekPoints,
             isPerfectToday,
             periodEndMs: period.periodEnd,
@@ -913,10 +840,28 @@ export const updateSettings = mutation({
   args: {
     groupId: v.id("groups"),
     name: v.string(),
+    durationDays: v.optional(v.number()),
+    repeat: v.optional(v.boolean()),
+    cadence: v.optional(v.union(v.literal("monthly"))),
+    anchorDate: v.optional(v.number()),
+    anchorDayOfMonth: v.optional(v.number()),
     stakeKind: v.optional(v.union(v.literal("PENALTY"), v.literal("REWARD"))),
     stakeText: v.optional(v.string()),
   },
-  handler: async (ctx, { groupId, name, stakeKind, stakeText }) => {
+  handler: async (
+    ctx,
+    {
+      groupId,
+      name,
+      durationDays,
+      repeat,
+      cadence,
+      anchorDate: anchorArg,
+      anchorDayOfMonth,
+      stakeKind,
+      stakeText,
+    },
+  ) => {
     const userId = await requireAuthUserId(ctx);
 
     const membership = await ctx.db
@@ -944,11 +889,67 @@ export const updateSettings = mutation({
       return { ok: false as const, error: "Penalty or reward is too long" };
     }
 
-    await ctx.db.patch(groupId, {
+    const patch: Partial<Doc<"groups">> = {
       name: trimmed,
       stakeKind: normalizedStakeText ? (stakeKind ?? "PENALTY") : undefined,
       stakeText: normalizedStakeText,
-    });
+    };
+
+    const hasResetUpdate =
+      durationDays !== undefined ||
+      repeat !== undefined ||
+      cadence !== undefined ||
+      anchorArg !== undefined ||
+      anchorDayOfMonth !== undefined;
+
+    if (hasResetUpdate) {
+      let nextAnchorDate: number;
+      if (anchorArg !== undefined) {
+        const ad = new Date(anchorArg);
+        nextAnchorDate = Date.UTC(
+          ad.getUTCFullYear(),
+          ad.getUTCMonth(),
+          ad.getUTCDate(),
+        );
+      } else if (group.anchorDate !== undefined) {
+        nextAnchorDate = group.anchorDate;
+      } else {
+        const now = new Date();
+        nextAnchorDate = Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+        );
+      }
+
+      if (cadence === "monthly") {
+        const day = Math.floor(
+          anchorDayOfMonth ??
+            group.anchorDayOfMonth ??
+            new Date(nextAnchorDate).getUTCDate(),
+        );
+        if (!Number.isFinite(day) || day < 1 || day > 31) {
+          return { ok: false as const, error: "Reset day must be 1–31" };
+        }
+        patch.anchorDate = nextAnchorDate;
+        patch.anchorDayOfMonth = day;
+        patch.durationDays = undefined;
+        patch.repeat = repeat ?? true;
+        patch.cadence = "monthly";
+      } else {
+        const dur = durationDays ?? group.durationDays ?? 7;
+        if (!Number.isFinite(dur) || dur < 1 || dur > 365) {
+          return { ok: false as const, error: "Duration must be 1–365 days" };
+        }
+        patch.anchorDate = nextAnchorDate;
+        patch.anchorDayOfMonth = undefined;
+        patch.durationDays = Math.floor(dur);
+        patch.repeat = repeat ?? true;
+        patch.cadence = undefined;
+      }
+    }
+
+    await ctx.db.patch(groupId, patch);
 
     return { ok: true as const };
   },

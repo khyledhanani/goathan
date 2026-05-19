@@ -361,6 +361,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
         <GroupEditModal
           groupId={group._id}
           initialName={group.name}
+          initialAnchorDate={group.anchorDate}
+          initialAnchorDayOfMonth={group.anchorDayOfMonth}
+          initialDurationDays={group.durationDays}
+          initialRepeat={group.repeat}
+          initialCadence={group.cadence}
           initialStakeKind={group.stakeKind}
           initialStakeText={group.stakeText}
           onClose={() => setEditing(false)}
