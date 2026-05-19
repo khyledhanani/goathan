@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 
 export function SignInScreen() {
+  const router = useRouter();
   const { signIn } = useAuthActions();
-  const [status, setStatus] = useState<"idle" | "signing-in" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "signing-in" | "dev-signing-in" | "error"
+  >("idle");
   const [toast, setToast] = useState<ToastValue>(null);
+  const devBypassEnabled =
+    process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === "true";
 
   const onSignIn = async () => {
     setStatus("signing-in");
@@ -23,7 +29,22 @@ export function SignInScreen() {
     }
   };
 
+  const onDevSignIn = async () => {
+    setStatus("dev-signing-in");
+    try {
+      await signIn("anonymous");
+      router.replace("/dashboard");
+    } catch (e) {
+      setToast({
+        message: errorMessage(e, "Dev sign-in failed."),
+        tone: "error",
+      });
+      setStatus("error");
+    }
+  };
+
   const busy = status === "signing-in";
+  const devBusy = status === "dev-signing-in";
 
   return (
     <div className="entry">
@@ -49,13 +70,25 @@ export function SignInScreen() {
           <button
             className="btn-google"
             onClick={onSignIn}
-            disabled={busy}
+            disabled={busy || devBusy}
             aria-busy={busy}
           >
             <GoogleGlyph />
             <span>{busy ? "Opening Google…" : "Continue with Google"}</span>
             <span className="arrow">→</span>
           </button>
+
+          {devBypassEnabled && (
+            <button
+              className="btn-ghost dev-signin-btn"
+              onClick={onDevSignIn}
+              disabled={busy || devBusy}
+              aria-busy={devBusy}
+            >
+              {devBusy ? "Entering dev mode…" : "Skip sign-in for local dev"}
+              <span className="arrow">→</span>
+            </button>
+          )}
 
           <p className="auth-fineprint">
             We&apos;ll pull your name, email, and avatar from Google. You can change

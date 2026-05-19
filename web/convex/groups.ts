@@ -7,6 +7,15 @@ import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
 import { serializeVerification } from "./lib/aiVerifyDisplay";
 
+type SeedTask = {
+  name: string;
+  description?: string;
+  category: "MORNING" | "MOVE" | "FUEL" | "MIND" | "REST";
+  points: number;
+  frequency: "DAILY" | "WEEKLY";
+  proof: "PHOTO" | "SCREENSHOT" | "VIDEO";
+};
+
 const DEFAULT_TASKS = [
   { name: "Make your bed",        category: "MORNING" as const, points: 5,  frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "Snap your made bed before you leave the room." },
   { name: "Morning sunlight",     category: "MORNING" as const, points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "10+ minutes outside within an hour of waking." },
@@ -18,15 +27,65 @@ const DEFAULT_TASKS = [
   { name: "Read or journal",      category: "MIND" as const,    points: 10, frequency: "DAILY" as const,  proof: "PHOTO" as const,      description: "20+ minutes of reading or writing." },
   { name: "Seven hours sleep",    category: "REST" as const,    points: 10, frequency: "DAILY" as const,  proof: "SCREENSHOT" as const, description: "Seven hours minimum." },
   { name: "PR or weight target",  category: "MOVE" as const,    points: 50, frequency: "WEEKLY" as const, proof: "VIDEO" as const,      description: "Hit a personal record or weight goal this week." },
-];
+] satisfies SeedTask[];
+
+const seedTaskValidator = v.object({
+  name: v.string(),
+  description: v.optional(v.string()),
+  category: v.union(
+    v.literal("MORNING"),
+    v.literal("MOVE"),
+    v.literal("FUEL"),
+    v.literal("MIND"),
+    v.literal("REST"),
+  ),
+  points: v.number(),
+  frequency: v.union(v.literal("DAILY"), v.literal("WEEKLY")),
+  proof: v.union(
+    v.literal("PHOTO"),
+    v.literal("SCREENSHOT"),
+    v.literal("VIDEO"),
+  ),
+});
+
+function sanitizeSeedTasks(tasks: SeedTask[]) {
+  const out: SeedTask[] = [];
+  for (const task of tasks.slice(0, 20)) {
+    const name = task.name.trim();
+    if (!name || name.length > 60) continue;
+
+    const points = Math.floor(task.points);
+    if (!Number.isFinite(points) || points < 1 || points > 200) continue;
+
+    const description = task.description?.trim() || undefined;
+    out.push({
+      name,
+      description: description?.slice(0, 120),
+      category: task.category,
+      points,
+      frequency: task.frequency,
+      proof: task.proof,
+    });
+  }
+  return out;
+}
 
 async function seedDefaultTasks(
   ctx: MutationCtx,
   groupId: Id<"groups">,
   userId: Id<"users">,
 ) {
+  await seedTasks(ctx, groupId, userId, DEFAULT_TASKS);
+}
+
+async function seedTasks(
+  ctx: MutationCtx,
+  groupId: Id<"groups">,
+  userId: Id<"users">,
+  tasks: SeedTask[],
+) {
   const now = Date.now();
-  for (const t of DEFAULT_TASKS) {
+  for (const t of sanitizeSeedTasks(tasks)) {
     await ctx.db.insert("tasks", {
       groupId,
       name: t.name,
@@ -730,8 +789,8 @@ export const recentActivity = query({
 });
 
 export const create = mutation({
-  args: { name: v.string() },
-  handler: async (ctx, { name }) => {
+  args: { name: v.string(), tasks: v.optional(v.array(seedTaskValidator)) },
+  handler: async (ctx, { name, tasks }) => {
     const userId = await requireAuthUserId(ctx);
     await requireOnboardedProfile(ctx, userId);
 
@@ -756,7 +815,11 @@ export const create = mutation({
       joinedAt: now,
     });
 
-    await seedDefaultTasks(ctx, groupId, userId);
+    if (tasks === undefined) {
+      await seedDefaultTasks(ctx, groupId, userId);
+    } else {
+      await seedTasks(ctx, groupId, userId, tasks);
+    }
 
     return { ok: true as const, groupId, inviteCode };
   },

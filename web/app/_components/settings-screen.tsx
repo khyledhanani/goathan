@@ -7,6 +7,10 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { mainGoalLabel } from "@/lib/types";
 import { errorMessage } from "@/lib/errors";
+import {
+  GROUP_STARTER_PACKS,
+  tasksForStarterPack,
+} from "@/lib/task-templates";
 import { Toast, type ToastValue } from "./toast";
 import { ConfirmDialog } from "./confirm-dialog";
 import { BottomNav } from "./bottom-nav";
@@ -253,10 +257,16 @@ function GroupActions({
   const [mode, setMode] = useState<"create" | "join">("create");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [starterPackId, setStarterPackId] = useState("the-cut");
   const [busy, setBusy] = useState(false);
 
   const createGroup = useMutation(api.groups.create);
   const joinByCode = useMutation(api.groups.joinByCode);
+
+  const starterPack =
+    GROUP_STARTER_PACKS.find((pack) => pack.id === starterPackId) ??
+    GROUP_STARTER_PACKS[0];
+  const starterTasks = tasksForStarterPack(starterPack);
 
   const canCreate = name.trim().length > 0 && !busy;
   const canJoin = /^[A-Z0-9]{6}$/.test(code) && !busy;
@@ -266,7 +276,10 @@ function GroupActions({
     try {
       if (mode === "create") {
         if (!canCreate) return;
-        const result = await createGroup({ name: name.trim() });
+        const result = await createGroup({
+          name: name.trim(),
+          tasks: starterTasks,
+        });
         if (!result.ok) {
           onError(result.error);
           return;
@@ -309,22 +322,81 @@ function GroupActions({
       </div>
 
       {mode === "create" ? (
-        <label className="field">
-          <span className="field-label">
-            <span>Group name</span>
-            <span className="hint">You&apos;ll be admin</span>
-          </span>
-          <input
-            className="field-input"
-            placeholder="The Sunday Crew"
-            value={name}
-            maxLength={40}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canCreate) void submit();
-            }}
-          />
-        </label>
+        <div className="group-create-flow">
+          <label className="field">
+            <span className="field-label">
+              <span>Group name</span>
+              <span className="hint">You&apos;ll be admin</span>
+            </span>
+            <input
+              className="field-input"
+              placeholder="The Sunday Crew"
+              value={name}
+              maxLength={40}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canCreate) void submit();
+              }}
+            />
+          </label>
+
+          <div className="field">
+            <span className="field-label">
+              <span>Starter pack</span>
+              <span className="hint">Can add/remove later</span>
+            </span>
+            <div className="starter-pack-grid">
+              {GROUP_STARTER_PACKS.map((pack) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  className={`starter-pack-card ${
+                    starterPackId === pack.id ? "active" : ""
+                  }`}
+                  onClick={() => setStarterPackId(pack.id)}
+                >
+                  <span className="starter-pack-name">{pack.label}</span>
+                  <span className="starter-pack-blurb">{pack.blurb}</span>
+                  <span className="starter-pack-count mono">
+                    {pack.taskIds.length === 0
+                      ? "No starter tasks"
+                      : `${pack.taskIds.length} tasks`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="starter-preview">
+            <span className="field-label">
+              <span>Starting slate</span>
+              <span className="hint">
+                {starterTasks.length === 0
+                  ? "Blank"
+                  : `${starterTasks.length} tasks`}
+              </span>
+            </span>
+            {starterTasks.length === 0 ? (
+              <p className="starter-preview-empty">
+                Start with no tasks and add your own once the group is created.
+              </p>
+            ) : (
+              <ul className="starter-task-list">
+                {starterTasks.map((task) => (
+                  <li
+                    key={`${task.name}:${task.frequency}`}
+                    className="starter-task-row"
+                  >
+                    <span className="starter-task-name">{task.name}</span>
+                    <span className="starter-task-meta mono">
+                      {task.category} · {task.frequency} · {task.points} pts
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       ) : (
         <label className="field">
           <span className="field-label">
