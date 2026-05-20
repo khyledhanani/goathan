@@ -1575,21 +1575,39 @@ a { color: inherit; text-decoration: none; }
   border-radius: 50%;
   border: 1.5px solid var(--ink);
   background: transparent;
+  color: var(--ink);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
-.task-check.checked {
+.task-check.checked,
+.task-check.verified {
   background: var(--accent);
   border-color: var(--accent);
+  color: var(--paper);
+}
+.task-check.claimed {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.check-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.task-check.expired {
+  background: var(--cap-soft);
+  border-color: var(--cap);
+  color: var(--cap);
 }
 .task-check svg {
   width: 14px;
   height: 14px;
   fill: none;
-  stroke: var(--paper);
+  stroke: currentColor;
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
