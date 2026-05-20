@@ -3,7 +3,10 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { createLogger } from "./lib/logger";
 import webpush from "web-push";
+
+const logger = createLogger("convex.notificationsPush");
 
 function ensureVapid(): boolean {
   const pub = process.env.VAPID_PUBLIC_KEY;
@@ -18,7 +21,7 @@ export const dispatchPush = internalAction({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, { notificationId }) => {
     if (!ensureVapid()) {
-      console.warn("VAPID env vars not set — push dispatch skipped");
+      logger.warn("push_dispatch_skipped_missing_vapid", { notificationId });
       return;
     }
 
@@ -89,11 +92,22 @@ export const dispatchPush = internalAction({
             ? (err as { statusCode?: number }).statusCode
             : undefined;
         if (status === 404 || status === 410) {
+          logger.warn("push_subscription_expired", {
+            notificationId,
+            subId: sub._id,
+            status,
+          });
           await ctx.runMutation(internal.notifications.deleteSub, {
             subId: sub._id,
           });
         } else {
           const msg = String(err).slice(0, 200);
+          logger.warn("push_dispatch_failed", {
+            notificationId,
+            subId: sub._id,
+            status,
+            error: err instanceof Error ? err : msg,
+          });
           await ctx.runMutation(internal.notifications.touchSubFailure, {
             subId: sub._id,
             error: msg,
@@ -107,5 +121,6 @@ export const dispatchPush = internalAction({
       delivered,
       failed,
     });
+    logger.info("push_dispatch_completed", { notificationId, delivered, failed });
   },
 });

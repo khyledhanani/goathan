@@ -1,9 +1,4 @@
-import {
-  internalMutation,
-  internalQuery,
-  query,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -33,10 +28,7 @@ export const claim = internalMutation({
     if (existing.completedAt !== undefined) {
       return { ok: false as const, reason: "completed" } as const;
     }
-    if (
-      existing.startedAt !== undefined &&
-      now - existing.startedAt < STALE_CLAIM_MS
-    ) {
+    if (existing.startedAt !== undefined && now - existing.startedAt < STALE_CLAIM_MS) {
       return { ok: false as const, reason: "in_flight" } as const;
     }
     await ctx.db.patch(existing._id, { startedAt: now });
@@ -101,9 +93,7 @@ export const complete = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("proofVerifications")
-      .withIndex("by_completion", (q) =>
-        q.eq("completionId", args.completionId),
-      )
+      .withIndex("by_completion", (q) => q.eq("completionId", args.completionId))
       .unique();
     if (!existing) return;
     if (existing.completedAt !== undefined) return;
@@ -178,22 +168,14 @@ export const debugRecentUploads = internalQuery({
           groupName: group?.name ?? "(removed)",
           taskName: task?.name ?? "(removed)",
           frequency: task?.frequency ?? "?",
-          verifiedAt: c.verifiedAt
-            ? new Date(c.verifiedAt).toISOString()
-            : null,
-          revokedAt: c.revokedAt
-            ? new Date(c.revokedAt).toISOString()
-            : null,
+          verifiedAt: c.verifiedAt ? new Date(c.verifiedAt).toISOString() : null,
+          revokedAt: c.revokedAt ? new Date(c.revokedAt).toISOString() : null,
           hasProofStorage: !!c.proofStorageId,
           verification: v
             ? {
                 status: v.status,
-                startedAt: v.startedAt
-                  ? new Date(v.startedAt).toISOString()
-                  : null,
-                completedAt: v.completedAt
-                  ? new Date(v.completedAt).toISOString()
-                  : null,
+                startedAt: v.startedAt ? new Date(v.startedAt).toISOString() : null,
+                completedAt: v.completedAt ? new Date(v.completedAt).toISOString() : null,
                 errorMessage: v.errorMessage ?? null,
                 model: v.model,
                 reasoning: v.reasoning ?? null,

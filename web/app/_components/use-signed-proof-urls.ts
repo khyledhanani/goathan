@@ -34,11 +34,14 @@ export function useSignedProofUrls(refs: ProofRef[]): SignedUrlMap {
 
   useEffect(() => {
     let cancelled = false;
-    if (ids.length === 0) {
+    const completionIds = idsKey
+      ? (idsKey.split("|") as Id<"completions">[])
+      : [];
+    if (completionIds.length === 0) {
       setUrls({});
       return;
     }
-    void generateProofReadUrls({ completionIds: ids })
+    void generateProofReadUrls({ completionIds })
       .then((result) => {
         if (cancelled) return;
         const next: SignedUrlMap = {};
