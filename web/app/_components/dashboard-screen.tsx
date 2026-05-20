@@ -21,6 +21,11 @@ import { FeedStatsBar } from "./feed-stats-bar";
 import { BottomNav } from "./bottom-nav";
 import { PushPrompt } from "./push-prompt";
 import { UserMenu } from "./user-menu";
+import {
+  resolveProofUrl,
+  useSignedProofUrls,
+  type ProofRef,
+} from "./use-signed-proof-urls";
 
 export function DashboardScreen() {
   const router = useRouter();
@@ -40,6 +45,33 @@ export function DashboardScreen() {
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [storyStart, setStoryStart] = useState<number | null>(null);
+
+  const proofRefs = useMemo(() => {
+    const refs: ProofRef[] = [];
+    refs.push(...((feed?.items ?? []) as ProofRef[]));
+    for (const bundle of (stories ?? []) as StoryBundle[]) {
+      refs.push(...(bundle.items as ProofRef[]));
+    }
+    return refs;
+  }, [feed, stories]);
+  const signedProofUrls = useSignedProofUrls(proofRefs);
+  const resolvedFeedItems = useMemo(
+    () =>
+      feed?.items.map((item) =>
+        resolveProofUrl(item as FeedCardItem & ProofRef, signedProofUrls),
+      ) ?? [],
+    [feed, signedProofUrls],
+  );
+  const resolvedStories = useMemo(
+    () =>
+      ((stories ?? []) as StoryBundle[]).map((bundle) => ({
+        ...bundle,
+        items: bundle.items.map((item) =>
+          resolveProofUrl(item as ProofRef & (typeof bundle.items)[number], signedProofUrls),
+        ),
+      })),
+    [stories, signedProofUrls],
+  );
 
   const seenSnapshotRef = useRef<number | null>(null);
   const hasMarkedRef = useRef(false);
@@ -129,12 +161,12 @@ export function DashboardScreen() {
     if (!feed) return { fresh: [] as FeedCardItem[], older: [] as FeedCardItem[] };
     const fresh: FeedCardItem[] = [];
     const older: FeedCardItem[] = [];
-    for (const it of feed.items as FeedCardItem[]) {
+    for (const it of resolvedFeedItems as FeedCardItem[]) {
       if (seenThreshold > 0 && it.verifiedAt > seenThreshold) fresh.push(it);
       else older.push(it);
     }
     return { fresh, older };
-  }, [feed, seenThreshold]);
+  }, [feed, resolvedFeedItems, seenThreshold]);
 
   if (
     authLoading ||
@@ -218,9 +250,9 @@ export function DashboardScreen() {
           <EmptyFeed hello={hello} />
         ) : (
           <>
-            {stories && stories.length > 0 && (
+            {resolvedStories.length > 0 && (
               <StoriesRail
-                stories={stories as StoryBundle[]}
+                stories={resolvedStories}
                 onOpen={(i) => setStoryStart(i)}
               />
             )}
@@ -278,7 +310,7 @@ export function DashboardScreen() {
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
       <StoryViewer
-        stories={(stories ?? []) as StoryBundle[]}
+        stories={resolvedStories}
         startIndex={storyStart}
         onClose={() => setStoryStart(null)}
       />

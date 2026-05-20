@@ -30,6 +30,7 @@ import type * as notificationsPush from "../notificationsPush.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
 import type * as pushSubscriptions from "../pushSubscriptions.js";
+import type * as r2 from "../r2.js";
 import type * as streaks from "../streaks.js";
 import type * as tasks from "../tasks.js";
 import type * as weekResults from "../weekResults.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   proofs: typeof proofs;
   pushSubscriptions: typeof pushSubscriptions;
+  r2: typeof r2;
   streaks: typeof streaks;
   tasks: typeof tasks;
   weekResults: typeof weekResults;

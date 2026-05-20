@@ -13,6 +13,11 @@ import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
 import { UserMenu } from "./user-menu";
+import {
+  resolveProofUrl,
+  useSignedProofUrls,
+  type ProofRef,
+} from "./use-signed-proof-urls";
 
 export function UserProfilePage({ userId }: { userId: string }) {
   const router = useRouter();
@@ -31,6 +36,8 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const rawItems = (data?.items ?? []) as (ProfileGridItem & ProofRef)[];
+  const signedProofUrls = useSignedProofUrls(rawItems);
 
   useEffect(() => {
     if (authLoading) return;
@@ -58,7 +65,7 @@ export function UserProfilePage({ userId }: { userId: string }) {
   if (!me || data === null) return null;
 
   const target = data.profile;
-  const items = data.items as ProfileGridItem[];
+  const items = rawItems.map((item) => resolveProofUrl(item, signedProofUrls));
   const countLabel = items.length >= 60 ? "60+" : `${items.length}`;
 
   return (

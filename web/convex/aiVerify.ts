@@ -70,6 +70,7 @@ export const getContext = internalQuery({
       completionId,
       revokedAt: completion.revokedAt ?? null,
       proofUrl,
+      proofR2Key: completion.proofR2Key ?? null,
       taskName: task.name,
       taskDescription: task.description ?? null,
       proofType: task.proof,

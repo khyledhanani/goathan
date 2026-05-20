@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
@@ -20,6 +20,11 @@ import { BottomNav } from "./bottom-nav";
 import { InviteModal } from "./invite-modal";
 import { UserMenu } from "./user-menu";
 import { GroupEditModal } from "./group-actions";
+import {
+  resolveProofUrl,
+  useSignedProofUrls,
+  type ProofRef,
+} from "./use-signed-proof-urls";
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -37,10 +42,8 @@ export function GroupPage({ groupId }: { groupId: string }) {
   });
   const claim = useMutation(api.completions.claim);
   const unclaim = useMutation(api.completions.unclaim);
-  const generateProofUploadUrl = useMutation(
-    api.completions.generateProofUploadUrl,
-  );
-  const attachProof = useMutation(api.completions.attachProof);
+  const generateProofUploadUrl = useAction(api.r2.generateProofUploadUrl);
+  const attachProof = useMutation(api.completions.attachR2Proof);
   const createTask = useMutation(api.tasks.create);
   const removeTaskMutation = useMutation(api.tasks.remove);
   const toggleChallenge = useMutation(api.challenges.toggle);
@@ -56,6 +59,31 @@ export function GroupPage({ groupId }: { groupId: string }) {
     name: string;
   } | null>(null);
   const [removing, setRemoving] = useState(false);
+
+  const proofRefs = useMemo(() => {
+    if (!view || view === null) return [] as ProofRef[];
+    return [
+      ...(view.slate as ProofRef[]),
+      ...((activity ?? []) as ProofRef[]),
+    ];
+  }, [view, activity]);
+  const signedProofUrls = useSignedProofUrls(proofRefs);
+  const resolvedSlate = useMemo(
+    () =>
+      view && view !== null
+        ? view.slate.map((item) =>
+            resolveProofUrl(item as ProofRef & (typeof view.slate)[number], signedProofUrls),
+          )
+        : [],
+    [view, signedProofUrls],
+  );
+  const resolvedActivity = useMemo(
+    () =>
+      (activity ?? []).map((item) =>
+        resolveProofUrl(item as ProofRef & NonNullable<typeof activity>[number], signedProofUrls),
+      ),
+    [activity, signedProofUrls],
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -82,7 +110,8 @@ export function GroupPage({ groupId }: { groupId: string }) {
     return null;
   }
 
-  const { group, slate, stats, isAdmin } = view;
+  const { group, stats, isAdmin } = view;
+  const slate = resolvedSlate;
 
   const dateLabel = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -113,14 +142,18 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
   const onUpload = async (completionId: Id<"completions">, file: File) => {
     try {
-      const urlResult = await generateProofUploadUrl({ completionId });
-      if (!urlResult.ok) {
-        setToast({ message: urlResult.error, tone: "error" });
+      const { body, contentType, meta } = await normalizeProofMedia(file);
+      const uploadTarget = await generateProofUploadUrl({
+        completionId,
+        contentType,
+        sizeBytes: body.size,
+      });
+      if (!uploadTarget.ok) {
+        setToast({ message: uploadTarget.error, tone: "error" });
         return;
       }
-      const { body, contentType, meta } = await normalizeProofMedia(file);
-      const res = await fetch(urlResult.uploadUrl, {
-        method: "POST",
+      const res = await fetch(uploadTarget.uploadUrl, {
+        method: "PUT",
         headers: { "Content-Type": contentType },
         body,
       });
@@ -128,10 +161,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
         setToast({ message: "Upload failed, try again", tone: "error" });
         return;
       }
-      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
       const attached = await attachProof({
         completionId,
-        storageId,
+        r2Key: uploadTarget.key,
+        contentType: uploadTarget.contentType,
+        sizeBytes: body.size,
         proofMeta: meta,
       });
       if (!attached.ok) {
@@ -331,7 +365,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
             <p className="muted-line">Loading…</p>
           ) : (
             <ActivityFeed
-              items={activity}
+              items={resolvedActivity}
               onCallCap={onCallCap}
               onComment={onComment}
               onOpenProof={(url) => setLightboxUrl(url)}

@@ -22,6 +22,14 @@ type ProfileLite = {
   avatarUrl?: string;
 };
 
+async function legacyProofUrlFor(
+  ctx: QueryCtx,
+  completion: { proofStorageId?: Id<"_storage"> },
+): Promise<string | null> {
+  if (completion.proofStorageId) return ctx.storage.getUrl(completion.proofStorageId);
+  return null;
+}
+
 async function profileFor(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -106,9 +114,7 @@ export const byCompletionId = query({
     );
     comments.sort((a, b) => a.createdAt - b.createdAt);
 
-    const proofUrl = c.proofStorageId
-      ? await ctx.storage.getUrl(c.proofStorageId)
-      : null;
+    const proofUrl = await legacyProofUrlFor(ctx, c);
 
     const REACTIONS: Array<"HEART" | "FIRE" | "EYES"> = [
       "HEART",
@@ -140,6 +146,7 @@ export const byCompletionId = query({
       claimedAt: c.claimedAt,
       revokedAt: c.revokedAt ?? null,
       proofUrl,
+      hasR2Proof: c.proofR2Key !== undefined,
       reactions,
       challengeCount: challenges.length,
       challengedByYou: challenges.some(
@@ -175,7 +182,9 @@ export const feedAcrossMyGroups = query({
           .order("desc")
           .take(FEED_PER_GROUP_SCAN);
         return recent.filter(
-          (c) => c.verifiedAt !== undefined && c.proofStorageId !== undefined,
+          (c) =>
+            c.verifiedAt !== undefined &&
+            (c.proofStorageId !== undefined || c.proofR2Key !== undefined),
         );
       }),
     );
@@ -233,9 +242,7 @@ export const feedAcrossMyGroups = query({
         );
         comments.sort((a, b) => a.createdAt - b.createdAt);
 
-        const proofUrl = c.proofStorageId
-          ? await ctx.storage.getUrl(c.proofStorageId)
-          : null;
+        const proofUrl = await legacyProofUrlFor(ctx, c);
 
         const REACTIONS: Array<"HEART" | "FIRE" | "EYES"> = [
           "HEART",
@@ -267,6 +274,7 @@ export const feedAcrossMyGroups = query({
           claimedAt: c.claimedAt,
           revokedAt: c.revokedAt ?? null,
           proofUrl,
+          hasR2Proof: c.proofR2Key !== undefined,
           reactions,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
@@ -306,7 +314,7 @@ export const storiesAcrossMyGroups = query({
         return recent.filter(
           (c) =>
             c.verifiedAt !== undefined &&
-            c.proofStorageId !== undefined &&
+            (c.proofStorageId !== undefined || c.proofR2Key !== undefined) &&
             c.revokedAt === undefined &&
             (c.verifiedAt ?? 0) >= cutoff,
         );
@@ -334,9 +342,7 @@ export const storiesAcrossMyGroups = query({
               ctx.db.get(c.taskId),
               ctx.db.get(c.groupId),
             ]);
-            const proofUrl = c.proofStorageId
-              ? await ctx.storage.getUrl(c.proofStorageId)
-              : null;
+            const proofUrl = await legacyProofUrlFor(ctx, c);
             return {
               completionId: c._id,
               taskName: task?.name ?? "(removed task)",
@@ -346,10 +352,13 @@ export const storiesAcrossMyGroups = query({
               points: c.points,
               verifiedAt: c.verifiedAt!,
               proofUrl,
+              hasR2Proof: c.proofR2Key !== undefined,
             };
           }),
         );
-        const filtered = hydrated.filter((h) => h.proofUrl !== null);
+        const filtered = hydrated.filter(
+          (h) => h.proofUrl !== null || h.hasR2Proof,
+        );
         const latestAt =
           filtered.length > 0
             ? Math.max(...filtered.map((h) => h.verifiedAt))
@@ -416,7 +425,7 @@ export const gridForUser = query({
           (c) =>
             c.userId === targetUserId &&
             c.verifiedAt !== undefined &&
-            c.proofStorageId !== undefined &&
+            (c.proofStorageId !== undefined || c.proofR2Key !== undefined) &&
             c.revokedAt === undefined,
         );
       }),
@@ -437,9 +446,7 @@ export const gridForUser = query({
             .withIndex("by_completion", (q) => q.eq("completionId", c._id))
             .unique(),
         ]);
-        const proofUrl = c.proofStorageId
-          ? await ctx.storage.getUrl(c.proofStorageId)
-          : null;
+        const proofUrl = await legacyProofUrlFor(ctx, c);
         return {
           completionId: c._id,
           taskName: task?.name ?? "(removed task)",
@@ -449,6 +456,7 @@ export const gridForUser = query({
           points: c.points,
           verifiedAt: c.verifiedAt!,
           proofUrl,
+          hasR2Proof: c.proofR2Key !== undefined,
           aiVerification: serializeVerification(verification),
         };
       }),
@@ -456,7 +464,7 @@ export const gridForUser = query({
 
     return {
       profile: await profileFor(ctx, targetUserId),
-      items: items.filter((i) => i.proofUrl !== null),
+      items: items.filter((i) => i.proofUrl !== null || i.hasR2Proof),
       sharesAnyGroup: true,
     };
   },

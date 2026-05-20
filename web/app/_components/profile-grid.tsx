@@ -12,6 +12,7 @@ export type ProfileGridItem = {
   points: number;
   verifiedAt: number;
   proofUrl: string | null;
+  hasR2Proof?: boolean;
   aiVerification: AiVerification | null;
 };
 

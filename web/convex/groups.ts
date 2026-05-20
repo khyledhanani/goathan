@@ -31,6 +31,14 @@ const DEFAULT_TASKS = [
 
 const STAKE_TEXT_MAX = 140;
 
+async function legacyProofUrlFor(
+  ctx: QueryCtx,
+  completion: Pick<Doc<"completions">, "proofStorageId">,
+): Promise<string | null> {
+  if (completion.proofStorageId) return ctx.storage.getUrl(completion.proofStorageId);
+  return null;
+}
+
 function normalizeStakeText(text: string | undefined): string | undefined {
   const trimmed = text?.trim();
   return trimmed || undefined;
@@ -229,6 +237,7 @@ export const todayView = query({
         verifiedAt?: number;
         revokedAt?: number;
         proofUrl: string | null;
+        hasR2Proof: boolean;
         aiVerification: {
           status:
             | "PENDING"
@@ -244,9 +253,7 @@ export const todayView = query({
       }
     >();
     for (const c of myWeekCompletions) {
-      const proofUrl = c.proofStorageId
-        ? await ctx.storage.getUrl(c.proofStorageId)
-        : null;
+      const proofUrl = await legacyProofUrlFor(ctx, c);
       const verification = await ctx.db
         .query("proofVerifications")
         .withIndex("by_completion", (q) => q.eq("completionId", c._id))
@@ -258,6 +265,7 @@ export const todayView = query({
         verifiedAt: c.verifiedAt,
         revokedAt: c.revokedAt,
         proofUrl,
+        hasR2Proof: c.proofR2Key !== undefined,
         aiVerification: serializeVerification(verification),
       });
     }
@@ -286,6 +294,7 @@ export const todayView = query({
             ? (completion!.revokedAt ?? null)
             : null,
           proofUrl: claimedThisPeriod ? completion!.proofUrl : null,
+          hasR2Proof: claimedThisPeriod ? completion!.hasR2Proof : false,
           aiVerification: claimedThisPeriod
             ? completion!.aiVerification
             : null,
@@ -710,9 +719,7 @@ export const recentActivity = query({
         );
         comments.sort((a, b) => a.createdAt - b.createdAt);
 
-        const proofUrl = c.proofStorageId
-          ? await ctx.storage.getUrl(c.proofStorageId)
-          : null;
+        const proofUrl = await legacyProofUrlFor(ctx, c);
 
         const verification = await ctx.db
           .query("proofVerifications")
@@ -732,6 +739,7 @@ export const recentActivity = query({
           verifiedAt: c.verifiedAt ?? null,
           revokedAt: c.revokedAt ?? null,
           proofUrl,
+          hasR2Proof: c.proofR2Key !== undefined,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
             (ch) => ch.challengerUserId === userId,

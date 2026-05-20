@@ -39,6 +39,7 @@ export type FeedCardItem = {
   claimedAt: number;
   revokedAt: number | null;
   proofUrl: string | null;
+  hasR2Proof?: boolean;
   reactions: ReactionAggregate[];
   challengeCount: number;
   challengedByYou: boolean;

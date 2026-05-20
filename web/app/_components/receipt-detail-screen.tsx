@@ -16,6 +16,11 @@ import {
   type FeedCardItem,
   type ReactionKind,
 } from "./feed-card";
+import {
+  resolveProofUrl,
+  useSignedProofUrls,
+  type ProofRef,
+} from "./use-signed-proof-urls";
 
 export function ReceiptDetailScreen({
   completionId,
@@ -35,6 +40,9 @@ export function ReceiptDetailScreen({
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const signedProofUrls = useSignedProofUrls(
+    item && item !== null ? [item as ProofRef] : [],
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -187,7 +195,7 @@ export function ReceiptDetailScreen({
 
         <div className="feed-list" style={{ marginTop: 24 }}>
           <FeedCard
-            item={item as FeedCardItem}
+            item={resolveProofUrl(item as FeedCardItem & ProofRef, signedProofUrls)}
             onOpenProof={(url) => setLightboxUrl(url)}
             onToggleLike={onToggleLike}
             onToggleCap={onToggleCap}

@@ -11,6 +11,11 @@ import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
 import { UserMenu } from "./user-menu";
+import {
+  resolveProofUrl,
+  useSignedProofUrls,
+  type ProofRef,
+} from "./use-signed-proof-urls";
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -32,6 +37,11 @@ export function ProfileScreen() {
 
   const [toast, setToast] = useState<ToastValue>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const receiptItems = (myReceipts?.items ?? []) as (ProfileGridItem & ProofRef)[];
+  const signedProofUrls = useSignedProofUrls(receiptItems);
+  const resolvedReceiptItems = receiptItems.map((item) =>
+    resolveProofUrl(item, signedProofUrls),
+  );
 
   void router;
 
@@ -124,7 +134,7 @@ export function ProfileScreen() {
             <p className="muted-line">Sign in to view your receipts.</p>
           ) : (
             <ProfileGrid
-              items={myReceipts.items as ProfileGridItem[]}
+              items={resolvedReceiptItems}
               onOpenProof={(url) => setLightboxUrl(url)}
               emptyTitle="Nothing yet"
               emptyLine="Verify a task and your receipt lands here."
