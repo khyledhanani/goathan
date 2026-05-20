@@ -1,0 +1,10 @@
+node_modules
+.next
+.expo
+.convex
+.agents
+dist
+coverage
+package-lock.json
+web/convex/_generated
+web/skills-lock.json
