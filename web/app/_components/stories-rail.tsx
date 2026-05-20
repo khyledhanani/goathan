@@ -9,6 +9,7 @@ export type StoryItem = {
   points: number;
   verifiedAt: number;
   proofUrl: string | null;
+  hasR2Proof?: boolean;
 };
 
 export type StoryBundle = {

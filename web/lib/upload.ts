@@ -18,6 +18,13 @@ export type UploadBody = {
   meta?: ProofMeta;
 };
 
+const MAX_UPLOAD_BYTES = 700 * 1024;
+const JPEG_ATTEMPTS = [
+  { maxEdge: 1280, quality: 0.78 },
+  { maxEdge: 1024, quality: 0.72 },
+  { maxEdge: 900, quality: 0.68 },
+];
+
 const EXIF_PICK = [
   "DateTimeOriginal",
   "DateTimeDigitized",
@@ -81,7 +88,7 @@ async function extractMeta(file: File): Promise<ProofMeta> {
 
 export async function normalizeProofMedia(file: File): Promise<UploadBody> {
   if (!file.type.startsWith("image/")) {
-    return { body: file, contentType: file.type };
+    throw new Error("Only image proof uploads are supported right now.");
   }
 
   const meta = await extractMeta(file);
@@ -96,21 +103,38 @@ export async function normalizeProofMedia(file: File): Promise<UploadBody> {
     if (meta.width === undefined) meta.width = bitmap.width;
     if (meta.height === undefined) meta.height = bitmap.height;
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       bitmap.close();
       return { body: file, contentType: file.type, meta };
     }
-    ctx.drawImage(bitmap, 0, 0);
+
+    let blob: Blob | null = null;
+    for (const attempt of JPEG_ATTEMPTS) {
+      const scale = Math.min(1, attempt.maxEdge / Math.max(bitmap.width, bitmap.height));
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.width = width;
+      canvas.height = height;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", attempt.quality),
+      );
+      if (blob && blob.size <= MAX_UPLOAD_BYTES) break;
+    }
     bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92),
-    );
     if (!blob) return { body: file, contentType: file.type, meta };
+    if (blob.size > MAX_UPLOAD_BYTES) {
+      throw new Error("Image is still too large after compression. Try a screenshot or smaller photo.");
+    }
     return { body: blob, contentType: "image/jpeg", meta };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error) throw err;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error("Image is too large. Try a screenshot or smaller photo.");
+    }
     return { body: file, contentType: file.type, meta };
   }
 }

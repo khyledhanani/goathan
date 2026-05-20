@@ -27,6 +27,7 @@ type FeedItem = {
   verifiedAt: number | null;
   revokedAt: number | null;
   proofUrl: string | null;
+  hasR2Proof?: boolean;
   challengeCount: number;
   challengedByYou: boolean;
   comments: CommentItem[];

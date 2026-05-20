@@ -18,7 +18,107 @@ type GroupActionCallbacks = {
 };
 
 type StakeKind = "PENALTY" | "REWARD";
+type ResetMode = "weekly" | "monthly" | "custom" | "fixed";
+
 const STAKE_TEXT_MAX = 140;
+const DAY_MS = 86_400_000;
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function isoDateFromUtcMs(ms: number) {
+  const d = new Date(ms);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function utcMidnightToday() {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
+function ordinalSuffix(d: number) {
+  return d === 1 || d === 21 || d === 31
+    ? "st"
+    : d === 2 || d === 22
+      ? "nd"
+      : d === 3 || d === 23
+        ? "rd"
+        : "th";
+}
+
+function resetConfigFromState({
+  resetMode,
+  resetDays,
+  resetWeekday,
+  resetDayOfMonth,
+  endDate,
+}: {
+  resetMode: ResetMode;
+  resetDays: string;
+  resetWeekday: number;
+  resetDayOfMonth: number;
+  endDate: string;
+}) {
+  let durationDays: number | undefined;
+  let repeat = true;
+  let cadence: "monthly" | undefined;
+  let anchorDate: number | undefined;
+
+  const now = new Date();
+  const todayMs = utcMidnightToday();
+
+  if (resetMode === "weekly") {
+    durationDays = 7;
+    const todayDay = new Date(todayMs).getUTCDay();
+    const diff = ((todayDay - resetWeekday) % 7 + 7) % 7;
+    anchorDate = todayMs - diff * DAY_MS;
+  } else if (resetMode === "monthly") {
+    cadence = "monthly";
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const maxDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const day = Math.min(resetDayOfMonth, maxDay);
+    let anchor = Date.UTC(y, m, day);
+    if (anchor > todayMs) {
+      const pm = m - 1;
+      const py = pm < 0 ? y - 1 : y;
+      const pmn = ((pm % 12) + 12) % 12;
+      const pmMax = new Date(Date.UTC(py, pmn + 1, 0)).getUTCDate();
+      anchor = Date.UTC(py, pmn, Math.min(resetDayOfMonth, pmMax));
+    }
+    anchorDate = anchor;
+  } else if (resetMode === "fixed") {
+    const [yyyy, mm, dd] = endDate.split("-").map((s) => parseInt(s, 10));
+    if (yyyy && mm && dd) {
+      const end = Date.UTC(yyyy, mm - 1, dd);
+      durationDays = Math.max(1, Math.round((end - todayMs) / DAY_MS));
+    } else {
+      durationDays = 30;
+    }
+    anchorDate = todayMs;
+    repeat = false;
+  } else {
+    durationDays = parseInt(resetDays, 10) || 7;
+    anchorDate = todayMs;
+  }
+
+  return {
+    durationDays,
+    repeat,
+    cadence,
+    anchorDate,
+    anchorDayOfMonth: cadence === "monthly" ? resetDayOfMonth : undefined,
+  };
+}
 
 function Dropdown<T extends string | number>({
   value,
@@ -256,12 +356,123 @@ function StakeFields({
   );
 }
 
+function ResetPeriodFields({
+  resetMode,
+  resetDays,
+  resetWeekday,
+  resetDayOfMonth,
+  endDate,
+  onResetModeChange,
+  onResetDaysChange,
+  onResetWeekdayChange,
+  onResetDayOfMonthChange,
+  onEndDateChange,
+}: {
+  resetMode: ResetMode;
+  resetDays: string;
+  resetWeekday: number;
+  resetDayOfMonth: number;
+  endDate: string;
+  onResetModeChange: (mode: ResetMode) => void;
+  onResetDaysChange: (days: string) => void;
+  onResetWeekdayChange: (weekday: number) => void;
+  onResetDayOfMonthChange: (day: number) => void;
+  onEndDateChange: (date: string) => void;
+}) {
+  return (
+    <div className="field">
+      <span className="field-label">
+        <span>Competition reset</span>
+      </span>
+      <div className="seg" style={{ marginBottom: 12, flexWrap: "wrap" }}>
+        {(
+          [
+            { key: "weekly", label: "Weekly" },
+            { key: "monthly", label: "Monthly" },
+            { key: "custom", label: "Custom" },
+            { key: "fixed", label: "Fixed end" },
+          ] as const
+        ).map((opt, i) => (
+          <span key={opt.key} style={{ display: "contents" }}>
+            {i > 0 && <span className="seg-dot">/</span>}
+            <button
+              type="button"
+              className={resetMode === opt.key ? "active" : ""}
+              onClick={() => onResetModeChange(opt.key)}
+            >
+              {opt.label}
+            </button>
+          </span>
+        ))}
+      </div>
+      {resetMode === "weekly" && (
+        <div className="reset-detail">
+          <span className="field-label" style={{ margin: 0 }}>
+            Resets every
+          </span>
+          <Dropdown
+            value={resetWeekday}
+            options={WEEKDAYS.map((day, i) => ({ value: i, label: day }))}
+            onChange={onResetWeekdayChange}
+          />
+        </div>
+      )}
+      {resetMode === "monthly" && (
+        <>
+          <div className="reset-detail">
+            <span className="field-label" style={{ margin: 0 }}>
+              Resets every
+            </span>
+            <Dropdown
+              mono
+              value={resetDayOfMonth}
+              options={Array.from({ length: 31 }, (_, i) => {
+                const d = i + 1;
+                return { value: d, label: `${d}${ordinalSuffix(d)}` };
+              })}
+              onChange={onResetDayOfMonthChange}
+            />
+            <span className="field-label" style={{ margin: 0 }}>
+              of each month
+            </span>
+          </div>
+          {resetDayOfMonth > 28 && (
+            <p className="muted-line" style={{ margin: "6px 0 0", fontSize: 12 }}>
+              In shorter months, resets on the last day instead.
+            </p>
+          )}
+        </>
+      )}
+      {resetMode === "custom" && (
+        <div className="reset-detail">
+          <span className="field-label" style={{ margin: 0 }}>
+            Resets every
+          </span>
+          <input
+            className="field-input mono-input"
+            type="number"
+            min={1}
+            max={365}
+            value={resetDays}
+            onChange={(e) => onResetDaysChange(e.target.value)}
+            style={{ width: 64, textAlign: "center" }}
+          />
+          <span className="field-label" style={{ margin: 0 }}>
+            days
+          </span>
+        </div>
+      )}
+      {resetMode === "fixed" && (
+        <FixedEndDateInput value={endDate} onChange={onEndDateChange} />
+      )}
+    </div>
+  );
+}
+
 export function GroupCreateForm({ onSuccess, onError }: GroupActionCallbacks) {
   const [name, setName] = useState("");
   const [starterPackId, setStarterPackId] = useState("the-cut");
-  const [resetMode, setResetMode] = useState<
-    "weekly" | "monthly" | "custom" | "fixed"
-  >("weekly");
+  const [resetMode, setResetMode] = useState<ResetMode>("weekly");
   const [resetDays, setResetDays] = useState("14");
   const [resetWeekday, setResetWeekday] = useState(() => new Date().getDay());
   const [resetDayOfMonth, setResetDayOfMonth] = useState(() =>
@@ -285,59 +496,18 @@ export function GroupCreateForm({ onSuccess, onError }: GroupActionCallbacks) {
     if (!canCreate) return;
     setBusy(true);
     try {
-      let durationDays: number | undefined;
-      let repeat = true;
-      let cadence: "monthly" | undefined;
-      let anchorDate: number | undefined;
-
-      const now = new Date();
-      const todayMs = Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-      );
-
-      if (resetMode === "weekly") {
-        durationDays = 7;
-        const todayDay = new Date(todayMs).getUTCDay();
-        const diff = ((todayDay - resetWeekday) % 7 + 7) % 7;
-        anchorDate = todayMs - diff * 86_400_000;
-      } else if (resetMode === "monthly") {
-        cadence = "monthly";
-        const y = now.getUTCFullYear();
-        const m = now.getUTCMonth();
-        const maxDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-        const day = Math.min(resetDayOfMonth, maxDay);
-        let anchor = Date.UTC(y, m, day);
-        if (anchor > todayMs) {
-          const pm = m - 1;
-          const py = pm < 0 ? y - 1 : y;
-          const pmn = ((pm % 12) + 12) % 12;
-          const pmMax = new Date(Date.UTC(py, pmn + 1, 0)).getUTCDate();
-          anchor = Date.UTC(py, pmn, Math.min(resetDayOfMonth, pmMax));
-        }
-        anchorDate = anchor;
-      } else if (resetMode === "fixed") {
-        const [yyyy, mm, dd] = endDate.split("-").map((s) => parseInt(s, 10));
-        if (yyyy && mm && dd) {
-          const end = Date.UTC(yyyy, mm - 1, dd);
-          durationDays = Math.max(1, Math.round((end - todayMs) / 86_400_000));
-        } else {
-          durationDays = 30;
-        }
-        repeat = false;
-      } else {
-        durationDays = parseInt(resetDays, 10) || 7;
-      }
+      const resetConfig = resetConfigFromState({
+        resetMode,
+        resetDays,
+        resetWeekday,
+        resetDayOfMonth,
+        endDate,
+      });
 
       const result = await createGroup({
         name: name.trim(),
         tasks: starterTasks,
-        durationDays,
-        repeat,
-        cadence,
-        anchorDate,
-        anchorDayOfMonth: cadence === "monthly" ? resetDayOfMonth : undefined,
+        ...resetConfig,
         stakeKind: stakeText.trim() ? stakeKind : undefined,
         stakeText: stakeText.trim() || undefined,
       });
@@ -408,107 +578,18 @@ export function GroupCreateForm({ onSuccess, onError }: GroupActionCallbacks) {
           onStakeTextChange={setStakeText}
         />
 
-        <div className="field">
-          <span className="field-label">
-            <span>Competition reset</span>
-          </span>
-          <div className="seg" style={{ marginBottom: 12, flexWrap: "wrap" }}>
-            {(
-              [
-                { key: "weekly", label: "Weekly" },
-                { key: "monthly", label: "Monthly" },
-                { key: "custom", label: "Custom" },
-                { key: "fixed", label: "Fixed end" },
-              ] as const
-            ).map((opt, i) => (
-              <span key={opt.key} style={{ display: "contents" }}>
-                {i > 0 && <span className="seg-dot">/</span>}
-                <button
-                  className={resetMode === opt.key ? "active" : ""}
-                  onClick={() => setResetMode(opt.key)}
-                >
-                  {opt.label}
-                </button>
-              </span>
-            ))}
-          </div>
-          {resetMode === "weekly" && (
-            <div className="reset-detail">
-              <span className="field-label" style={{ margin: 0 }}>
-                Resets every
-              </span>
-              <Dropdown
-                value={resetWeekday}
-                options={[
-                  "Sunday",
-                  "Monday",
-                  "Tuesday",
-                  "Wednesday",
-                  "Thursday",
-                  "Friday",
-                  "Saturday",
-                ].map((day, i) => ({ value: i, label: day }))}
-                onChange={setResetWeekday}
-              />
-            </div>
-          )}
-          {resetMode === "monthly" && (
-            <>
-              <div className="reset-detail">
-                <span className="field-label" style={{ margin: 0 }}>
-                  Resets every
-                </span>
-                <Dropdown
-                  mono
-                  value={resetDayOfMonth}
-                  options={Array.from({ length: 31 }, (_, i) => {
-                    const d = i + 1;
-                    const suffix =
-                      d === 1 || d === 21 || d === 31
-                        ? "st"
-                        : d === 2 || d === 22
-                          ? "nd"
-                          : d === 3 || d === 23
-                            ? "rd"
-                            : "th";
-                    return { value: d, label: `${d}${suffix}` };
-                  })}
-                  onChange={setResetDayOfMonth}
-                />
-                <span className="field-label" style={{ margin: 0 }}>
-                  of each month
-                </span>
-              </div>
-              {resetDayOfMonth > 28 && (
-                <p className="muted-line" style={{ margin: "6px 0 0", fontSize: 12 }}>
-                  In shorter months, resets on the last day instead.
-                </p>
-              )}
-            </>
-          )}
-          {resetMode === "custom" && (
-            <div className="reset-detail">
-              <span className="field-label" style={{ margin: 0 }}>
-                Resets every
-              </span>
-              <input
-                className="field-input mono-input"
-                type="number"
-                min={1}
-                max={365}
-                value={resetDays}
-                onChange={(e) => setResetDays(e.target.value)}
-                style={{ width: 64, textAlign: "center" }}
-              />
-              <span className="field-label" style={{ margin: 0 }}>
-                days
-              </span>
-            </div>
-          )}
-          {resetMode === "fixed" && (
-            <FixedEndDateInput value={endDate} onChange={setEndDate} />
-          )}
-        </div>
+        <ResetPeriodFields
+          resetMode={resetMode}
+          resetDays={resetDays}
+          resetWeekday={resetWeekday}
+          resetDayOfMonth={resetDayOfMonth}
+          endDate={endDate}
+          onResetModeChange={setResetMode}
+          onResetDaysChange={setResetDays}
+          onResetWeekdayChange={setResetWeekday}
+          onResetDayOfMonthChange={setResetDayOfMonth}
+          onEndDateChange={setEndDate}
+        />
 
         <button className="btn-primary" disabled={!canCreate} onClick={submit}>
           {busy ? "Creating…" : "Create group"}
@@ -550,6 +631,11 @@ export function GroupCreateForm({ onSuccess, onError }: GroupActionCallbacks) {
 export function GroupEditModal({
   groupId,
   initialName,
+  initialAnchorDate,
+  initialAnchorDayOfMonth,
+  initialDurationDays,
+  initialRepeat,
+  initialCadence,
   initialStakeKind,
   initialStakeText,
   onClose,
@@ -557,12 +643,39 @@ export function GroupEditModal({
 }: {
   groupId: Id<"groups">;
   initialName: string;
+  initialAnchorDate: number | null;
+  initialAnchorDayOfMonth: number | null;
+  initialDurationDays: number | null;
+  initialRepeat: boolean | null;
+  initialCadence: "monthly" | null;
   initialStakeKind: StakeKind | null;
   initialStakeText: string | null;
   onClose: () => void;
   onSaved: (msg: string) => void;
 }) {
+  const initialAnchor = initialAnchorDate ?? utcMidnightToday();
+  const initialMode: ResetMode =
+    initialRepeat === false
+      ? "fixed"
+      : initialCadence === "monthly"
+        ? "monthly"
+        : (initialDurationDays ?? 7) === 7
+          ? "weekly"
+          : "custom";
   const [name, setName] = useState(initialName);
+  const [resetMode, setResetMode] = useState<ResetMode>(initialMode);
+  const [resetDays, setResetDays] = useState(String(initialDurationDays ?? 7));
+  const [resetWeekday, setResetWeekday] = useState(() =>
+    new Date(initialAnchor).getUTCDay(),
+  );
+  const [resetDayOfMonth, setResetDayOfMonth] = useState(
+    initialAnchorDayOfMonth ?? new Date(initialAnchor).getUTCDate(),
+  );
+  const [endDate, setEndDate] = useState(() =>
+    initialMode === "fixed"
+      ? isoDateFromUtcMs(initialAnchor + (initialDurationDays ?? 30) * DAY_MS)
+      : "",
+  );
   const [stakeKind, setStakeKind] = useState<StakeKind>(
     initialStakeKind ?? "PENALTY",
   );
@@ -579,9 +692,17 @@ export function GroupEditModal({
     setBusy(true);
     setError(null);
     try {
+      const resetConfig = resetConfigFromState({
+        resetMode,
+        resetDays,
+        resetWeekday,
+        resetDayOfMonth,
+        endDate,
+      });
       const result = await updateSettings({
         groupId,
         name: name.trim(),
+        ...resetConfig,
         stakeKind: stakeText.trim() ? stakeKind : undefined,
         stakeText: stakeText.trim() || undefined,
       });
@@ -637,6 +758,19 @@ export function GroupEditModal({
             stakeText={stakeText}
             onStakeKindChange={setStakeKind}
             onStakeTextChange={setStakeText}
+          />
+
+          <ResetPeriodFields
+            resetMode={resetMode}
+            resetDays={resetDays}
+            resetWeekday={resetWeekday}
+            resetDayOfMonth={resetDayOfMonth}
+            endDate={endDate}
+            onResetModeChange={setResetMode}
+            onResetDaysChange={setResetDays}
+            onResetWeekdayChange={setResetWeekday}
+            onResetDayOfMonthChange={setResetDayOfMonth}
+            onEndDateChange={setEndDate}
           />
         </div>
 

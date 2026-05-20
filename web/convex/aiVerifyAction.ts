@@ -211,7 +211,15 @@ export const checkProof = internalAction({
         });
         return;
       }
-      if (!c.proofUrl) {
+      const proofUrl =
+        c.proofUrl ??
+        (c.proofR2Key
+          ? await ctx.runAction(internal.r2.generateInternalProofReadUrl, {
+              key: c.proofR2Key,
+            })
+          : null);
+
+      if (!proofUrl) {
         await ctx.runMutation(internal.aiVerify.recordError, {
           completionId,
           error: "proof url missing",
@@ -250,7 +258,7 @@ export const checkProof = internalAction({
 
       const t0 = Date.now();
 
-      const imgResp = await fetch(c.proofUrl);
+      const imgResp = await fetch(proofUrl);
       if (!imgResp.ok) {
         throw new Error(`image fetch ${imgResp.status}`);
       }

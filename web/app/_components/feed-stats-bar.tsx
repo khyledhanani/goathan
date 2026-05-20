@@ -79,10 +79,6 @@ export function FeedStatsBar({
             <span className="feed-stats-label">day</span>
             <span className="num">{dayRemaining}</span>
           </span>
-          <span className="feed-stats-cd-row feed-stats-cd-week">
-            <span className="feed-stats-label">comp</span>
-            <span className="num">{compRemaining}</span>
-          </span>
         </span>
       )}
     </div>

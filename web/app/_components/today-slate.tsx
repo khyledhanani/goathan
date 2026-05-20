@@ -19,6 +19,7 @@ type SlateItem = {
   claimedAt: number | null;
   verifiedAt: number | null;
   proofUrl: string | null;
+  hasR2Proof?: boolean;
   aiVerification?: AiVerification | null;
 };
 
@@ -246,7 +247,7 @@ function SlateRow({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         style={{ display: "none" }}
         onChange={onFile}
       />

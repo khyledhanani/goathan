@@ -1,6 +1,7 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 const CATEGORY = v.union(
@@ -129,6 +130,11 @@ export const remove = mutation({
       for (const cm of comments) await ctx.db.delete(cm._id);
 
       if (c.proofStorageId) await ctx.storage.delete(c.proofStorageId);
+      if (c.proofR2Key) {
+        await ctx.scheduler.runAfter(0, internal.r2.deleteObject, {
+          key: c.proofR2Key,
+        });
+      }
       await ctx.db.delete(c._id);
     }
 

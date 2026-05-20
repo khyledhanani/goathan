@@ -85,6 +85,10 @@ export default defineSchema({
     points: v.number(),
     claimedAt: v.number(),
     proofStorageId: v.optional(v.id("_storage")),
+    proofR2Key: v.optional(v.string()),
+    proofUrl: v.optional(v.string()),
+    proofContentType: v.optional(v.string()),
+    proofSizeBytes: v.optional(v.number()),
     verifiedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     proofMeta: v.optional(
