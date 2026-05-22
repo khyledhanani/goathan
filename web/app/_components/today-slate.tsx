@@ -25,6 +25,11 @@ type SlateItem = {
 
 type Mode = "untouched" | "claimed" | "verified" | "expired";
 
+export type ProofUploadState = {
+  phase: "preparing" | "uploading" | "saving";
+  previewUrl: string;
+};
+
 function deriveMode(item: SlateItem, now: number): Mode {
   if (!item.claimedThisPeriod) return "untouched";
   if (item.verifiedAt !== null) return "verified";
@@ -47,13 +52,15 @@ export function TodaySlate({
   onClaim,
   onUnclaim,
   onUpload,
+  proofUploads,
   onOpenProof,
   onRemoveTask,
 }: {
   slate: SlateItem[];
   onClaim: (taskId: Id<"tasks">) => void;
   onUnclaim: (completionId: Id<"completions">) => void;
-  onUpload: (completionId: Id<"completions">, file: File) => void;
+  onUpload: (completionId: Id<"completions">, file: File) => Promise<void>;
+  proofUploads: Record<string, ProofUploadState>;
   onOpenProof: (url: string) => void;
   onRemoveTask?: (taskId: Id<"tasks">, name: string) => void;
 }) {
@@ -87,6 +94,9 @@ export function TodaySlate({
             onClaim={onClaim}
             onUnclaim={onUnclaim}
             onUpload={onUpload}
+            uploadState={
+              task.completionId ? proofUploads[String(task.completionId)] : undefined
+            }
             onOpenProof={onOpenProof}
             onRemoveTask={onRemoveTask}
           />
@@ -103,6 +113,7 @@ function SlateRow({
   onClaim,
   onUnclaim,
   onUpload,
+  uploadState,
   onOpenProof,
   onRemoveTask,
 }: {
@@ -111,13 +122,15 @@ function SlateRow({
   now: number;
   onClaim: (id: Id<"tasks">) => void;
   onUnclaim: (id: Id<"completions">) => void;
-  onUpload: (id: Id<"completions">, file: File) => void;
+  onUpload: (id: Id<"completions">, file: File) => Promise<void>;
+  uploadState?: ProofUploadState;
   onOpenProof: (url: string) => void;
   onRemoveTask?: (id: Id<"tasks">, name: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onCircle = () => {
+    if (uploadState) return;
     if (mode === "untouched") {
       onClaim(task._id);
     } else if (mode === "claimed" && task.completionId) {
@@ -130,7 +143,7 @@ function SlateRow({
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && task.completionId) {
-      onUpload(task.completionId, file);
+      void onUpload(task.completionId, file);
     }
     e.target.value = "";
   };
@@ -155,7 +168,8 @@ function SlateRow({
                 : ""
           }
           onClick={onCircle}
-          disabled={mode === "verified" || mode === "expired"}
+          disabled={mode === "verified" || mode === "expired" || Boolean(uploadState)}
+          aria-busy={uploadState ? true : undefined}
         >
           {mode === "verified" && (
             <svg viewBox="0 0 24 24">
@@ -187,8 +201,8 @@ function SlateRow({
         {mode === "claimed" && (
           <>
             <span className="sep">·</span>
-            <span className="slate-tag claim-tag">
-              {formatMs(timeLeftMs)} left to verify
+            <span className={`slate-tag ${uploadState ? "upload-tag" : "claim-tag"}`}>
+              {uploadState ? uploadPhaseLabel(uploadState.phase) : `${formatMs(timeLeftMs)} left to verify`}
             </span>
           </>
         )}
@@ -224,10 +238,14 @@ function SlateRow({
       </div>
 
       {mode === "claimed" && (
-        <div className="slate-row-action">
-          <button className="btn-upload" onClick={onPickFile}>
-            Upload {proofLabel}
-          </button>
+        <div className={`slate-row-action ${uploadState ? "slate-row-uploading" : ""}`}>
+          {uploadState ? (
+            <ProofUploadPreview uploadState={uploadState} />
+          ) : (
+            <button className="btn-upload" onClick={onPickFile}>
+              Upload {proofLabel}
+            </button>
+          )}
         </div>
       )}
 
@@ -244,6 +262,12 @@ function SlateRow({
         </div>
       )}
 
+      {mode === "verified" && !task.proofUrl && uploadState && (
+        <div className="slate-row-action slate-row-uploading">
+          <ProofUploadPreview uploadState={uploadState} />
+        </div>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -252,5 +276,25 @@ function SlateRow({
         onChange={onFile}
       />
     </li>
+  );
+}
+
+function uploadPhaseLabel(phase: ProofUploadState["phase"]): string {
+  if (phase === "preparing") return "Preparing...";
+  if (phase === "uploading") return "Uploading...";
+  return "Verifying...";
+}
+
+function ProofUploadPreview({ uploadState }: { uploadState: ProofUploadState }) {
+  return (
+    <div className="proof-upload-preview" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={uploadState.previewUrl} alt="" />
+      <span className="proof-upload-preview-overlay">
+        <span className="media-spinner media-spinner-dark">
+          <span className="media-spinner-ring" />
+        </span>
+      </span>
+    </div>
   );
 }

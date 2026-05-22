@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -8,7 +9,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
 import { normalizeProofMedia } from "@/lib/upload";
 import { Toast, type ToastValue } from "./toast";
-import { TodaySlate } from "./today-slate";
+import { TodaySlate, type ProofUploadState } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
 import { ConfirmDialog } from "./confirm-dialog";
 import { StandingsTable } from "./standings-table";
@@ -53,6 +54,8 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [editing, setEditing] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [proofUploads, setProofUploads] = useState<Record<string, ProofUploadState>>({});
+  const proofPreviewUrls = useRef(new Map<string, string>());
   const [removeTarget, setRemoveTarget] = useState<{
     taskId: Id<"tasks">;
     name: string;
@@ -83,6 +86,38 @@ export function GroupPage({ groupId }: { groupId: string }) {
       ),
     [activity, signedProofUrls],
   );
+
+  const clearProofUpload = useCallback((completionId: Id<"completions"> | string) => {
+    const key = String(completionId);
+    const previewUrl = proofPreviewUrls.current.get(key);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      proofPreviewUrls.current.delete(key);
+    }
+    setProofUploads((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const previewUrl of proofPreviewUrls.current.values()) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      proofPreviewUrls.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    for (const item of resolvedSlate) {
+      if (item.completionId && item.verifiedAt !== null && item.proofUrl) {
+        clearProofUpload(item.completionId);
+      }
+    }
+  }, [clearProofUpload, resolvedSlate]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -140,14 +175,37 @@ export function GroupPage({ groupId }: { groupId: string }) {
   };
 
   const onUpload = async (completionId: Id<"completions">, file: File) => {
+    const key = String(completionId);
+    const previewUrl = URL.createObjectURL(file);
+    const previousPreviewUrl = proofPreviewUrls.current.get(key);
+    if (previousPreviewUrl) {
+      URL.revokeObjectURL(previousPreviewUrl);
+    }
+    proofPreviewUrls.current.set(key, previewUrl);
+    setProofUploads((prev) => ({
+      ...prev,
+      [key]: {
+        phase: "preparing",
+        previewUrl,
+      },
+    }));
+
     try {
       const { body, contentType, meta } = await normalizeProofMedia(file);
+      setProofUploads((prev) => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          phase: "uploading",
+        },
+      }));
       const uploadTarget = await generateProofUploadUrl({
         completionId,
         contentType,
         sizeBytes: body.size,
       });
       if (!uploadTarget.ok) {
+        clearProofUpload(completionId);
         setToast({ message: uploadTarget.error, tone: "error" });
         return;
       }
@@ -157,9 +215,17 @@ export function GroupPage({ groupId }: { groupId: string }) {
         body,
       });
       if (!res.ok) {
+        clearProofUpload(completionId);
         setToast({ message: "Upload failed, try again", tone: "error" });
         return;
       }
+      setProofUploads((prev) => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          phase: "saving",
+        },
+      }));
       const attached = await attachProof({
         completionId,
         r2Key: uploadTarget.key,
@@ -168,11 +234,13 @@ export function GroupPage({ groupId }: { groupId: string }) {
         proofMeta: meta,
       });
       if (!attached.ok) {
+        clearProofUpload(completionId);
         setToast({ message: attached.error, tone: "error" });
         return;
       }
       setToast({ message: "Verified", tone: "success" });
     } catch (e) {
+      clearProofUpload(completionId);
       setToast({ message: errorMessage(e), tone: "error" });
     }
   };
@@ -313,6 +381,7 @@ export function GroupPage({ groupId }: { groupId: string }) {
             onClaim={onClaim}
             onUnclaim={onUnclaim}
             onUpload={onUpload}
+            proofUploads={proofUploads}
             onOpenProof={(url) => setLightboxUrl(url)}
             onRemoveTask={isAdmin ? askRemoveTask : undefined}
           />
