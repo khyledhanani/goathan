@@ -20,7 +20,7 @@ import {
 import { FeedStatsBar } from "./feed-stats-bar";
 import { BottomNav } from "./bottom-nav";
 import { PushPrompt } from "./push-prompt";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import {
   resolveProofUrl,
   useSignedProofUrls,
@@ -34,7 +34,6 @@ export function DashboardScreen() {
   const home = useQuery(api.groups.homeView);
   const stories = useQuery(api.proofs.storiesAcrossMyGroups);
   const feed = useQuery(api.proofs.feedAcrossMyGroups, {});
-  const inboxUnread = useQuery(api.notifications.unreadCount);
 
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
   const toggleLike = useMutation(api.likes.toggle);
@@ -190,46 +189,7 @@ export function DashboardScreen() {
 
   return (
     <div className="page-wrap page-feed has-bottom-nav">
-      <header className="page-wrap-bar page-wrap-bar-feed">
-        <Link href="/dashboard" className="entry-brand">
-          Receipts<span className="v">v0.1</span>
-        </Link>
-        <div className="topbar-right">
-          <Link
-            href="/inbox"
-            className="inbox-bell"
-            aria-label={
-              inboxUnread && inboxUnread > 0
-                ? `Inbox, ${inboxUnread} unread`
-                : "Inbox"
-            }
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M6 9a6 6 0 0112 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5z"
-                stroke="currentColor"
-                strokeWidth={1.6}
-                strokeLinejoin="round"
-              />
-              <path
-                d="M10 19a2 2 0 004 0"
-                stroke="currentColor"
-                strokeWidth={1.6}
-                strokeLinecap="round"
-              />
-            </svg>
-            {inboxUnread !== undefined && inboxUnread > 0 && (
-              <span className="inbox-bell-dot" aria-hidden />
-            )}
-          </Link>
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} variant="feed" />
 
       <FeedStatsBar
         todayDone={home?.totals.todayDone ?? 0}

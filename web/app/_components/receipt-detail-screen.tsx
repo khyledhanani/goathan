@@ -10,7 +10,7 @@ import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { ProofLightbox } from "./proof-lightbox";
 import { BottomNav } from "./bottom-nav";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import {
   FeedCard,
   type FeedCardItem,
@@ -109,24 +109,7 @@ export function ReceiptDetailScreen({
   if (item === null) {
     return (
       <div className="page-wrap has-bottom-nav">
-        <header className="page-wrap-bar">
-          <div className="topbar-left">
-            <Link href="/dashboard" className="entry-brand">
-              Receipts<span className="v">v0.1</span>
-            </Link>
-            <Link href="/dashboard" className="btn-link">
-              ← Feed
-            </Link>
-          </div>
-          <div className="topbar-right">
-            <UserMenu
-              profile={{
-                displayName: profile.displayName,
-                avatarUrl: profile.avatarUrl,
-              }}
-            />
-          </div>
-        </header>
+        <AppHeader profile={profile} backHref="/dashboard" backLabel="← Feed" />
         <main className="page">
           <div className="page-head fade-up">
             <div>
@@ -154,24 +137,7 @@ export function ReceiptDetailScreen({
 
   return (
     <div className="page-wrap has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/dashboard" className="btn-link">
-            ← Feed
-          </Link>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} backHref="/dashboard" backLabel="← Feed" />
 
       <main className="page page-feed-main">
         <div className="page-head fade-up">

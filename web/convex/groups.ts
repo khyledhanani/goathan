@@ -44,6 +44,22 @@ function normalizeStakeText(text: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+type UsernameResult =
+  | { ok: true; value: string }
+  | { ok: false; error: string };
+
+function normalizeInviteUsername(raw: string): UsernameResult {
+  const username = raw.trim().replace(/^@+/, "").toLowerCase();
+  if (!username) return { ok: false, error: "Username is required" };
+  if (!/^[a-z0-9_.]{2,20}$/.test(username)) {
+    return {
+      ok: false,
+      error: "Usernames are 2-20 chars: a-z, 0-9, _ or .",
+    };
+  }
+  return { ok: true, value: username };
+}
+
 const seedTaskValidator = v.object({
   name: v.string(),
   description: v.optional(v.string()),
@@ -143,6 +159,32 @@ async function requireOnboardedProfile(
   if (!profile) throw new ConvexError("Profile not found");
   if (!profile.onboardingCompleted) throw new ConvexError("Finish onboarding first");
   return profile;
+}
+
+async function enqueueMemberJoinedNotifications(
+  ctx: MutationCtx,
+  group: Doc<"groups">,
+  newUserId: Id<"users">,
+  newcomerName: string,
+) {
+  const existingMembers = await ctx.db
+    .query("memberships")
+    .withIndex("by_group", (q) => q.eq("groupId", group._id))
+    .collect();
+
+  for (const m of existingMembers) {
+    if (m.userId === newUserId) continue;
+    await enqueueNotification(ctx, {
+      userId: m.userId,
+      kind: "MEMBER_JOINED",
+      actorUserId: newUserId,
+      groupId: group._id,
+      title: newcomerName,
+      body: `joined ${group.name}`,
+      deepLinkPath: `/group/${group._id}`,
+      dedupeKey: `joined:${group._id}:${newUserId}`,
+    });
+  }
 }
 
 async function findFreshInviteCode(ctx: MutationCtx): Promise<string> {
@@ -1072,6 +1114,216 @@ export const leave = mutation({
   },
 });
 
+export const pendingInvites = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const invites = await ctx.db
+      .query("groupInvites")
+      .withIndex("by_invited_user_status", (q) =>
+        q.eq("invitedUserId", userId).eq("status", "PENDING"),
+      )
+      .order("desc")
+      .take(20);
+
+    return await Promise.all(
+      invites.map(async (invite) => {
+        const group = await ctx.db.get(invite.groupId);
+        const inviter = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", invite.invitedByUserId))
+          .unique();
+
+        return {
+          _id: invite._id,
+          groupId: invite.groupId,
+          groupName: group?.name ?? "Removed group",
+          invitedByUserId: invite.invitedByUserId,
+          invitedByName: inviter?.displayName ?? "Someone",
+          invitedByAvatarUrl: inviter?.avatarUrl,
+          createdAt: invite.createdAt,
+          groupExists: group !== null,
+        };
+      }),
+    );
+  },
+});
+
+export const inviteByUsername = mutation({
+  args: { groupId: v.id("groups"), username: v.string() },
+  handler: async (ctx, { groupId, username }) => {
+    const userId = await requireAuthUserId(ctx);
+    const inviter = await requireOnboardedProfile(ctx, userId);
+
+    const group = await ctx.db.get(groupId);
+    if (!group) throw new ConvexError("Group not found");
+
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!membership) throw new ConvexError("Not a member of this group");
+
+    const normalized = normalizeInviteUsername(username);
+    if (!normalized.ok) return { ok: false as const, error: normalized.error };
+
+    const matches = await ctx.db
+      .query("profiles")
+      .withIndex("by_username", (q) => q.eq("username", normalized.value))
+      .take(2);
+    if (matches.length === 0) {
+      return {
+        ok: false as const,
+        error: `No user found for @${normalized.value}`,
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        ok: false as const,
+        error: "That username is not unique right now",
+      };
+    }
+
+    const invitee = matches[0];
+    if (invitee.userId === userId) {
+      return { ok: false as const, error: "You're already in this group" };
+    }
+    if (!invitee.onboardingCompleted) {
+      return {
+        ok: false as const,
+        error: `@${normalized.value} needs to finish onboarding first`,
+      };
+    }
+
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", groupId).eq("userId", invitee.userId),
+      )
+      .unique();
+    if (existingMembership) {
+      return {
+        ok: false as const,
+        error: `@${normalized.value} is already in this group`,
+      };
+    }
+
+    const existingInvites = await ctx.db
+      .query("groupInvites")
+      .withIndex("by_group_and_invited_user", (q) =>
+        q.eq("groupId", groupId).eq("invitedUserId", invitee.userId),
+      )
+      .collect();
+    if (existingInvites.some((invite) => invite.status === "PENDING")) {
+      return {
+        ok: false as const,
+        error: `@${normalized.value} already has a pending invite`,
+      };
+    }
+
+    const inviteId = await ctx.db.insert("groupInvites", {
+      groupId,
+      invitedUserId: invitee.userId,
+      invitedByUserId: userId,
+      status: "PENDING",
+      createdAt: Date.now(),
+    });
+
+    await enqueueNotification(ctx, {
+      userId: invitee.userId,
+      kind: "GROUP_INVITE",
+      actorUserId: userId,
+      groupId,
+      title: inviter.displayName,
+      body: `invited you to ${group.name}`,
+      deepLinkPath: "/groups",
+      dedupeKey: `group_invite:${inviteId}`,
+    });
+
+    return {
+      ok: true as const,
+      username: normalized.value,
+      displayName: invitee.displayName,
+    };
+  },
+});
+
+export const respondToInvite = mutation({
+  args: {
+    inviteId: v.id("groupInvites"),
+    response: v.union(v.literal("ACCEPT"), v.literal("DECLINE")),
+  },
+  handler: async (ctx, { inviteId, response }) => {
+    const userId = await requireAuthUserId(ctx);
+    const profile = await requireOnboardedProfile(ctx, userId);
+
+    const invite = await ctx.db.get(inviteId);
+    if (!invite || invite.invitedUserId !== userId) {
+      return { ok: false as const, error: "Invite not found" };
+    }
+    if (invite.status !== "PENDING") {
+      return { ok: false as const, error: "Invite already handled" };
+    }
+
+    const now = Date.now();
+    if (response === "DECLINE") {
+      await ctx.db.patch(inviteId, {
+        status: "DECLINED",
+        respondedAt: now,
+      });
+      return { ok: true as const, state: "declined" as const };
+    }
+
+    const group = await ctx.db.get(invite.groupId);
+    if (!group) {
+      await ctx.db.patch(inviteId, {
+        status: "DECLINED",
+        respondedAt: now,
+      });
+      return { ok: false as const, error: "This group no longer exists" };
+    }
+
+    const existingMembership = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_and_user", (q) =>
+        q.eq("groupId", invite.groupId).eq("userId", userId),
+      )
+      .unique();
+    if (!existingMembership) {
+      await ctx.db.insert("memberships", {
+        groupId: invite.groupId,
+        userId,
+        isAdmin: false,
+        joinedAt: now,
+      });
+    }
+
+    await ctx.db.patch(inviteId, {
+      status: "ACCEPTED",
+      respondedAt: now,
+    });
+
+    if (!existingMembership) {
+      await enqueueMemberJoinedNotifications(
+        ctx,
+        group,
+        userId,
+        profile.displayName,
+      );
+    }
+
+    return {
+      ok: true as const,
+      state: "accepted" as const,
+      groupId: group._id,
+    };
+  },
+});
+
 export const joinByCode = mutation({
   args: { inviteCode: v.string() },
   handler: async (ctx, { inviteCode }) => {
@@ -1112,23 +1364,12 @@ export const joinByCode = mutation({
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
-    const existingMembers = await ctx.db
-      .query("memberships")
-      .withIndex("by_group", (q) => q.eq("groupId", group._id))
-      .collect();
-    for (const m of existingMembers) {
-      if (m.userId === userId) continue;
-      await enqueueNotification(ctx, {
-        userId: m.userId,
-        kind: "MEMBER_JOINED",
-        actorUserId: userId,
-        groupId: group._id,
-        title: newcomer?.displayName ?? "Someone",
-        body: `joined ${group.name}`,
-        deepLinkPath: `/group/${group._id}`,
-        dedupeKey: `joined:${group._id}:${userId}`,
-      });
-    }
+    await enqueueMemberJoinedNotifications(
+      ctx,
+      group,
+      userId,
+      newcomer?.displayName ?? "Someone",
+    );
 
     return { ok: true as const, groupId: group._id };
   },

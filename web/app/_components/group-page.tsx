@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -18,7 +17,7 @@ import { ProofLightbox } from "./proof-lightbox";
 import { DayResetCountdown, CompResetCountdown } from "./countdown";
 import { BottomNav } from "./bottom-nav";
 import { InviteModal } from "./invite-modal";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import { GroupEditModal } from "./group-actions";
 import {
   resolveProofUrl,
@@ -239,25 +238,12 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
   return (
     <div className="page-wrap page-group has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/dashboard" className="btn-link">
-            ← Home
-          </Link>
-          <span className="topbar-context">{group.name}</span>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader
+        profile={profile}
+        backHref="/dashboard"
+        backLabel="← Home"
+        context={group.name}
+      />
 
       <main className="page">
         <div className="page-head fade-up page-head-group">
@@ -426,10 +412,11 @@ export function GroupPage({ groupId }: { groupId: string }) {
       />
       <InviteModal
         open={inviteOpen}
+        groupId={group._id}
         inviteCode={group.inviteCode}
         groupName={group.name}
         onClose={() => setInviteOpen(false)}
-        onToast={(msg) => setToast({ message: msg, tone: "neutral" })}
+        onToast={(msg, tone = "neutral") => setToast({ message: msg, tone })}
       />
       <Toast value={toast} onDismiss={() => setToast(null)} />
       <BottomNav />

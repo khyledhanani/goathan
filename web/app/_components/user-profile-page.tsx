@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -12,7 +11,7 @@ import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import {
   resolveProofUrl,
   useSignedProofUrls,
@@ -70,24 +69,7 @@ export function UserProfilePage({ userId }: { userId: string }) {
 
   return (
     <div className="page-wrap has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/dashboard" className="btn-link">
-            ← Home
-          </Link>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: me.displayName,
-              avatarUrl: me.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={me} backHref="/dashboard" backLabel="← Home" />
 
       <main className="page">
         {!data.sharesAnyGroup ? (

@@ -9,7 +9,7 @@ import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { ConfirmDialog } from "./confirm-dialog";
 import { BottomNav } from "./bottom-nav";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import { NotificationSettings } from "./notification-settings";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -68,24 +68,7 @@ export function SettingsScreen() {
 
   return (
     <div className="page-wrap has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/profile" className="btn-link">
-            ← Profile
-          </Link>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} backHref="/profile" backLabel="← Profile" />
 
       <main className="page">
         <div className="page-head fade-up">

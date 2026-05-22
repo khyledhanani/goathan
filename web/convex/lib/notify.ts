@@ -10,6 +10,7 @@ export type NotificationKind =
   | "CAP_RESTORED"
   | "MEDAL_AWARDED"
   | "MEMBER_JOINED"
+  | "GROUP_INVITE"
   | "DAILY_RESET_REMINDER";
 
 export type EnqueueArgs = {

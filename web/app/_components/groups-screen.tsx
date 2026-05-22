@@ -5,20 +5,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "./toast";
 import { BottomNav } from "./bottom-nav";
-import { UserMenu } from "./user-menu";
 import { CreateOrJoinGroups } from "./group-actions";
+import { AppHeader } from "./app-header";
 
 type Member = { displayName: string; avatarUrl?: string };
+type PendingInvite = {
+  _id: Id<"groupInvites">;
+  groupId: Id<"groups">;
+  groupName: string;
+  invitedByName: string;
+  invitedByAvatarUrl?: string;
+  createdAt: number;
+  groupExists: boolean;
+};
 
 export function GroupsScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const profile = useQuery(api.profiles.getCurrentProfile);
   const home = useQuery(api.groups.homeView);
+  const pendingInvites = useQuery(api.groups.pendingInvites);
   const upsertFromAuth = useMutation(api.profiles.upsertCurrentProfileFromAuth);
+  const respondToInvite = useMutation(api.groups.respondToInvite);
   const [toast, setToast] = useState<ToastValue>(null);
+  const [inviteBusy, setInviteBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -52,21 +66,33 @@ export function GroupsScreen() {
     );
   }
 
+  const onInviteResponse = async (
+    inviteId: Id<"groupInvites">,
+    response: "ACCEPT" | "DECLINE",
+  ) => {
+    if (inviteBusy) return;
+    setInviteBusy(String(inviteId));
+    try {
+      const result = await respondToInvite({ inviteId, response });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
+        return;
+      }
+      if (result.state === "accepted") {
+        setToast({ message: "Invite accepted", tone: "success" });
+      } else {
+        setToast({ message: "Invite declined", tone: "neutral" });
+      }
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    } finally {
+      setInviteBusy(null);
+    }
+  };
+
   return (
     <div className="page-wrap page-home has-bottom-nav">
-      <header className="page-wrap-bar">
-        <Link href="/dashboard" className="entry-brand">
-          Receipts<span className="v">v0.1</span>
-        </Link>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} />
 
       <main className="page">
         <div className="page-head fade-up">
@@ -93,6 +119,14 @@ export function GroupsScreen() {
             onError={(msg) => setToast({ message: msg, tone: "error" })}
           />
         </div>
+
+        {pendingInvites && pendingInvites.length > 0 && (
+          <PendingInvites
+            invites={pendingInvites}
+            busyId={inviteBusy}
+            onRespond={onInviteResponse}
+          />
+        )}
 
         {home && home.groups.length === 0 ? (
           <EmptyHome />
@@ -236,6 +270,80 @@ function AvatarStack({ members }: { members: Member[] }) {
         </span>
       ))}
     </div>
+  );
+}
+
+function PendingInvites({
+  invites,
+  busyId,
+  onRespond,
+}: {
+  invites: PendingInvite[];
+  busyId: string | null;
+  onRespond: (
+    inviteId: Id<"groupInvites">,
+    response: "ACCEPT" | "DECLINE",
+  ) => void;
+}) {
+  return (
+    <section className="pending-invites fade-up d2">
+      <header className="section-head">
+        <h2 className="h-section">Invites.</h2>
+        <span className="eyebrow">{invites.length} pending</span>
+      </header>
+      <ul className="pending-invite-list">
+        {invites.map((invite) => {
+          const busy = busyId === String(invite._id);
+          return (
+            <li key={invite._id} className="pending-invite-row">
+              <div className="pending-invite-main">
+                {invite.invitedByAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={invite.invitedByAvatarUrl}
+                    alt=""
+                    width={34}
+                    height={34}
+                    className="avatar"
+                  />
+                ) : (
+                  <span className="avatar avatar-fallback">
+                    {invite.invitedByName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <div>
+                  <p className="pending-invite-title">
+                    {invite.invitedByName} invited you to {invite.groupName}
+                  </p>
+                  <p className="pending-invite-meta mono">
+                    {new Date(invite.createdAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+              </div>
+              <div className="pending-invite-actions">
+                <button
+                  className="btn-primary btn-ghost-sm"
+                  disabled={busy || !invite.groupExists}
+                  onClick={() => onRespond(invite._id, "ACCEPT")}
+                >
+                  {busy ? "Working…" : "Accept"}
+                </button>
+                <button
+                  className="btn-ghost btn-ghost-sm"
+                  disabled={busy}
+                  onClick={() => onRespond(invite._id, "DECLINE")}
+                >
+                  Decline
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
