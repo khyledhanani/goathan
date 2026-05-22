@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -8,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { BottomNav } from "./bottom-nav";
 import { GroupCreateForm } from "./group-actions";
 import { Toast, type ToastValue } from "./toast";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 
 export function CreateGroupScreen() {
   const router = useRouter();
@@ -50,24 +49,7 @@ export function CreateGroupScreen() {
 
   return (
     <div className="page-wrap has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/groups" className="btn-link">
-            ← Groups
-          </Link>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} backHref="/groups" backLabel="← Groups" />
 
       <main className="page">
         <div className="fade-up d1">

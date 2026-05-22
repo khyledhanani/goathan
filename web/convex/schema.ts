@@ -54,6 +54,25 @@ export default defineSchema({
     .index("by_group", ["groupId"])
     .index("by_group_and_user", ["groupId", "userId"]),
 
+  groupInvites: defineTable({
+    groupId: v.id("groups"),
+    invitedUserId: v.id("users"),
+    invitedByUserId: v.id("users"),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("ACCEPTED"),
+      v.literal("DECLINED"),
+    ),
+    createdAt: v.number(),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_group_and_invited_user", ["groupId", "invitedUserId"])
+    .index("by_invited_user_status", [
+      "invitedUserId",
+      "status",
+      "createdAt",
+    ]),
+
   tasks: defineTable({
     groupId: v.id("groups"),
     name: v.string(),
@@ -154,6 +173,7 @@ export default defineSchema({
       v.literal("CAP_RESTORED"),
       v.literal("MEDAL_AWARDED"),
       v.literal("MEMBER_JOINED"),
+      v.literal("GROUP_INVITE"),
       v.literal("DAILY_RESET_REMINDER"),
     ),
     actorUserId: v.optional(v.id("users")),

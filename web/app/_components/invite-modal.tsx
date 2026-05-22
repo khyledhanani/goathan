@@ -1,22 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { errorMessage } from "@/lib/errors";
 
 export function InviteModal({
   open,
+  groupId,
   inviteCode,
   groupName,
   onClose,
   onToast,
 }: {
   open: boolean;
+  groupId: Id<"groups">;
   inviteCode: string;
   groupName: string;
   onClose: () => void;
-  onToast: (msg: string) => void;
+  onToast: (msg: string, tone?: "neutral" | "error" | "success") => void;
 }) {
   const [origin, setOrigin] = useState<string>("");
   const [canShare, setCanShare] = useState(false);
+  const [username, setUsername] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inviteByUsername = useMutation(api.groups.inviteByUsername);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -36,14 +45,17 @@ export function InviteModal({
   if (!open) return null;
 
   const inviteUrl = origin ? `${origin}/join/${inviteCode}` : "";
+  const normalizedUsername = username.trim().replace(/^@+/, "").toLowerCase();
+  const canInvite =
+    /^[a-z0-9_.]{2,20}$/.test(normalizedUsername) && !busy;
 
   const copyLink = async () => {
     if (!inviteUrl) return;
     try {
       await navigator.clipboard?.writeText(inviteUrl);
-      onToast("Invite link copied");
+      onToast("Invite link copied", "neutral");
     } catch {
-      onToast("Couldn't copy — long-press the code to select");
+      onToast("Couldn't copy — long-press the code to select", "error");
     }
   };
 
@@ -57,6 +69,27 @@ export function InviteModal({
       });
     } catch {
       // user cancelled or share unavailable — silent
+    }
+  };
+
+  const inviteUsername = async () => {
+    if (!canInvite) return;
+    setBusy(true);
+    try {
+      const result = await inviteByUsername({
+        groupId,
+        username: normalizedUsername,
+      });
+      if (!result.ok) {
+        onToast(result.error, "error");
+        return;
+      }
+      setUsername("");
+      onToast(`Invited @${result.username}`, "success");
+    } catch (e) {
+      onToast(errorMessage(e), "error");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -97,6 +130,36 @@ export function InviteModal({
               Share…
             </button>
           )}
+        </div>
+
+        <div className="invite-modal-username">
+          <label className="field">
+            <span className="field-label">
+              <span>Username</span>
+              <span className="hint">Existing users</span>
+            </span>
+            <div className="invite-username-row">
+              <input
+                className="field-input mono-input"
+                placeholder="@maya"
+                value={username}
+                maxLength={21}
+                onChange={(e) =>
+                  setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && canInvite) void inviteUsername();
+                }}
+              />
+              <button
+                className="btn-primary"
+                disabled={!canInvite}
+                onClick={inviteUsername}
+              >
+                {busy ? "Inviting…" : "Invite"}
+              </button>
+            </div>
+          </label>
         </div>
 
         <div className="invite-modal-code-block">

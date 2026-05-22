@@ -12,17 +12,24 @@ const isAuthedOnlyRoute = createRouteMatcher([
   "/profile",
 ]);
 
-export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-  const isAuthenticated = await convexAuth.isAuthenticated();
+const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
 
-  if (isAuthedOnlyRoute(request) && !isAuthenticated) {
-    return nextjsMiddlewareRedirect(request, "/");
-  }
+export default convexAuthNextjsMiddleware(
+  async (request, { convexAuth }) => {
+    const isAuthenticated = await convexAuth.isAuthenticated();
 
-  if (isPublicRoute(request) && isAuthenticated) {
-    return nextjsMiddlewareRedirect(request, "/dashboard");
-  }
-});
+    if (isAuthedOnlyRoute(request) && !isAuthenticated) {
+      return nextjsMiddlewareRedirect(request, "/");
+    }
+
+    if (isPublicRoute(request) && isAuthenticated) {
+      return nextjsMiddlewareRedirect(request, "/dashboard");
+    }
+  },
+  {
+    cookieConfig: { maxAge: THIRTY_DAYS_SECONDS },
+  },
+);
 
 export const config = {
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],

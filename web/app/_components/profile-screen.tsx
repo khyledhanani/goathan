@@ -10,7 +10,7 @@ import { ProofLightbox } from "./proof-lightbox";
 import { ProfileGrid, type ProfileGridItem } from "./profile-grid";
 import { TrophyCabinet } from "./trophy-cabinet";
 import { BottomNav } from "./bottom-nav";
-import { UserMenu } from "./user-menu";
+import { AppHeader } from "./app-header";
 import {
   resolveProofUrl,
   useSignedProofUrls,
@@ -59,24 +59,7 @@ export function ProfileScreen() {
 
   return (
     <div className="page-wrap has-bottom-nav">
-      <header className="page-wrap-bar">
-        <div className="topbar-left">
-          <Link href="/dashboard" className="entry-brand">
-            Receipts<span className="v">v0.1</span>
-          </Link>
-          <Link href="/dashboard" className="btn-link">
-            ← Home
-          </Link>
-        </div>
-        <div className="topbar-right">
-          <UserMenu
-            profile={{
-              displayName: profile.displayName,
-              avatarUrl: profile.avatarUrl,
-            }}
-          />
-        </div>
-      </header>
+      <AppHeader profile={profile} backHref="/dashboard" backLabel="← Home" />
 
       <main className="page">
         <div className="page-head fade-up">

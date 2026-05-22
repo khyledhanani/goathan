@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { firstName } from "@/lib/utils";
 
-type Profile = {
+export type UserMenuProfile = {
   displayName: string;
+  username?: string;
   avatarUrl?: string;
 };
 
-export function UserMenu({ profile }: { profile: Profile }) {
+export function UserMenu({ profile }: { profile: UserMenuProfile }) {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const [open, setOpen] = useState(false);
@@ -36,6 +37,7 @@ export function UserMenu({ profile }: { profile: Profile }) {
   }, [open]);
 
   const hello = firstName(profile.displayName);
+  const chipLabel = profile.username ? `@${profile.username}` : profile.displayName;
 
   const onLogout = async () => {
     if (signingOut) return;
@@ -71,7 +73,7 @@ export function UserMenu({ profile }: { profile: Profile }) {
             {hello.charAt(0).toUpperCase()}
           </span>
         )}
-        <span className="user-chip-name">{profile.displayName}</span>
+        <span className="user-chip-name">{chipLabel}</span>
       </button>
 
       {open && (

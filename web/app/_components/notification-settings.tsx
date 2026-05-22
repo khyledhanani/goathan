@@ -22,6 +22,7 @@ const KINDS: KindMeta[] = [
   { key: "CAP_RESTORED", label: "When your points are restored" },
   { key: "MEDAL_AWARDED", label: "Weekly medal awards" },
   { key: "MEMBER_JOINED", label: "When someone joins your group" },
+  { key: "GROUP_INVITE", label: "When someone invites you to a group" },
   { key: "DAILY_RESET_REMINDER", label: "Daily reset reminder" },
 ];
 
