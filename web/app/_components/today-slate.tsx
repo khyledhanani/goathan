@@ -49,16 +49,18 @@ function formatMs(ms: number): string {
 
 export function TodaySlate({
   slate,
-  onClaim,
+  onClaimTask,
   onUnclaim,
+  onStartBasket,
   onUpload,
   proofUploads,
   onOpenProof,
   onRemoveTask,
 }: {
   slate: SlateItem[];
-  onClaim: (taskId: Id<"tasks">) => void;
+  onClaimTask: (taskId: Id<"tasks">) => void;
   onUnclaim: (completionId: Id<"completions">) => void;
+  onStartBasket: (taskId: Id<"tasks">, completionId: Id<"completions">, file: File) => void;
   onUpload: (completionId: Id<"completions">, file: File) => Promise<void>;
   proofUploads: Record<string, ProofUploadState>;
   onOpenProof: (url: string) => void;
@@ -91,8 +93,9 @@ export function TodaySlate({
             task={task}
             mode={mode}
             now={now}
-            onClaim={onClaim}
+            onClaimTask={onClaimTask}
             onUnclaim={onUnclaim}
+            onStartBasket={onStartBasket}
             onUpload={onUpload}
             uploadState={
               task.completionId ? proofUploads[String(task.completionId)] : undefined
@@ -110,8 +113,9 @@ function SlateRow({
   task,
   mode,
   now,
-  onClaim,
+  onClaimTask,
   onUnclaim,
+  onStartBasket,
   onUpload,
   uploadState,
   onOpenProof,
@@ -120,20 +124,22 @@ function SlateRow({
   task: SlateItem;
   mode: Mode;
   now: number;
-  onClaim: (id: Id<"tasks">) => void;
+  onClaimTask: (id: Id<"tasks">) => void;
   onUnclaim: (id: Id<"completions">) => void;
+  onStartBasket: (id: Id<"tasks">, completionId: Id<"completions">, file: File) => void;
   onUpload: (id: Id<"completions">, file: File) => Promise<void>;
   uploadState?: ProofUploadState;
   onOpenProof: (url: string) => void;
   onRemoveTask?: (id: Id<"tasks">, name: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const supportsBasket = task.proof === "PHOTO" || task.proof === "SCREENSHOT";
 
   const onCircle = () => {
     if (uploadState) return;
-    if (mode === "untouched") {
-      onClaim(task._id);
-    } else if (mode === "claimed" && task.completionId) {
+    if (mode === "untouched" && supportsBasket) {
+      onClaimTask(task._id);
+    } else if ((mode === "claimed" || mode === "expired") && task.completionId) {
       onUnclaim(task.completionId);
     }
   };
@@ -142,7 +148,9 @@ function SlateRow({
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && task.completionId) {
+    if (file && mode === "claimed" && task.completionId && supportsBasket) {
+      onStartBasket(task._id, task.completionId, file);
+    } else if (file && task.completionId) {
       void onUpload(task.completionId, file);
     }
     e.target.value = "";
@@ -162,13 +170,17 @@ function SlateRow({
           className={`task-check ${mode === "verified" ? "verified" : mode === "claimed" ? "claimed" : mode === "expired" ? "expired" : ""}`}
           aria-label={
             mode === "untouched"
-              ? "Claim task"
+              ? supportsBasket
+                ? "Claim task"
+                : "Video proof unavailable"
               : mode === "claimed"
                 ? "Unclaim"
-                : ""
+                : mode === "expired"
+                  ? "Unclaim expired"
+                  : ""
           }
           onClick={onCircle}
-          disabled={mode === "verified" || mode === "expired" || Boolean(uploadState)}
+          disabled={mode === "verified" || (mode === "untouched" && !supportsBasket) || Boolean(uploadState)}
           aria-busy={uploadState ? true : undefined}
         >
           {mode === "verified" && (
@@ -177,7 +189,7 @@ function SlateRow({
             </svg>
           )}
           {mode === "claimed" && <span className="check-dot" />}
-          {mode === "expired" && <span className="check-x">×</span>}
+          {mode === "expired" && <span className="check-x">&times;</span>}
         </button>
 
         <div className="slate-row-title">
@@ -190,17 +202,17 @@ function SlateRow({
 
       <div className="slate-row-meta">
         <span><b>{task.category}</b></span>
-        <span className="sep">·</span>
+        <span className="sep">&middot;</span>
         <span>{task.frequency === "DAILY" ? "Daily" : "Weekly"}</span>
         {mode === "untouched" && (
           <>
-            <span className="sep">·</span>
+            <span className="sep">&middot;</span>
             <span>{proofLabel} proof</span>
           </>
         )}
         {mode === "claimed" && (
           <>
-            <span className="sep">·</span>
+            <span className="sep">&middot;</span>
             <span className={`slate-tag ${uploadState ? "upload-tag" : "claim-tag"}`}>
               {uploadState ? uploadPhaseLabel(uploadState.phase) : `${formatMs(timeLeftMs)} left to verify`}
             </span>
@@ -208,7 +220,7 @@ function SlateRow({
         )}
         {mode === "verified" && (
           <>
-            <span className="sep">·</span>
+            <span className="sep">&middot;</span>
             <span className="slate-tag verify-tag">Verified</span>
             {task.aiVerification && (
               <span className="slate-ai-slot">
@@ -219,7 +231,7 @@ function SlateRow({
         )}
         {mode === "expired" && (
           <>
-            <span className="sep">·</span>
+            <span className="sep">&middot;</span>
             <span className="slate-tag expired-tag">Claim expired</span>
           </>
         )}
@@ -242,8 +254,12 @@ function SlateRow({
           {uploadState ? (
             <ProofUploadPreview uploadState={uploadState} />
           ) : (
-            <button className="btn-upload" onClick={onPickFile}>
-              Upload {proofLabel}
+            <button
+              className="btn-upload"
+              onClick={onPickFile}
+              disabled={!supportsBasket}
+            >
+              {supportsBasket ? `Upload ${proofLabel}` : "Video proof soon"}
             </button>
           )}
         </div>
@@ -271,7 +287,7 @@ function SlateRow({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={supportsBasket ? "image/*" : "video/*"}
         style={{ display: "none" }}
         onChange={onFile}
       />

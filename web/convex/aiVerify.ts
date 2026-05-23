@@ -49,9 +49,10 @@ export const getCompletion = internalQuery({
   handler: async (ctx, { completionId }) => {
     const c = await ctx.db.get(completionId);
     if (!c) return null;
+    const proofAsset = c.proofAssetId ? await ctx.db.get(c.proofAssetId) : null;
     return {
       claimedAt: c.claimedAt,
-      proofMeta: c.proofMeta ?? null,
+      proofMeta: proofAsset?.proofMeta ?? c.proofMeta ?? null,
     };
   },
 });
@@ -63,6 +64,9 @@ export const getContext = internalQuery({
     if (!completion) return null;
     const task = await ctx.db.get(completion.taskId);
     if (!task) return null;
+    const proofAsset = completion.proofAssetId
+      ? await ctx.db.get(completion.proofAssetId)
+      : null;
     const proofUrl = completion.proofStorageId
       ? await ctx.storage.getUrl(completion.proofStorageId)
       : null;
@@ -70,11 +74,12 @@ export const getContext = internalQuery({
       completionId,
       revokedAt: completion.revokedAt ?? null,
       proofUrl,
-      proofR2Key: completion.proofR2Key ?? null,
+      proofR2Key: proofAsset?.r2Key ?? completion.proofR2Key ?? null,
       taskName: task.name,
       taskDescription: task.description ?? null,
       proofType: task.proof,
       frequency: task.frequency,
+      proofMeta: proofAsset?.proofMeta ?? completion.proofMeta ?? null,
     };
   },
 });
@@ -185,6 +190,7 @@ export const debugRecentUploads = internalQuery({
             ? new Date(c.revokedAt).toISOString()
             : null,
           hasProofStorage: !!c.proofStorageId,
+          hasProofAsset: !!c.proofAssetId,
           verification: v
             ? {
                 status: v.status,

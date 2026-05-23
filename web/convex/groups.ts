@@ -39,6 +39,12 @@ async function legacyProofUrlFor(
   return null;
 }
 
+function hasR2ProofFor(
+  completion: Pick<Doc<"completions">, "proofAssetId" | "proofR2Key">,
+): boolean {
+  return completion.proofAssetId !== undefined || completion.proofR2Key !== undefined;
+}
+
 function normalizeStakeText(text: string | undefined): string | undefined {
   const trimmed = text?.trim();
   return trimmed || undefined;
@@ -307,7 +313,7 @@ export const todayView = query({
         verifiedAt: c.verifiedAt,
         revokedAt: c.revokedAt,
         proofUrl,
-        hasR2Proof: c.proofR2Key !== undefined,
+        hasR2Proof: hasR2ProofFor(c),
         aiVerification: serializeVerification(verification),
       });
     }
@@ -781,7 +787,7 @@ export const recentActivity = query({
           verifiedAt: c.verifiedAt ?? null,
           revokedAt: c.revokedAt ?? null,
           proofUrl,
-          hasR2Proof: c.proofR2Key !== undefined,
+          hasR2Proof: hasR2ProofFor(c),
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
             (ch) => ch.challengerUserId === userId,

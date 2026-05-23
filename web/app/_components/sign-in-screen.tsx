@@ -59,12 +59,28 @@ export function SignInScreen() {
 
       <div className="entry-mid">
         <h1 className="entry-hed fade-up d1">
-          Bring the<br />
-          <span className="underline">receipts.</span>
+          Receipts for<br />
+          <span className="underline">anything.</span>
         </h1>
         <p className="entry-dek fade-up d2">
-          Prove the work. Compete with your crew. No receipts, no rank.
+          Make a group. Add daily or weekly tasks. Post proof when they&apos;re
+          done. Your friends decide what counts.
         </p>
+
+        <div className="entry-tasks fade-up d2">
+          {[
+            "Take a selfie",
+            "Make your bed",
+            "Hit the gym",
+            "Do cardio",
+            "Drink water",
+            "Read 10 pages",
+            "No takeout",
+            "Sleep by 11",
+          ].map((t) => (
+            <span key={t} className="entry-task-pill">{t}</span>
+          ))}
+        </div>
 
         <div className="fade-up d3" style={{ maxWidth: 420 }}>
           <button
@@ -74,7 +90,7 @@ export function SignInScreen() {
             aria-busy={busy}
           >
             <GoogleGlyph />
-            <span>{busy ? "Opening Google…" : "Continue with Google"}</span>
+            <span>{busy ? "Opening Google…" : "Sign in with Google"}</span>
             <span className="arrow">→</span>
           </button>
 
@@ -98,15 +114,15 @@ export function SignInScreen() {
       </div>
 
       <div className="entry-foot fade-up d4">
-        <span className="eyebrow">© Receipts · keep score</span>
+        <span className="eyebrow">© Receipts · small promises, daily receipts</span>
         <div className="lattice">
           <div>
-            <span className="k">Groups</span>
-            <span className="v">Invite&nbsp;only</span>
+            <span className="k">Tasks</span>
+            <span className="v">Anything</span>
           </div>
           <div>
-            <span className="k">Scoring</span>
-            <span className="v">Pts / week</span>
+            <span className="k">Proof</span>
+            <span className="v">Photo / screenshot</span>
           </div>
           <div>
             <span className="k">Referee</span>

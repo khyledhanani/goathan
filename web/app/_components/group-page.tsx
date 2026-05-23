@@ -7,7 +7,7 @@ import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
-import { normalizeProofMedia } from "@/lib/upload";
+import { normalizeProofMedia, type ProofMeta } from "@/lib/upload";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate, type ProofUploadState } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
@@ -20,11 +20,21 @@ import { BottomNav } from "./bottom-nav";
 import { InviteModal } from "./invite-modal";
 import { AppHeader } from "./app-header";
 import { GroupEditModal } from "./group-actions";
+import { ClaimBasketSheet } from "./claim-basket-sheet";
 import {
   resolveProofUrl,
   useSignedProofUrls,
   type ProofRef,
 } from "./use-signed-proof-urls";
+
+type BasketDraft = {
+  startingTaskId: Id<"tasks">;
+  completionId: Id<"completions">;
+  body: Blob;
+  contentType: string;
+  meta?: ProofMeta;
+  previewUrl: string;
+};
 
 export function GroupPage({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -40,10 +50,13 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const activity = useQuery(api.groups.recentActivity, {
     groupId: groupId as Id<"groups">,
   });
-  const claim = useMutation(api.completions.claim);
+  const claimTask = useMutation(api.completions.claim);
   const unclaim = useMutation(api.completions.unclaim);
   const generateProofUploadUrl = useAction(api.r2.generateProofUploadUrl);
+  const generateBasketProofUploadUrl = useAction(api.r2.generateBasketProofUploadUrl);
   const attachProof = useMutation(api.completions.attachR2Proof);
+  const submitProofBasket = useMutation(api.completions.submitProofBasket);
+  const verifyWithBasketMut = useMutation(api.completions.verifyWithBasket);
   const createTask = useMutation(api.tasks.create);
   const removeTaskMutation = useMutation(api.tasks.remove);
   const toggleChallenge = useMutation(api.challenges.toggle);
@@ -56,11 +69,26 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [proofUploads, setProofUploads] = useState<Record<string, ProofUploadState>>({});
   const proofPreviewUrls = useRef(new Map<string, string>());
+  const [basketDraft, setBasketDraft] = useState<BasketDraft | null>(null);
+  const [basketSubmitting, setBasketSubmitting] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{
     taskId: Id<"tasks">;
     name: string;
   } | null>(null);
   const [removing, setRemoving] = useState(false);
+  const basketOptions = useQuery(
+    api.completions.claimBasketOptions,
+    basketDraft
+      ? { completionId: basketDraft.completionId, startingTaskId: basketDraft.startingTaskId }
+      : "skip",
+  );
+
+  useEffect(() => {
+    const previewUrl = basketDraft?.previewUrl;
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [basketDraft?.previewUrl]);
 
   const proofRefs = useMemo(() => {
     if (!view || view === null) return [] as ProofRef[];
@@ -153,16 +181,84 @@ export function GroupPage({ groupId }: { groupId: string }) {
     day: "numeric",
   });
 
-  const onClaim = async (taskId: Id<"tasks">) => {
+  const closeBasket = () => {
+    setBasketDraft(null);
+  };
+
+  const onClaimTask = async (taskId: Id<"tasks">) => {
     try {
-      const result = await claim({ taskId });
+      const result = await claimTask({ taskId });
       if (!result.ok) {
         setToast({ message: result.error, tone: "error" });
-        return;
       }
-      setToast({ message: "Claimed · upload proof within 15m", tone: "neutral" });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onStartBasket = async (taskId: Id<"tasks">, completionId: Id<"completions">, file: File) => {
+    try {
+      const { body, contentType, meta } = await normalizeProofMedia(file);
+      setBasketDraft({
+        startingTaskId: taskId,
+        completionId,
+        body,
+        contentType,
+        meta,
+        previewUrl: URL.createObjectURL(body),
+      });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    }
+  };
+
+  const onSubmitBasket = async (taskIds: Id<"tasks">[]) => {
+    if (!basketDraft) return;
+    setBasketSubmitting(true);
+    try {
+      const uploadTarget = await generateBasketProofUploadUrl({
+        contentType: basketDraft.contentType,
+        sizeBytes: basketDraft.body.size,
+      });
+      if (!uploadTarget.ok) {
+        setToast({ message: uploadTarget.error, tone: "error" });
+        return;
+      }
+      const res = await fetch(uploadTarget.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": uploadTarget.contentType },
+        body: basketDraft.body,
+      });
+      if (!res.ok) {
+        setToast({ message: "Upload failed, try again", tone: "error" });
+        return;
+      }
+
+      // The starting task is already claimed — use verifyWithBasket
+      const additionalTaskIds = taskIds.filter(
+        (id) => id !== basketDraft.startingTaskId,
+      );
+      const submitted = await verifyWithBasketMut({
+        completionId: basketDraft.completionId,
+        additionalTaskIds,
+        r2Key: uploadTarget.key,
+        contentType: uploadTarget.contentType,
+        sizeBytes: basketDraft.body.size,
+        proofMeta: basketDraft.meta,
+      });
+      if (!submitted.ok) {
+        setToast({ message: submitted.error, tone: "error" });
+        return;
+      }
+      closeBasket();
+      setToast({
+        message: `Submitted ${submitted.completionIds.length} log${submitted.completionIds.length === 1 ? "" : "s"}`,
+        tone: "success",
+      });
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
+    } finally {
+      setBasketSubmitting(false);
     }
   };
 
@@ -378,8 +474,9 @@ export function GroupPage({ groupId }: { groupId: string }) {
 
           <TodaySlate
             slate={slate}
-            onClaim={onClaim}
+            onClaimTask={onClaimTask}
             onUnclaim={onUnclaim}
+            onStartBasket={onStartBasket}
             onUpload={onUpload}
             proofUploads={proofUploads}
             onOpenProof={(url) => setLightboxUrl(url)}
@@ -463,6 +560,17 @@ export function GroupPage({ groupId }: { groupId: string }) {
       )}
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      {basketDraft && (
+        <ClaimBasketSheet
+          startingTaskId={basketDraft.startingTaskId}
+          completionId={basketDraft.completionId}
+          previewUrl={basketDraft.previewUrl}
+          options={basketOptions}
+          submitting={basketSubmitting}
+          onClose={closeBasket}
+          onSubmit={onSubmitBasket}
+        />
+      )}
       <ConfirmDialog
         open={removeTarget !== null}
         title={removeTarget ? `Remove ${removeTarget.name}?` : ""}

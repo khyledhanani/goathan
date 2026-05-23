@@ -124,6 +124,56 @@ export const generateProofUploadUrl = action({
   },
 });
 
+export const generateBasketProofUploadUrl = action({
+  args: {
+    contentType: v.string(),
+    sizeBytes: v.number(),
+  },
+  handler: async (
+    ctx,
+    { contentType, sizeBytes },
+  ): Promise<GenerateProofUploadResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const normalizedContentType =
+      contentType === "image/jpg" ? "image/jpeg" : contentType;
+    if (!ALLOWED_IMAGE_TYPES.has(normalizedContentType)) {
+      return {
+        ok: false as const,
+        error: "Only JPEG, PNG, and WebP images are supported right now",
+      };
+    }
+    if (sizeBytes <= 0 || sizeBytes > MAX_PROOF_UPLOAD_BYTES) {
+      return {
+        ok: false as const,
+        error: "Image is too large. Try a smaller photo.",
+      };
+    }
+
+    const key = `proofs/shared/${userId}/${Date.now()}-${randomUUID()}.${extensionForContentType(
+      normalizedContentType,
+    )}`;
+    const command = new PutObjectCommand({
+      Bucket: requiredEnv("R2_BUCKET_NAME"),
+      Key: key,
+      ContentType: normalizedContentType,
+      CacheControl: "public, max-age=31536000, immutable",
+    });
+    const uploadUrl = await getSignedUrl(r2Client(), command, {
+      expiresIn: UPLOAD_URL_EXPIRES_SECONDS,
+    });
+
+    return {
+      ok: true as const,
+      uploadUrl,
+      key,
+      contentType: normalizedContentType,
+      maxBytes: MAX_PROOF_UPLOAD_BYTES,
+    };
+  },
+});
+
 export const generateProofReadUrls = action({
   args: {
     completionIds: v.array(v.id("completions")),
