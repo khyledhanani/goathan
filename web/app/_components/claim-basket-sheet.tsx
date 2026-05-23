@@ -28,6 +28,7 @@ export function ClaimBasketSheet({
   submitting,
   onClose,
   onSubmit,
+  mode = "new",
 }: {
   startingTaskId: Id<"tasks">;
   completionId?: Id<"completions">;
@@ -36,6 +37,7 @@ export function ClaimBasketSheet({
   submitting: boolean;
   onClose: () => void;
   onSubmit: (taskIds: Id<"tasks">[]) => void;
+  mode?: "new" | "expand";
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(
@@ -85,6 +87,25 @@ export function ClaimBasketSheet({
     return pts;
   }, [options, selected]);
 
+  const isExpand = mode === "expand";
+
+  const startingTaskPoints = useMemo(() => {
+    if (!options) return 0;
+    for (const group of options.groups) {
+      for (const task of group.tasks) {
+        if (task._id === startingTaskId) return task.points;
+      }
+    }
+    return 0;
+  }, [options, startingTaskId]);
+
+  const additionalCount = isExpand
+    ? selectedTaskIds.length - 1
+    : selectedTaskIds.length;
+  const additionalPoints = isExpand
+    ? totalPoints - startingTaskPoints
+    : totalPoints;
+
   const normalizedQuery = query.trim().toLowerCase();
   const filteredGroups = useMemo(() => {
     if (!options) return [];
@@ -131,9 +152,9 @@ export function ClaimBasketSheet({
       >
         <div className="claim-basket-head">
           <div>
-            <span className="eyebrow">Claim basket</span>
+            <span className="eyebrow">{isExpand ? "Expand proof" : "Claim basket"}</span>
             <h2 id="claim-basket-title" className="modal-title">
-              Use this proof<span className="roman">.</span>
+              {isExpand ? "Add to more tasks" : "Use this proof"}<span className="roman">.</span>
             </h2>
           </div>
           <button
@@ -217,11 +238,13 @@ export function ClaimBasketSheet({
           <button
             className="btn-primary"
             onClick={() => onSubmit(selectedTaskIds)}
-            disabled={submitting || selectedTaskIds.length === 0}
+            disabled={submitting || additionalCount === 0}
           >
             {submitting
               ? "Submitting..."
-              : `Submit ${selectedTaskIds.length} log${selectedTaskIds.length === 1 ? "" : "s"} · +${totalPoints} pts`}
+              : isExpand
+                ? `Submit ${additionalCount} more log${additionalCount === 1 ? "" : "s"} · +${additionalPoints} pts`
+                : `Submit ${selectedTaskIds.length} log${selectedTaskIds.length === 1 ? "" : "s"} · +${totalPoints} pts`}
           </button>
         </div>
       </section>

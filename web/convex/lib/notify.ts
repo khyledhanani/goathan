@@ -11,7 +11,8 @@ export type NotificationKind =
   | "MEDAL_AWARDED"
   | "MEMBER_JOINED"
   | "GROUP_INVITE"
-  | "DAILY_RESET_REMINDER";
+  | "DAILY_RESET_REMINDER"
+  | "FIRST_RECEIPT";
 
 export type EnqueueArgs = {
   userId: Id<"users">;
@@ -59,6 +60,49 @@ export async function enqueueNotification(
   });
 
   return notificationId;
+}
+
+/**
+ * Notify other group members when a user posts their first verified receipt
+ * of the day in a group. Deduped per recipient by actor+group+day.
+ */
+export async function notifyFirstReceipt(
+  ctx: MutationCtx,
+  opts: {
+    userId: Id<"users">;
+    groupId: Id<"groups">;
+    dayKey: string;
+  },
+): Promise<void> {
+  const { userId, groupId, dayKey: day } = opts;
+
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+  const group = await ctx.db.get(groupId);
+  if (!profile || !group) return;
+
+  const displayName = profile.displayName ?? "Someone";
+
+  const memberships = await ctx.db
+    .query("memberships")
+    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .collect();
+
+  for (const membership of memberships) {
+    if (membership.userId === userId) continue;
+    await enqueueNotification(ctx, {
+      userId: membership.userId,
+      kind: "FIRST_RECEIPT",
+      actorUserId: userId,
+      groupId,
+      title: group.name,
+      body: `${displayName} just posted their first receipt today`,
+      deepLinkPath: `/group/${groupId}`,
+      dedupeKey: `first_receipt:${userId}:${groupId}:${day}:${membership.userId}`,
+    });
+  }
 }
 
 export function truncate(s: string, n: number): string {

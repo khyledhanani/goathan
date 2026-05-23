@@ -24,6 +24,7 @@ const KINDS: KindMeta[] = [
   { key: "MEMBER_JOINED", label: "When someone joins your group" },
   { key: "GROUP_INVITE", label: "When someone invites you to a group" },
   { key: "DAILY_RESET_REMINDER", label: "Daily reset reminder" },
+  { key: "FIRST_RECEIPT", label: "When someone posts their first receipt of the day" },
 ];
 
 export function NotificationSettings({
