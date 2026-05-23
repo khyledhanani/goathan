@@ -108,6 +108,7 @@ export default defineSchema({
     proofUrl: v.optional(v.string()),
     proofContentType: v.optional(v.string()),
     proofSizeBytes: v.optional(v.number()),
+    proofAssetId: v.optional(v.id("proofAssets")),
     verifiedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     proofMeta: v.optional(
@@ -129,6 +130,29 @@ export default defineSchema({
     .index("by_group_week", ["groupId", "weekKey"])
     .index("by_user_week", ["userId", "weekKey"])
     .index("by_user_recent", ["userId", "claimedAt"]),
+
+  proofAssets: defineTable({
+    userId: v.id("users"),
+    r2Key: v.string(),
+    contentType: v.string(),
+    sizeBytes: v.number(),
+    proofMeta: v.optional(
+      v.object({
+        captureTimeMs: v.optional(v.number()),
+        software: v.optional(v.string()),
+        cameraMake: v.optional(v.string()),
+        cameraModel: v.optional(v.string()),
+        lensModel: v.optional(v.string()),
+        width: v.optional(v.number()),
+        height: v.optional(v.number()),
+        latitude: v.optional(v.number()),
+        longitude: v.optional(v.number()),
+      }),
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_user_created", ["userId", "createdAt"])
+    .index("by_r2_key", ["r2Key"]),
 
   challenges: defineTable({
     completionId: v.id("completions"),

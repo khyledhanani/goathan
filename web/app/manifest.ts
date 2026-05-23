@@ -5,14 +5,14 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Receipts",
     short_name: "Receipts",
     description:
-      "Private friend-group fitness accountability. Prove the work, compete with your crew.",
+      "Private proof-based accountability for whatever your group cares about.",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#f3efe2",
     theme_color: "#f3efe2",
-    categories: ["health", "fitness", "lifestyle"],
+    categories: ["lifestyle", "social", "productivity"],
     icons: [
       {
         src: "/icon-192.png",

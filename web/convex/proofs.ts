@@ -30,6 +30,25 @@ async function legacyProofUrlFor(
   return null;
 }
 
+function hasProofMedia(completion: {
+  proofStorageId?: Id<"_storage">;
+  proofR2Key?: string;
+  proofAssetId?: Id<"proofAssets">;
+}): boolean {
+  return (
+    completion.proofStorageId !== undefined ||
+    completion.proofR2Key !== undefined ||
+    completion.proofAssetId !== undefined
+  );
+}
+
+function hasR2Proof(completion: {
+  proofR2Key?: string;
+  proofAssetId?: Id<"proofAssets">;
+}): boolean {
+  return completion.proofR2Key !== undefined || completion.proofAssetId !== undefined;
+}
+
 async function profileFor(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -146,7 +165,7 @@ export const byCompletionId = query({
       claimedAt: c.claimedAt,
       revokedAt: c.revokedAt ?? null,
       proofUrl,
-      hasR2Proof: c.proofR2Key !== undefined,
+      hasR2Proof: hasR2Proof(c),
       reactions,
       challengeCount: challenges.length,
       challengedByYou: challenges.some(
@@ -184,7 +203,7 @@ export const feedAcrossMyGroups = query({
         return recent.filter(
           (c) =>
             c.verifiedAt !== undefined &&
-            (c.proofStorageId !== undefined || c.proofR2Key !== undefined),
+            hasProofMedia(c),
         );
       }),
     );
@@ -274,7 +293,7 @@ export const feedAcrossMyGroups = query({
           claimedAt: c.claimedAt,
           revokedAt: c.revokedAt ?? null,
           proofUrl,
-          hasR2Proof: c.proofR2Key !== undefined,
+          hasR2Proof: hasR2Proof(c),
           reactions,
           challengeCount: challenges.length,
           challengedByYou: challenges.some(
@@ -314,7 +333,7 @@ export const storiesAcrossMyGroups = query({
         return recent.filter(
           (c) =>
             c.verifiedAt !== undefined &&
-            (c.proofStorageId !== undefined || c.proofR2Key !== undefined) &&
+            hasProofMedia(c) &&
             c.revokedAt === undefined &&
             (c.verifiedAt ?? 0) >= cutoff,
         );
@@ -352,7 +371,7 @@ export const storiesAcrossMyGroups = query({
               points: c.points,
               verifiedAt: c.verifiedAt!,
               proofUrl,
-              hasR2Proof: c.proofR2Key !== undefined,
+              hasR2Proof: hasR2Proof(c),
             };
           }),
         );
@@ -425,7 +444,7 @@ export const gridForUser = query({
           (c) =>
             c.userId === targetUserId &&
             c.verifiedAt !== undefined &&
-            (c.proofStorageId !== undefined || c.proofR2Key !== undefined) &&
+            hasProofMedia(c) &&
             c.revokedAt === undefined,
         );
       }),
@@ -456,7 +475,7 @@ export const gridForUser = query({
           points: c.points,
           verifiedAt: c.verifiedAt!,
           proofUrl,
-          hasR2Proof: c.proofR2Key !== undefined,
+          hasR2Proof: hasR2Proof(c),
           aiVerification: serializeVerification(verification),
         };
       }),
