@@ -7,7 +7,7 @@ import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
-import { normalizeProofMedia, type ProofMeta } from "@/lib/upload";
+import { normalizeProofMedia } from "@/lib/upload";
 import { Toast, type ToastValue } from "./toast";
 import { TodaySlate, type ProofUploadState } from "./today-slate";
 import { AddTaskModal } from "./add-task-modal";
@@ -27,13 +27,16 @@ import {
   type ProofRef,
 } from "./use-signed-proof-urls";
 
-type BasketDraft = {
+type ExpandDraft = {
   startingTaskId: Id<"tasks">;
   completionId: Id<"completions">;
-  body: Blob;
-  contentType: string;
-  meta?: ProofMeta;
-  previewUrl: string;
+  proofUrl: string;
+};
+
+type ExpandPromptData = {
+  taskId: Id<"tasks">;
+  completionId: Id<"completions">;
+  taskName: string;
 };
 
 export function GroupPage({ groupId }: { groupId: string }) {
@@ -53,10 +56,8 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const claimTask = useMutation(api.completions.claim);
   const unclaim = useMutation(api.completions.unclaim);
   const generateProofUploadUrl = useAction(api.r2.generateProofUploadUrl);
-  const generateBasketProofUploadUrl = useAction(api.r2.generateBasketProofUploadUrl);
   const attachProof = useMutation(api.completions.attachR2Proof);
-  const submitProofBasket = useMutation(api.completions.submitProofBasket);
-  const verifyWithBasketMut = useMutation(api.completions.verifyWithBasket);
+  const expandProofMut = useMutation(api.completions.expandProof);
   const createTask = useMutation(api.tasks.create);
   const removeTaskMutation = useMutation(api.tasks.remove);
   const toggleChallenge = useMutation(api.challenges.toggle);
@@ -69,8 +70,9 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [proofUploads, setProofUploads] = useState<Record<string, ProofUploadState>>({});
   const proofPreviewUrls = useRef(new Map<string, string>());
-  const [basketDraft, setBasketDraft] = useState<BasketDraft | null>(null);
-  const [basketSubmitting, setBasketSubmitting] = useState(false);
+  const [expandDraft, setExpandDraft] = useState<ExpandDraft | null>(null);
+  const [expandSubmitting, setExpandSubmitting] = useState(false);
+  const [expandPrompt, setExpandPrompt] = useState<ExpandPromptData | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{
     taskId: Id<"tasks">;
     name: string;
@@ -78,17 +80,10 @@ export function GroupPage({ groupId }: { groupId: string }) {
   const [removing, setRemoving] = useState(false);
   const basketOptions = useQuery(
     api.completions.claimBasketOptions,
-    basketDraft
-      ? { completionId: basketDraft.completionId, startingTaskId: basketDraft.startingTaskId }
+    expandDraft
+      ? { completionId: expandDraft.completionId, startingTaskId: expandDraft.startingTaskId }
       : "skip",
   );
-
-  useEffect(() => {
-    const previewUrl = basketDraft?.previewUrl;
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [basketDraft?.previewUrl]);
 
   const proofRefs = useMemo(() => {
     if (!view || view === null) return [] as ProofRef[];
@@ -181,10 +176,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
     day: "numeric",
   });
 
-  const closeBasket = () => {
-    setBasketDraft(null);
-  };
-
   const onClaimTask = async (taskId: Id<"tasks">) => {
     try {
       const result = await claimTask({ taskId });
@@ -196,69 +187,43 @@ export function GroupPage({ groupId }: { groupId: string }) {
     }
   };
 
-  const onStartBasket = async (taskId: Id<"tasks">, completionId: Id<"completions">, file: File) => {
-    try {
-      const { body, contentType, meta } = await normalizeProofMedia(file);
-      setBasketDraft({
-        startingTaskId: taskId,
-        completionId,
-        body,
-        contentType,
-        meta,
-        previewUrl: URL.createObjectURL(body),
-      });
-    } catch (e) {
-      setToast({ message: errorMessage(e), tone: "error" });
-    }
+  const onAcceptExpandPrompt = () => {
+    if (!expandPrompt) return;
+    const item = slate.find(
+      (s) => String(s.completionId) === String(expandPrompt.completionId),
+    );
+    setExpandDraft({
+      startingTaskId: expandPrompt.taskId,
+      completionId: expandPrompt.completionId,
+      proofUrl: item?.proofUrl ?? "",
+    });
+    setExpandPrompt(null);
   };
 
-  const onSubmitBasket = async (taskIds: Id<"tasks">[]) => {
-    if (!basketDraft) return;
-    setBasketSubmitting(true);
+  const onSubmitExpand = async (taskIds: Id<"tasks">[]) => {
+    if (!expandDraft) return;
+    setExpandSubmitting(true);
     try {
-      const uploadTarget = await generateBasketProofUploadUrl({
-        contentType: basketDraft.contentType,
-        sizeBytes: basketDraft.body.size,
-      });
-      if (!uploadTarget.ok) {
-        setToast({ message: uploadTarget.error, tone: "error" });
-        return;
-      }
-      const res = await fetch(uploadTarget.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": uploadTarget.contentType },
-        body: basketDraft.body,
-      });
-      if (!res.ok) {
-        setToast({ message: "Upload failed, try again", tone: "error" });
-        return;
-      }
-
-      // The starting task is already claimed — use verifyWithBasket
       const additionalTaskIds = taskIds.filter(
-        (id) => id !== basketDraft.startingTaskId,
+        (id) => id !== expandDraft.startingTaskId,
       );
-      const submitted = await verifyWithBasketMut({
-        completionId: basketDraft.completionId,
+      const result = await expandProofMut({
+        completionId: expandDraft.completionId,
         additionalTaskIds,
-        r2Key: uploadTarget.key,
-        contentType: uploadTarget.contentType,
-        sizeBytes: basketDraft.body.size,
-        proofMeta: basketDraft.meta,
       });
-      if (!submitted.ok) {
-        setToast({ message: submitted.error, tone: "error" });
+      if (!result.ok) {
+        setToast({ message: result.error, tone: "error" });
         return;
       }
-      closeBasket();
+      setExpandDraft(null);
       setToast({
-        message: `Submitted ${submitted.completionIds.length} log${submitted.completionIds.length === 1 ? "" : "s"}`,
+        message: `Submitted ${result.completionIds.length} more log${result.completionIds.length === 1 ? "" : "s"}`,
         tone: "success",
       });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     } finally {
-      setBasketSubmitting(false);
+      setExpandSubmitting(false);
     }
   };
 
@@ -334,7 +299,22 @@ export function GroupPage({ groupId }: { groupId: string }) {
         setToast({ message: attached.error, tone: "error" });
         return;
       }
-      setToast({ message: "Verified", tone: "success" });
+      // Show expand prompt for basket-eligible tasks, plain toast otherwise
+      const uploadedTask = slate.find(
+        (s) => String(s.completionId) === String(completionId),
+      );
+      if (
+        uploadedTask &&
+        (uploadedTask.proof === "PHOTO" || uploadedTask.proof === "SCREENSHOT")
+      ) {
+        setExpandPrompt({
+          taskId: uploadedTask._id,
+          completionId,
+          taskName: uploadedTask.name,
+        });
+      } else {
+        setToast({ message: "Verified", tone: "success" });
+      }
     } catch (e) {
       clearProofUpload(completionId);
       setToast({ message: errorMessage(e), tone: "error" });
@@ -406,7 +386,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
         profile={profile}
         backHref="/dashboard"
         backLabel="← Home"
-        context={group.name}
       />
 
       <main className="page">
@@ -476,7 +455,6 @@ export function GroupPage({ groupId }: { groupId: string }) {
             slate={slate}
             onClaimTask={onClaimTask}
             onUnclaim={onUnclaim}
-            onStartBasket={onStartBasket}
             onUpload={onUpload}
             proofUploads={proofUploads}
             onOpenProof={(url) => setLightboxUrl(url)}
@@ -560,15 +538,16 @@ export function GroupPage({ groupId }: { groupId: string }) {
       )}
 
       <ProofLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
-      {basketDraft && (
+      {expandDraft && (
         <ClaimBasketSheet
-          startingTaskId={basketDraft.startingTaskId}
-          completionId={basketDraft.completionId}
-          previewUrl={basketDraft.previewUrl}
+          startingTaskId={expandDraft.startingTaskId}
+          completionId={expandDraft.completionId}
+          previewUrl={expandDraft.proofUrl}
           options={basketOptions}
-          submitting={basketSubmitting}
-          onClose={closeBasket}
-          onSubmit={onSubmitBasket}
+          submitting={expandSubmitting}
+          onClose={() => setExpandDraft(null)}
+          onSubmit={onSubmitExpand}
+          mode="expand"
         />
       )}
       <ConfirmDialog
@@ -596,7 +575,51 @@ export function GroupPage({ groupId }: { groupId: string }) {
         onToast={(msg, tone = "neutral") => setToast({ message: msg, tone })}
       />
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      {expandPrompt && (
+        <ExpandProofPrompt
+          taskName={expandPrompt.taskName}
+          onExpand={onAcceptExpandPrompt}
+          onDismiss={() => setExpandPrompt(null)}
+        />
+      )}
       <BottomNav />
+    </div>
+  );
+}
+
+function ExpandProofPrompt({
+  taskName,
+  onExpand,
+  onDismiss,
+}: {
+  taskName: string;
+  onExpand: () => void;
+  onDismiss: () => void;
+}) {
+  const dismissRef = useRef(onDismiss);
+  useEffect(() => {
+    dismissRef.current = onDismiss;
+  });
+  useEffect(() => {
+    const t = setTimeout(() => dismissRef.current(), 10_000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="expand-prompt" role="status" aria-live="polite">
+      <span className="expand-prompt-text">
+        Verified <b>{taskName}</b>
+      </span>
+      <button className="expand-prompt-btn" onClick={onExpand}>
+        Use proof for more tasks
+      </button>
+      <button
+        className="expand-prompt-close"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+      >
+        &times;
+      </button>
     </div>
   );
 }

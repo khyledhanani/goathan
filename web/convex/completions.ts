@@ -9,7 +9,8 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { periodKeyFor, groupPeriodBounds } from "./lib/period";
+import { periodKeyFor, groupPeriodBounds, dayKey } from "./lib/period";
+import { notifyFirstReceipt } from "./lib/notify";
 
 export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
 const MAX_PROOF_UPLOAD_BYTES = 1_250_000;
@@ -47,6 +48,32 @@ async function isMember(
     )
     .unique();
   return membership !== null;
+}
+
+async function maybeNotifyFirstReceipt(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  groupId: Id<"groups">,
+  now: number,
+) {
+  const today = dayKey(now);
+  const startOfDay = new Date(today + "T00:00:00Z").getTime();
+
+  // Check if user already has a verified completion today in this group
+  const recentCompletions = await ctx.db
+    .query("completions")
+    .withIndex("by_group_recent", (q) =>
+      q.eq("groupId", groupId).gte("claimedAt", startOfDay),
+    )
+    .take(100);
+
+  const alreadyVerifiedToday = recentCompletions.some(
+    (c) => c.userId === userId && c.verifiedAt !== undefined && c.verifiedAt !== now,
+  );
+
+  if (!alreadyVerifiedToday) {
+    await notifyFirstReceipt(ctx, { userId, groupId, dayKey: today });
+  }
 }
 
 async function hasCompletionThisPeriod(
@@ -270,6 +297,15 @@ export const submitProofBasket = mutation({
       }
     }
 
+    // Notify group members if this is the user's first receipt today
+    const notifiedGroups = new Set<string>();
+    for (const row of rows) {
+      if (!notifiedGroups.has(String(row.groupId))) {
+        notifiedGroups.add(String(row.groupId));
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+      }
+    }
+
     return { ok: true as const, completionIds };
   },
 });
@@ -425,7 +461,137 @@ export const verifyWithBasket = mutation({
       }
     }
 
+    // Notify group members if this is the user's first receipt today
+    const notifiedGroups = new Set<string>();
+    notifiedGroups.add(String(completion.groupId));
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
+    for (const row of extraRows) {
+      if (!notifiedGroups.has(String(row.groupId))) {
+        notifiedGroups.add(String(row.groupId));
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+      }
+    }
+
     return { ok: true as const, completionIds: allCompletionIds };
+  },
+});
+
+export const expandProof = mutation({
+  args: {
+    completionId: v.id("completions"),
+    additionalTaskIds: v.array(v.id("tasks")),
+  },
+  handler: async (ctx, { completionId, additionalTaskIds }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const completion = await ctx.db.get(completionId);
+    if (!completion) throw new ConvexError("Completion not found");
+    if (completion.userId !== userId) throw new ConvexError("Not yours");
+    if (completion.verifiedAt === undefined) {
+      return { ok: false as const, error: "Proof not yet verified" };
+    }
+
+    // Get or create a shared proofAsset from the existing proof
+    let proofAssetId = completion.proofAssetId;
+    if (!proofAssetId) {
+      const r2Key = completion.proofR2Key;
+      if (!r2Key) {
+        return { ok: false as const, error: "No proof to expand" };
+      }
+      proofAssetId = await ctx.db.insert("proofAssets", {
+        userId,
+        r2Key,
+        contentType: completion.proofContentType ?? "image/jpeg",
+        sizeBytes: completion.proofSizeBytes ?? 0,
+        proofMeta: completion.proofMeta,
+        createdAt: completion.verifiedAt,
+      });
+      await ctx.db.patch(completion._id, {
+        proofAssetId,
+        proofR2Key: undefined,
+        proofContentType: undefined,
+        proofSizeBytes: undefined,
+      });
+    }
+
+    const now = Date.now();
+    const uniqueAdditional = Array.from(
+      new Set(additionalTaskIds.filter((id) => id !== completion.taskId)),
+    ).slice(0, 39);
+
+    if (uniqueAdditional.length === 0) {
+      return { ok: false as const, error: "Choose at least one additional task" };
+    }
+
+    const extraRows: Array<{
+      taskId: Id<"tasks">;
+      groupId: Id<"groups">;
+      periodKey: string;
+      weekKey: string;
+      points: number;
+      frequency: "DAILY" | "WEEKLY";
+    }> = [];
+
+    for (const taskId of uniqueAdditional) {
+      const task = await ctx.db.get(taskId);
+      if (!task) return { ok: false as const, error: "A selected task no longer exists" };
+      if (!isBasketProofTask(task)) {
+        return { ok: false as const, error: `${task.name} does not accept image proof` };
+      }
+      if (!(await isMember(ctx, task.groupId, userId))) {
+        throw new ConvexError("Not a member of one selected group");
+      }
+      const pk = periodKeyFor(task.frequency, now);
+      if (await hasCompletionThisPeriod(ctx, userId, task._id, pk)) {
+        return { ok: false as const, error: `${task.name} is already claimed this period` };
+      }
+      const group = await ctx.db.get(task.groupId);
+      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
+      const groupPeriod = groupPeriodBounds(group, now);
+      if (groupPeriod.ended) {
+        return { ok: false as const, error: `${task.name} is in an ended comp` };
+      }
+      extraRows.push({
+        taskId: task._id,
+        groupId: task.groupId,
+        periodKey: pk,
+        weekKey: groupPeriod.periodKey,
+        points: task.points,
+        frequency: task.frequency,
+      });
+    }
+
+    const completionIds: Id<"completions">[] = [];
+    for (const row of extraRows) {
+      const newId = await ctx.db.insert("completions", {
+        taskId: row.taskId,
+        userId,
+        groupId: row.groupId,
+        periodKey: row.periodKey,
+        weekKey: row.weekKey,
+        points: row.points,
+        claimedAt: now,
+        verifiedAt: now,
+        proofAssetId,
+      });
+      completionIds.push(newId);
+      if (row.frequency !== "WEEKLY") {
+        await ctx.scheduler.runAfter(0, internal.aiVerifyAction.checkProof, {
+          completionId: newId,
+        });
+      }
+    }
+
+    const notifiedGroups = new Set<string>();
+    for (const row of extraRows) {
+      if (!notifiedGroups.has(String(row.groupId))) {
+        notifiedGroups.add(String(row.groupId));
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+      }
+    }
+
+    return { ok: true as const, completionIds };
   },
 });
 
@@ -638,6 +804,8 @@ export const attachProof = mutation({
       });
     }
 
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
+
     return { ok: true as const };
   },
 });
@@ -699,6 +867,8 @@ export const attachR2Proof = mutation({
         completionId,
       });
     }
+
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
 
     return { ok: true as const };
   },

@@ -199,6 +199,7 @@ export default defineSchema({
       v.literal("MEMBER_JOINED"),
       v.literal("GROUP_INVITE"),
       v.literal("DAILY_RESET_REMINDER"),
+      v.literal("FIRST_RECEIPT"),
     ),
     actorUserId: v.optional(v.id("users")),
     groupId: v.optional(v.id("groups")),

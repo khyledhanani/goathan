@@ -51,7 +51,6 @@ export function TodaySlate({
   slate,
   onClaimTask,
   onUnclaim,
-  onStartBasket,
   onUpload,
   proofUploads,
   onOpenProof,
@@ -60,7 +59,6 @@ export function TodaySlate({
   slate: SlateItem[];
   onClaimTask: (taskId: Id<"tasks">) => void;
   onUnclaim: (completionId: Id<"completions">) => void;
-  onStartBasket: (taskId: Id<"tasks">, completionId: Id<"completions">, file: File) => void;
   onUpload: (completionId: Id<"completions">, file: File) => Promise<void>;
   proofUploads: Record<string, ProofUploadState>;
   onOpenProof: (url: string) => void;
@@ -95,7 +93,6 @@ export function TodaySlate({
             now={now}
             onClaimTask={onClaimTask}
             onUnclaim={onUnclaim}
-            onStartBasket={onStartBasket}
             onUpload={onUpload}
             uploadState={
               task.completionId ? proofUploads[String(task.completionId)] : undefined
@@ -115,7 +112,6 @@ function SlateRow({
   now,
   onClaimTask,
   onUnclaim,
-  onStartBasket,
   onUpload,
   uploadState,
   onOpenProof,
@@ -126,7 +122,6 @@ function SlateRow({
   now: number;
   onClaimTask: (id: Id<"tasks">) => void;
   onUnclaim: (id: Id<"completions">) => void;
-  onStartBasket: (id: Id<"tasks">, completionId: Id<"completions">, file: File) => void;
   onUpload: (id: Id<"completions">, file: File) => Promise<void>;
   uploadState?: ProofUploadState;
   onOpenProof: (url: string) => void;
@@ -148,9 +143,7 @@ function SlateRow({
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && mode === "claimed" && task.completionId && supportsBasket) {
-      onStartBasket(task._id, task.completionId, file);
-    } else if (file && task.completionId) {
+    if (file && task.completionId) {
       void onUpload(task.completionId, file);
     }
     e.target.value = "";
