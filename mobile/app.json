@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Receipts",
-    "slug": "receipts",
+    "slug": "sendtherecs",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,7 +28,8 @@
       "package": "com.receipts.app"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -36,14 +37,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0c2b1892-8aea-4dca-9de9-6efe161d6392"
+        "projectId": "36dba0e9-7e70-4469-a2d5-0b6419bc6c10"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/0c2b1892-8aea-4dca-9de9-6efe161d6392"
+      "url": "https://u.expo.dev/36dba0e9-7e70-4469-a2d5-0b6419bc6c10"
     }
   }
 }
