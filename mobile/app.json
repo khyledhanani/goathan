@@ -1,17 +1,17 @@
 {
   "expo": {
     "name": "Receipts",
-    "slug": "sendtherecs",
-    "version": "1.0.0",
+    "slug": "receipts",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "receipts",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#090B0A"
+      "backgroundColor": "#f3efe2"
     },
     "ios": {
       "supportsTablet": false,
@@ -23,28 +23,22 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#090B0A"
+        "backgroundColor": "#f3efe2"
       },
       "package": "com.receipts.app"
     },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-font",
+      "expo-secure-store",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "36dba0e9-7e70-4469-a2d5-0b6419bc6c10"
-      }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/36dba0e9-7e70-4469-a2d5-0b6419bc6c10"
     }
   }
 }
