@@ -35,10 +35,23 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0c2b1892-8aea-4dca-9de9-6efe161d6392"
+      }
+    },
+    "owner": "khyledhanani"
   }
 }

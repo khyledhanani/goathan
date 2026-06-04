@@ -15,7 +15,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { useThemeColors } from "@/lib/useThemeColors";
-import { fonts, spacing, radii } from "@/lib/theme";
+import { fonts, radii } from "@/lib/theme";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "@/components/Toast";
 
@@ -61,6 +61,10 @@ export default function LandingScreen() {
   const onPasswordAuth = async () => {
     if (!email.trim() || !password.trim()) {
       setToast({ message: "Email and password are required.", tone: "error" });
+      return;
+    }
+    if (password.length < 8) {
+      setToast({ message: "Password must be at least 8 characters.", tone: "error" });
       return;
     }
     setStatus("password");

@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
   StyleSheet,
   RefreshControl,
@@ -19,6 +18,7 @@ import type { Colors } from "@/lib/theme";
 import { timeAgo } from "@/lib/timeAgo";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "@/components/Toast";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 // ── Kind labels ───────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export default function InboxScreen() {
   const unread = data?.unreadCount ?? 0;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -87,13 +87,6 @@ export default function InboxScreen() {
           />
         }
       >
-        {/* Header */}
-        <View style={s.headerBar}>
-          <AnimatedPressable scaleDown={0.95} onPress={() => router.back()} hitSlop={12}>
-            <Text style={s.backBtn}>← back</Text>
-          </AnimatedPressable>
-        </View>
-
         <View style={s.pageHead}>
           <Text style={s.eyebrow}>
             {data === undefined
@@ -163,6 +156,7 @@ export default function InboxScreen() {
       </ScrollView>
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomTabBar unreadCount={unread} />
     </SafeAreaView>
   );
 }
@@ -174,14 +168,6 @@ const styles = (colors: Colors) =>
     safe: { flex: 1, backgroundColor: colors.paper },
     scroll: { paddingHorizontal: 24, paddingBottom: 60 },
 
-    headerBar: { paddingTop: 8, paddingBottom: 4 },
-    backBtn: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      color: colors.smoke,
-      letterSpacing: 1.1,
-      textTransform: "uppercase",
-    },
     pageHead: { gap: 6, paddingVertical: 16, marginBottom: 8 },
     eyebrow: {
       fontFamily: fonts.monoMedium,

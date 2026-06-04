@@ -20,6 +20,7 @@ import { fonts, radii } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { useSignedProofUrls } from "@/lib/useSignedProofUrls";
 import { Toast, type ToastValue } from "@/components/Toast";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 // ── Medal colors ──────────────────────────────────────────────────────
 
@@ -100,21 +101,19 @@ export default function ProfileScreen() {
     (myTrophies?.counts.bronze ?? 0);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={s.headerBar}>
-          <AnimatedPressable scaleDown={0.95} onPress={() => router.back()} hitSlop={12}>
-            <Text style={s.backBtn}>← back</Text>
-          </AnimatedPressable>
-        </View>
-
         {/* Page title + streak */}
         <View style={s.pageHead}>
-          <Text style={s.eyebrow}>Account</Text>
+          <View style={s.profileHeaderRow}>
+            <Text style={s.eyebrow}>Account</Text>
+            <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/settings")} hitSlop={8}>
+              <Text style={s.settingsLink}>settings</Text>
+            </AnimatedPressable>
+          </View>
           <Text style={s.title}>
             Profile<Text style={{ color: colors.accent }}>.</Text>
           </Text>
@@ -384,6 +383,7 @@ export default function ProfileScreen() {
       </Modal>
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomTabBar />
     </SafeAreaView>
   );
 }
@@ -459,8 +459,12 @@ const styles = (colors: Colors) =>
     scroll: { paddingHorizontal: 24, paddingBottom: 60 },
 
     // Header
-    headerBar: { paddingTop: 8, paddingBottom: 4 },
-    backBtn: {
+    profileHeaderRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    settingsLink: {
       fontFamily: fonts.monoMedium,
       fontSize: 11,
       color: colors.smoke,

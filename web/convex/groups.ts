@@ -318,6 +318,38 @@ export const todayView = query({
       });
     }
 
+    // For tasks not found in the group-period scan, check by their own
+    // frequency-based period key.  This catches completions whose claimedAt
+    // falls outside the current group period window (e.g. a WEEKLY task
+    // claimed earlier in the week when the group period has since reset).
+    for (const t of tasks) {
+      if (completedByTask.has(t._id)) continue;
+      const expectedKey = periodKeyFor(t.frequency, now);
+      const match = await ctx.db
+        .query("completions")
+        .withIndex("by_user_task_period", (q) =>
+          q.eq("userId", userId).eq("taskId", t._id).eq("periodKey", expectedKey),
+        )
+        .unique();
+      if (match) {
+        const proofUrl = await legacyProofUrlFor(ctx, match);
+        const verification = await ctx.db
+          .query("proofVerifications")
+          .withIndex("by_completion", (q) => q.eq("completionId", match._id))
+          .unique();
+        completedByTask.set(t._id, {
+          completionId: match._id,
+          periodKey: match.periodKey,
+          claimedAt: match.claimedAt,
+          verifiedAt: match.verifiedAt,
+          revokedAt: match.revokedAt,
+          proofUrl,
+          hasR2Proof: hasR2ProofFor(match),
+          aiVerification: serializeVerification(verification),
+        });
+      }
+    }
+
     const slate = tasks
       .map((t) => {
         const expectedKey = periodKeyFor(t.frequency, now);

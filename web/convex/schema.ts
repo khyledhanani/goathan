@@ -235,6 +235,17 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_endpoint", ["endpoint"]),
 
+  expoPushTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    failureCount: v.number(),
+    lastError: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
+
   notificationPreferences: defineTable({
     userId: v.id("users"),
     mutedKinds: v.array(v.string()),

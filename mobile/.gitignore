@@ -34,8 +34,6 @@ yarn-error.*
 .env*.local
 .env
 
-# convex symlink
-convex
 
 # typescript
 *.tsbuildinfo

@@ -23,5 +23,13 @@
       "channel": "production"
     }
   },
-  "submit": {}
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "khyledhanani@gmail.com",
+        "ascAppId": "6772616972",
+        "appleTeamId": "7H2Y2VQC4D"
+      }
+    }
+  }
 }

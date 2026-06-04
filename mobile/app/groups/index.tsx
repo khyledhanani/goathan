@@ -22,6 +22,7 @@ import { fonts, radii } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "@/components/Toast";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 export default function GroupsScreen() {
   const colors = useThemeColors();
@@ -91,7 +92,7 @@ export default function GroupsScreen() {
 
   if (!home) {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={["top"]}>
         <View style={[s.scroll, { gap: 16, paddingTop: 16 }]}>
           <Skeleton width={60} height={12} radius={4} />
           <Skeleton width={200} height={48} radius={6} />
@@ -108,6 +109,7 @@ export default function GroupsScreen() {
             </View>
           ))}
         </View>
+        <BottomTabBar />
       </SafeAreaView>
     );
   }
@@ -115,7 +117,7 @@ export default function GroupsScreen() {
   const pendingInvites = invites ?? [];
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -127,13 +129,6 @@ export default function GroupsScreen() {
           />
         }
       >
-        {/* ── Header ── */}
-        <View style={s.headerBar}>
-          <AnimatedPressable scaleDown={0.95} onPress={() => router.back()} hitSlop={12}>
-            <Text style={s.backBtn}>← back</Text>
-          </AnimatedPressable>
-        </View>
-
         <View style={s.pageHead}>
           <Text style={s.eyebrow}>Where the work happens</Text>
           <Text style={s.title}>
@@ -335,6 +330,7 @@ export default function GroupsScreen() {
       </ScrollView>
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
+      <BottomTabBar />
     </SafeAreaView>
   );
 }

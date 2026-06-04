@@ -22,6 +22,7 @@ import {
 import { ConvexProvider } from "@/lib/ConvexProvider";
 import { ThemeProvider, useThemeChoice } from "@/lib/ThemeContext";
 import { useThemeColors } from "@/lib/useThemeColors";
+import { useNotificationSetup } from "@/lib/useNotifications";
 import { api } from "../convex/_generated/api";
 
 SplashScreen.preventAutoHideAsync();
@@ -34,6 +35,9 @@ function AuthGate() {
     api.profiles.getCurrentProfile,
     isAuthenticated ? {} : "skip",
   );
+
+  // Register push token + handle notification taps
+  useNotificationSetup(isAuthenticated);
 
   useEffect(() => {
     if (isLoading) return;

@@ -22,6 +22,7 @@ import { FeedStatsBar } from "@/components/FeedStatsBar";
 import { StoriesRail, type StoryBundle } from "@/components/StoriesRail";
 import { StoryViewer } from "@/components/StoryViewer";
 import { FeedCard, type FeedCardItem } from "@/components/FeedCard";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 export default function DashboardScreen() {
   const colors = useThemeColors();
@@ -33,6 +34,7 @@ export default function DashboardScreen() {
   const feed = useQuery(api.proofs.feedAcrossMyGroups, { limit: 30 });
   const stories = useQuery(api.proofs.storiesAcrossMyGroups, {});
   const markSeen = useMutation(api.profiles.markFeedSeen);
+  const notifs = useQuery(api.notifications.recent, {});
 
   const [refreshing, setRefreshing] = useState(false);
   const [activeStory, setActiveStory] = useState<StoryBundle | null>(null);
@@ -126,17 +128,10 @@ export default function DashboardScreen() {
   // ── Loading state ─────────────────────────────────────────────────────
   if (!home || !feed) {
     return (
-      <SafeAreaView style={s.safe}>
-        <View style={[s.listContent, { gap: 16, paddingTop: 16 }]}>
+      <SafeAreaView style={s.safe} edges={["top"]}>
+        <View style={[s.listContent, { gap: 16, paddingTop: 16, flex: 1 }]}>
           {/* Header skeleton */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Skeleton width={120} height={28} radius={6} />
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <Skeleton width={50} height={14} radius={4} />
-              <Skeleton width={40} height={14} radius={4} />
-              <Skeleton width={50} height={14} radius={4} />
-            </View>
-          </View>
+          <Skeleton width={120} height={28} radius={6} />
           {/* Stats bar skeleton */}
           <Skeleton width={"100%"} height={48} radius={10} />
           {/* Stories skeleton */}
@@ -163,6 +158,7 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+        <BottomTabBar />
       </SafeAreaView>
     );
   }
@@ -170,29 +166,25 @@ export default function DashboardScreen() {
   // ── Empty state (no groups) ───────────────────────────────────────────
   if (home.groups.length === 0) {
     return (
-      <SafeAreaView style={s.safe}>
-        <View style={s.headerBar}>
+      <SafeAreaView style={s.safe} edges={["top"]}>
+        <View style={s.emptyState}>
           <Text style={s.brand}>
             Receipts
             <Text style={s.brandVersion}>{"  "}v0.1</Text>
           </Text>
-          <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/settings")}>
-            <Text style={s.settingsBtn}>settings</Text>
-          </AnimatedPressable>
-        </View>
-        <View style={s.emptyState}>
           <Text style={s.emptyTitle}>No groups yet</Text>
           <Text style={s.emptyBody}>
             Join a group or create one to start logging receipts.
           </Text>
         </View>
+        <BottomTabBar unreadCount={notifs?.unreadCount ?? 0} />
       </SafeAreaView>
     );
   }
 
   // ── Full dashboard ────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
       {/* Story viewer modal */}
       <StoryViewer
         bundle={activeStory}
@@ -222,20 +214,6 @@ export default function DashboardScreen() {
                 Receipts
                 <Text style={s.brandVersion}>{"  "}v0.1</Text>
               </Text>
-              <View style={s.headerRight}>
-                <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/groups")}>
-                  <Text style={s.headerLink}>groups</Text>
-                </AnimatedPressable>
-                <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/inbox")}>
-                  <Text style={s.headerLink}>inbox</Text>
-                </AnimatedPressable>
-                <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/profile")}>
-                  <Text style={s.headerLink}>profile</Text>
-                </AnimatedPressable>
-                <AnimatedPressable scaleDown={0.95} onPress={() => router.push("/settings")}>
-                  <Text style={s.headerLink}>settings</Text>
-                </AnimatedPressable>
-              </View>
             </View>
 
             {/* Stats bar */}
@@ -310,6 +288,7 @@ export default function DashboardScreen() {
           </View>
         }
       />
+      <BottomTabBar unreadCount={notifs?.unreadCount ?? 0} />
     </SafeAreaView>
   );
 }
@@ -364,25 +343,6 @@ const styles = (colors: Colors) =>
       fontSize: 10,
       color: colors.fog,
       letterSpacing: 1.4,
-    },
-    headerRight: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      gap: 14,
-    },
-    headerLink: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      color: colors.smoke,
-      letterSpacing: 1.1,
-      textTransform: "uppercase",
-    },
-    settingsBtn: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      color: colors.smoke,
-      letterSpacing: 1.1,
-      textTransform: "uppercase",
     },
 
     // Groups nav

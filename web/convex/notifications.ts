@@ -182,6 +182,56 @@ export const touchSubSuccess = internalMutation({
   },
 });
 
+// ---- Expo push token helpers ----
+
+export const expoTokensFor = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    return await ctx.db
+      .query("expoPushTokens")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});
+
+export const touchExpoTokenSuccess = internalMutation({
+  args: { tokenId: v.id("expoPushTokens") },
+  handler: async (ctx, { tokenId }) => {
+    const token = await ctx.db.get(tokenId);
+    if (!token) return;
+    await ctx.db.patch(tokenId, {
+      failureCount: 0,
+      lastError: undefined,
+      lastSeenAt: Date.now(),
+    });
+  },
+});
+
+export const touchExpoTokenFailure = internalMutation({
+  args: { tokenId: v.id("expoPushTokens"), error: v.string() },
+  handler: async (ctx, { tokenId, error }) => {
+    const token = await ctx.db.get(tokenId);
+    if (!token) return;
+    const next = token.failureCount + 1;
+    if (next >= 5) {
+      await ctx.db.delete(tokenId);
+      return;
+    }
+    await ctx.db.patch(tokenId, {
+      failureCount: next,
+      lastError: error,
+    });
+  },
+});
+
+export const deleteExpoToken = internalMutation({
+  args: { tokenId: v.id("expoPushTokens") },
+  handler: async (ctx, { tokenId }) => {
+    const token = await ctx.db.get(tokenId);
+    if (token) await ctx.db.delete(tokenId);
+  },
+});
+
 export const touchSubFailure = internalMutation({
   args: { subId: v.id("pushSubscriptions"), error: v.string() },
   handler: async (ctx, { subId, error }) => {

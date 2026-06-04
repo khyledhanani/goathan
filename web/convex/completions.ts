@@ -622,7 +622,12 @@ export const claim = mutation({
       )
       .unique();
     if (existing) {
-      return { ok: false as const, error: "Already claimed this period" };
+      return {
+        ok: false as const,
+        error: "Already claimed this period",
+        existingCompletionId: existing._id,
+        existingVerifiedAt: existing.verifiedAt ?? null,
+      };
     }
 
     const group = await ctx.db.get(task.groupId);
