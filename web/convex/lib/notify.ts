@@ -72,9 +72,11 @@ export async function notifyFirstReceipt(
     userId: Id<"users">;
     groupId: Id<"groups">;
     dayKey: string;
+    /** The triggering receipt — lets the app deep-link to & highlight the post. */
+    completionId?: Id<"completions">;
   },
 ): Promise<void> {
-  const { userId, groupId, dayKey: day } = opts;
+  const { userId, groupId, dayKey: day, completionId } = opts;
 
   const profile = await ctx.db
     .query("profiles")
@@ -97,9 +99,10 @@ export async function notifyFirstReceipt(
       kind: "FIRST_RECEIPT",
       actorUserId: userId,
       groupId,
+      completionId,
       title: group.name,
       body: `${displayName} just posted their first receipt today`,
-      deepLinkPath: `/group/${groupId}`,
+      deepLinkPath: completionId ? `/r/${completionId}` : `/group/${groupId}`,
       dedupeKey: `first_receipt:${userId}:${groupId}:${day}:${membership.userId}`,
     });
   }

@@ -202,6 +202,10 @@ export const dispatchPush = internalAction({
           deepLinkPath: notif.deepLinkPath,
           notificationId: notif._id,
           kind: notif.kind,
+          // Structured ids so the app can route straight to the group + post
+          // (parity with in-app inbox taps).
+          groupId: notif.groupId ?? undefined,
+          completionId: notif.completionId ?? undefined,
         },
       });
       delivered += expoResult.delivered;

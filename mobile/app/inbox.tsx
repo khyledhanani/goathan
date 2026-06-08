@@ -9,6 +9,7 @@ import { fonts, radii } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { timeAgo } from "@/lib/timeAgo";
 import { errorMessage } from "@/lib/errors";
+import { notifRoute } from "@/lib/notifTarget";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Icon } from "@/components/ui/Icon";
 import { PillBtn, EmptyState } from "@/components/ui/primitives";
@@ -37,6 +38,8 @@ interface RawNotif {
   deepLinkPath: string;
   createdAt: number;
   readAt?: number | null;
+  groupId?: Id<"groups"> | null;
+  completionId?: Id<"completions"> | null;
 }
 
 export default function InboxScreen() {
@@ -63,7 +66,12 @@ export default function InboxScreen() {
     try {
       await markRead({ notificationId: n._id });
     } catch {}
-    if (n.deepLinkPath) router.push(n.deepLinkPath as never);
+    const route = notifRoute({
+      deepLinkPath: n.deepLinkPath,
+      groupId: n.groupId,
+      completionId: n.completionId,
+    });
+    router.navigate(route as never);
   };
 
   const handleMarkAll = async () => {

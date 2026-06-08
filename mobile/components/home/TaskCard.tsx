@@ -1,5 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Icon } from "@/components/ui/Icon";
 import { Pts } from "@/components/ui/primitives";
@@ -7,6 +13,7 @@ import { ProofCarousel } from "@/components/home/ProofCarousel";
 import { useThemeColors } from "@/lib/useThemeColors";
 import { fonts } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { GroupTask, ProofActions } from "@/components/home/types";
 
 // ════════════════════════════════════════════════════════════════════════
@@ -18,9 +25,13 @@ interface Props {
   task: GroupTask;
   actions: ProofActions;
   onAddReceipt: (task: GroupTask) => void;
+  /** Pulse the card (notification deep-link landed here). */
+  highlight?: boolean;
+  /** Scroll the carousel to this specific receipt. */
+  highlightCompletionId?: Id<"completions"> | null;
 }
 
-export function TaskCard({ task, actions, onAddReceipt }: Props) {
+export function TaskCard({ task, actions, onAddReceipt, highlight, highlightCompletionId }: Props) {
   const c = useThemeColors();
   const s = styles(c);
   const [cur, setCur] = useState(0);
@@ -29,8 +40,30 @@ export function TaskCard({ task, actions, onAddReceipt }: Props) {
   const hasSubs = subs.length > 0;
   const current = subs[cur] ?? subs[0];
 
+  // Index of the highlighted receipt within this task's carousel.
+  const targetIndex = highlightCompletionId
+    ? Math.max(0, subs.findIndex((sub) => sub.completionId === highlightCompletionId))
+    : 0;
+
+  // Pulse glow when this card is the notification target.
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (!highlight) return;
+    glow.value = 0;
+    glow.value = withSequence(
+      withTiming(1, { duration: 320 }),
+      withTiming(1, { duration: 760 }),
+      withTiming(0, { duration: 640 }),
+    );
+  }, [highlight, glow]);
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
+
   return (
     <View style={s.card}>
+      <Animated.View
+        pointerEvents="none"
+        style={[s.glow, { borderColor: c.accent, backgroundColor: c.accentBg }, glowStyle]}
+      />
       <View style={s.head}>
         <Text style={s.name} numberOfLines={1}>
           {task.name}
@@ -42,7 +75,12 @@ export function TaskCard({ task, actions, onAddReceipt }: Props) {
 
       {hasSubs ? (
         <>
-          <ProofCarousel submissions={subs} actions={actions} onIndexChange={setCur} />
+          <ProofCarousel
+            submissions={subs}
+            actions={actions}
+            onIndexChange={setCur}
+            initialIndex={targetIndex}
+          />
           {subs.length > 1 && (
             <View style={s.dots}>
               {subs.map((_, i) => (
@@ -129,6 +167,15 @@ const styles = (c: Colors) =>
       paddingVertical: 24,
       borderBottomWidth: 1,
       borderBottomColor: c.line,
+    },
+    glow: {
+      position: "absolute",
+      top: 8,
+      bottom: 8,
+      left: -12,
+      right: -12,
+      borderRadius: 18,
+      borderWidth: 2,
     },
     head: {
       flexDirection: "row",

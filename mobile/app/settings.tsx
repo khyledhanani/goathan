@@ -235,7 +235,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   <View style={s.groupActions}>
-                    <AnimatedPressable scaleDown={0.95} onPress={() => router.push(`/group/${g._id}`)}>
+                    <AnimatedPressable scaleDown={0.95} onPress={() => router.navigate(`/dashboard?group=${g._id}`)}>
                       <Text style={s.openLink}>Open →</Text>
                     </AnimatedPressable>
                     <AnimatedPressable

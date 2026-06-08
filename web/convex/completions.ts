@@ -55,6 +55,7 @@ async function maybeNotifyFirstReceipt(
   userId: Id<"users">,
   groupId: Id<"groups">,
   now: number,
+  triggerCompletionId?: Id<"completions">,
 ) {
   const today = dayKey(now);
   const startOfDay = new Date(today + "T00:00:00Z").getTime();
@@ -72,7 +73,19 @@ async function maybeNotifyFirstReceipt(
   );
 
   if (!alreadyVerifiedToday) {
-    await notifyFirstReceipt(ctx, { userId, groupId, dayKey: today });
+    // Prefer the caller's completion id (robust). Fall back to the just-verified
+    // row only when not supplied — the claimedAt-bounded scan can miss a receipt
+    // claimed before, but verified after, today's UTC midnight. Either way the
+    // notification can deep-link straight to the post (else /group fallback).
+    const completionId =
+      triggerCompletionId ??
+      recentCompletions.find((c) => c.userId === userId && c.verifiedAt === now)?._id;
+    await notifyFirstReceipt(ctx, {
+      userId,
+      groupId,
+      dayKey: today,
+      completionId,
+    });
   }
 }
 
@@ -302,7 +315,7 @@ export const submitProofBasket = mutation({
     for (const row of rows) {
       if (!notifiedGroups.has(String(row.groupId))) {
         notifiedGroups.add(String(row.groupId));
-        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now, row._id);
       }
     }
 
@@ -464,11 +477,11 @@ export const verifyWithBasket = mutation({
     // Notify group members if this is the user's first receipt today
     const notifiedGroups = new Set<string>();
     notifiedGroups.add(String(completion.groupId));
-    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now, completion._id);
     for (const row of extraRows) {
       if (!notifiedGroups.has(String(row.groupId))) {
         notifiedGroups.add(String(row.groupId));
-        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now, row._id);
       }
     }
 
@@ -587,7 +600,7 @@ export const expandProof = mutation({
     for (const row of extraRows) {
       if (!notifiedGroups.has(String(row.groupId))) {
         notifiedGroups.add(String(row.groupId));
-        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now);
+        await maybeNotifyFirstReceipt(ctx, userId, row.groupId, now, row._id);
       }
     }
 
@@ -809,7 +822,7 @@ export const attachProof = mutation({
       });
     }
 
-    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now, completionId);
 
     return { ok: true as const };
   },
@@ -873,7 +886,7 @@ export const attachR2Proof = mutation({
       });
     }
 
-    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now);
+    await maybeNotifyFirstReceipt(ctx, userId, completion.groupId, now, completionId);
 
     return { ok: true as const };
   },

@@ -46,7 +46,7 @@ export default function JoinByCodeScreen() {
         if (result.ok) {
           setState("joined");
           setTimeout(() => {
-            router.replace(`/group/${result.groupId}`);
+            router.navigate(`/dashboard?group=${result.groupId}`);
           }, 800);
         } else {
           if (result.error?.includes("already")) {

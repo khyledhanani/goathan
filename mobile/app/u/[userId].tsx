@@ -195,7 +195,7 @@ export default function UserProfileScreen() {
                     key={t._id}
                     scaleDown={0.98}
                     style={s.trophyRow}
-                    onPress={() => router.push(`/group/${t.groupId}`)}
+                    onPress={() => router.navigate(`/dashboard?group=${t.groupId}`)}
                   >
                     <View
                       style={[

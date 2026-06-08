@@ -155,7 +155,7 @@ export default function ProfileScreen() {
                 <AnimatedPressable
                   key={t._id}
                   scaleDown={0.98}
-                  onPress={() => router.push(`/group/${t.groupId}`)}
+                  onPress={() => router.navigate(`/dashboard?group=${t.groupId}`)}
                   style={[s.trophyRow, { borderBottomColor: c.line, borderBottomWidth: i < trophies.length - 1 ? 1 : 0 }]}
                 >
                   <View style={[s.medalDot, { backgroundColor: MEDAL_COLORS[t.medal] }]}>
@@ -213,21 +213,22 @@ export default function ProfileScreen() {
           <AnimatedPressable
             key={g._id}
             scaleDown={0.98}
-            onPress={() => router.push(`/group/${g._id}`)}
+            onPress={() => router.navigate(`/dashboard?group=${g._id}`)}
             style={[s.groupRow, { borderColor: c.line }]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
               <Text style={s.groupName} numberOfLines={1}>{g.name}</Text>
               <Text style={[s.groupRole, { color: c.mutedDim }]}>{g.isAdmin ? "Admin" : "Member"}</Text>
             </View>
-            <LinkBtn onPress={() => router.push(`/group/${g._id}`)}>Open</LinkBtn>
+            <LinkBtn onPress={() => router.navigate(`/dashboard?group=${g._id}`)}>Open</LinkBtn>
           </AnimatedPressable>
         ))}
         <Text style={[s.footer, { color: c.muted }]}>
-          Create or join groups in{" "}
-          <Text style={{ color: c.accent, fontFamily: fonts.sansSemiBold }} onPress={() => router.push("/groups")}>
-            Groups
+          Start a{" "}
+          <Text style={{ color: c.accent, fontFamily: fonts.sansSemiBold }} onPress={() => router.push("/groups/create")}>
+            new group
           </Text>
+          {" "}or join one from an invite.
         </Text>
       </ScrollView>
 

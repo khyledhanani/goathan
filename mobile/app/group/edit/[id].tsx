@@ -244,7 +244,7 @@ export default function GroupEditScreen() {
           onPress: async () => {
             try {
               await leaveGroup({ groupId });
-              router.replace("/groups");
+              router.replace("/dashboard");
             } catch (e) {
               setToast({ message: errorMessage(e), tone: "error" });
             }

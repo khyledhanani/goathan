@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -45,6 +45,8 @@ interface Props {
   actions: ProofActions;
   height?: number;
   onIndexChange?: (i: number) => void;
+  /** Scroll to this slide once measured (e.g. a deep-linked receipt). */
+  initialIndex?: number;
 }
 
 export function ProofCarousel({
@@ -52,6 +54,7 @@ export function ProofCarousel({
   actions,
   height = 290,
   onIndexChange,
+  initialIndex = 0,
 }: Props) {
   const c = useThemeColors();
   const s = styles(c);
@@ -89,6 +92,14 @@ export function ProofCarousel({
     },
     [slideW, submissions.length],
   );
+
+  // Jump to a deep-linked slide once the width is known. Only honor a non-zero
+  // target so clearing it later doesn't yank the carousel back to the start.
+  useEffect(() => {
+    if (slideW > 0 && initialIndex > 0 && initialIndex < submissions.length) {
+      scrollRef.current?.scrollTo({ x: initialIndex * slideW, animated: true });
+    }
+  }, [initialIndex, slideW, submissions.length]);
 
   return (
     <View style={s.root} onLayout={onContainerLayout}>

@@ -127,7 +127,7 @@ export default function CreateGroupScreen() {
       });
       if (result.ok) {
         setToast({ message: "Group created!", tone: "success" });
-        router.replace(`/group/${result.groupId}`);
+        router.navigate(`/dashboard?group=${result.groupId}`);
       } else {
         setToast({ message: result.error, tone: "error" });
         setSubmitting(false);

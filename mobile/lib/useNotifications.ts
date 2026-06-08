@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { notifRoute } from "./notifTarget";
 
 // Show notifications even when app is in foreground
 Notifications.setNotificationHandler({
@@ -55,7 +56,13 @@ export function useNotificationSetup(isAuthenticated: boolean) {
       (response) => {
         const data = response.notification.request.content.data;
         if (data?.deepLinkPath && typeof data.deepLinkPath === "string") {
-          router.push(data.deepLinkPath as any);
+          router.navigate(
+            notifRoute({
+              deepLinkPath: data.deepLinkPath,
+              groupId: typeof data.groupId === "string" ? data.groupId : null,
+              completionId: typeof data.completionId === "string" ? data.completionId : null,
+            }) as any,
+          );
         }
       },
     );
@@ -68,7 +75,13 @@ export function useNotificationSetup(isAuthenticated: boolean) {
       if (response) {
         const data = response.notification.request.content.data;
         if (data?.deepLinkPath && typeof data.deepLinkPath === "string") {
-          router.push(data.deepLinkPath as any);
+          router.navigate(
+            notifRoute({
+              deepLinkPath: data.deepLinkPath,
+              groupId: typeof data.groupId === "string" ? data.groupId : null,
+              completionId: typeof data.completionId === "string" ? data.completionId : null,
+            }) as any,
+          );
         }
       }
     });

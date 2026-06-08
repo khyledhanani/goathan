@@ -14,7 +14,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
@@ -103,6 +103,7 @@ export default function DashboardScreen() {
   const c = useThemeColors();
   const s = styles(c);
   const router = useRouter();
+  const params = useLocalSearchParams<{ group?: string; highlight?: string }>();
   const { width: W } = useWindowDimensions();
 
   // ── Data ────────────────────────────────────────────────────────────────
@@ -123,6 +124,7 @@ export default function DashboardScreen() {
   const [uploadTask, setUploadTask] = useState<UploadTask | null>(null);
   const [boardGroupId, setBoardGroupId] = useState<Id<"groups"> | null>(null);
   const [toast, setToast] = useState<ToastValue>(null);
+  const [highlightId, setHighlightId] = useState<Id<"completions"> | null>(null);
   const pagerRef = useRef<FlatList>(null);
 
   // Live horizontal scroll offset of the pager (UI thread) → drives the top
@@ -247,6 +249,43 @@ export default function DashboardScreen() {
     },
     [W],
   );
+
+  // ── Deep-link from a notification → open the group + highlight the post ──
+  useEffect(() => {
+    const groupParam = params.group as Id<"groups"> | undefined;
+    const hl = params.highlight as string | undefined;
+    if (!groupParam && !hl) return;
+
+    // Resolve which group to land on (param wins; else infer from the post).
+    let targetGroup = groupParam;
+    if (hl && !targetGroup) {
+      const p = proofs.find((x) => x.completionId === hl);
+      if (p) targetGroup = p.groupId;
+      else if (feed === undefined) return; // feed still loading — wait, re-run
+    }
+
+    if (targetGroup) {
+      const i = tabs.findIndex((t) => t.key === targetGroup);
+      if (i < 0 && home === undefined) return; // groups still loading — wait
+      if (i > 0) goToPage(i);
+    }
+    if (hl) setHighlightId(hl as Id<"completions">);
+
+    // Consume the params so back-nav / re-renders don't re-trigger.
+    router.setParams({ group: undefined, highlight: undefined });
+  }, [params.group, params.highlight, tabs, proofs, feed, home, goToPage, router]);
+
+  // The group page clears the highlight once it has actually pulsed the card.
+  const clearHighlight = useCallback(() => setHighlightId(null), []);
+
+  // Safety net: if no group ever consumes the highlight (e.g. the post isn't in
+  // any loaded group), drop it after a while so it can't pulse a late-loading
+  // group much later.
+  useEffect(() => {
+    if (!highlightId) return;
+    const t = setTimeout(() => setHighlightId(null), 8000);
+    return () => clearTimeout(t);
+  }, [highlightId]);
 
   // ── Proof actions ─────────────────────────────────────────────────────
   const actions: ProofActions = useMemo(
@@ -392,6 +431,8 @@ export default function DashboardScreen() {
                 actions={actions}
                 onAddReceipt={(task) => onAddReceipt(task, item.label)}
                 onFullBoard={setBoardGroupId}
+                highlightCompletionId={highlightId}
+                onHighlightHandled={clearHighlight}
               />
             )}
           </View>
