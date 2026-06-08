@@ -376,7 +376,6 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
     },
     brand: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       letterSpacing: -0.3,
     },
@@ -401,7 +400,6 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
     },
     headline: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 64,
       lineHeight: 62,
       letterSpacing: -1.3,
@@ -463,7 +461,6 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
     },
     arrow: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 18,
       lineHeight: 20,
     },
@@ -513,7 +510,6 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
       width: "100%",
       paddingVertical: 14,
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 22,
       letterSpacing: -0.2,
       borderBottomWidth: 1,
@@ -554,7 +550,6 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
     },
     arrowSmall: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 16,
     },
 

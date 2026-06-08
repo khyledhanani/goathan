@@ -356,7 +356,6 @@ const styles = (colors: Colors) =>
     },
     title: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 32,
       color: colors.ink,
       letterSpacing: -0.6,

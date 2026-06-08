@@ -53,8 +53,8 @@ export default function GroupDetailScreen() {
   const r2Ids = useMemo(() => {
     if (!activity) return [];
     return activity
-      .filter((a) => a.hasR2Proof)
-      .map((a) => a.completionId);
+      .filter((a: any) => a.hasR2Proof)
+      .map((a: any) => a.completionId);
   }, [activity]);
   const signedUrls = useSignedProofUrls(r2Ids);
 
@@ -421,7 +421,6 @@ const styles = (colors: Colors) =>
     },
     title: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 40,
       color: colors.ink,
       letterSpacing: -0.8,
@@ -514,7 +513,6 @@ const styles = (colors: Colors) =>
     },
     sectionTitle: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
       letterSpacing: -0.3,

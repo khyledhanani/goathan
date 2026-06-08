@@ -543,7 +543,6 @@ const styles = (colors: Colors) =>
     },
     title: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 48,
       color: colors.ink,
       letterSpacing: -1,
@@ -569,7 +568,6 @@ const styles = (colors: Colors) =>
     },
     textInput: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 24,
       color: colors.ink,
       borderBottomWidth: 1,
@@ -598,7 +596,6 @@ const styles = (colors: Colors) =>
     },
     packLabel: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 20,
       letterSpacing: -0.2,
     },
@@ -792,7 +789,6 @@ const styles = (colors: Colors) =>
     },
     submitArrow: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 18,
     },
   });

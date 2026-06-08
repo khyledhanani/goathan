@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, useColorScheme } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
@@ -30,6 +30,7 @@ SplashScreen.preventAutoHideAsync();
 function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
+  const colors = useThemeColors();
   const { isLoading, isAuthenticated } = useConvexAuth();
   const profile = useQuery(
     api.profiles.getCurrentProfile,
@@ -70,7 +71,17 @@ function AuthGate() {
     }
   }, [isLoading, isAuthenticated, profile, segments, router]);
 
-  return <Slot />;
+  // Native stack → real iOS "slide-over-page" transitions (the bell → inbox push,
+  // user profiles, group create, etc.). Screens manage their own headers.
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+        contentStyle: { backgroundColor: colors.paper },
+      }}
+    />
+  );
 }
 
 function RootLayoutInner() {

@@ -349,7 +349,6 @@ const styles = (colors: Colors) =>
     },
     title: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 36,
       color: colors.ink,
       letterSpacing: -0.8,
@@ -380,7 +379,6 @@ const styles = (colors: Colors) =>
     },
     displayName: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
     },
@@ -412,7 +410,6 @@ const styles = (colors: Colors) =>
     },
     sectionTitle: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
       letterSpacing: -0.3,

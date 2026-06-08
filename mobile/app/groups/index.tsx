@@ -245,7 +245,7 @@ export default function GroupsScreen() {
                 {pendingInvites.length} pending
               </Text>
             </View>
-            {pendingInvites.map((inv) => (
+            {pendingInvites.map((inv: any) => (
               <View key={inv._id} style={s.inviteCard}>
                 <View style={s.inviteTop}>
                   {inv.invitedByAvatarUrl ? (
@@ -310,7 +310,7 @@ export default function GroupsScreen() {
         {/* ── Group cards ── */}
         {home.groups.length > 0 ? (
           <View style={s.section}>
-            {home.groups.map((g) => (
+            {home.groups.map((g: any) => (
               <GroupCard
                 key={g._id}
                 group={g}
@@ -367,7 +367,7 @@ function GroupCard({ group: g, colors, onPress }: GroupCardProps) {
       {/* Avatar stack */}
       {g.memberAvatars.length > 0 && (
         <View style={s.avatarStack}>
-          {g.memberAvatars.slice(0, 5).map((m, i) =>
+          {g.memberAvatars.slice(0, 5).map((m: any, i: number) =>
             m.avatarUrl ? (
               <Image
                 key={i}
@@ -560,7 +560,6 @@ const styles = (colors: Colors) =>
     },
     title: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 48,
       color: colors.ink,
       letterSpacing: -1,
@@ -630,7 +629,6 @@ const styles = (colors: Colors) =>
     },
     sectionTitle: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
       letterSpacing: -0.3,
@@ -722,7 +720,6 @@ const styles = (colors: Colors) =>
     },
     groupName: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
       letterSpacing: -0.3,
@@ -802,7 +799,6 @@ const styles = (colors: Colors) =>
     },
     emptyTitle: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 28,
       color: colors.ink,
     },

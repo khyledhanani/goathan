@@ -161,6 +161,64 @@ function extractMeta(asset: ImagePicker.ImagePickerAsset): ProofMeta {
 
 // ── Full upload flow ───────────────────────────────────────────────────
 
+// ── Basket upload (shared proof across multiple tasks) ──────────────────
+
+export interface BasketProof {
+  r2Key: string;
+  contentType: string;
+  sizeBytes: number;
+  proofMeta: ProofMeta;
+}
+
+export type BasketUploadOutcome =
+  | { ok: true; proof: BasketProof }
+  | { ok: false; error: string };
+
+/**
+ * Compress + upload a proof image to R2 WITHOUT binding it to a completion,
+ * then return the r2 key/meta to hand to api.completions.submitProofBasket.
+ * Powers the center camera quick-add flow (one photo → many tasks).
+ */
+export async function uploadBasketProof(
+  convex: ConvexReactClient,
+  asset: ImagePicker.ImagePickerAsset,
+  onProgress?: ProgressCallback,
+): Promise<BasketUploadOutcome> {
+  try {
+    onProgress?.("compressing");
+    const compressed = await compressImage(asset.uri);
+    const contentType = "image/jpeg";
+    const sizeBytes = compressed.sizeBytes;
+    if (sizeBytes > MAX_BYTES) {
+      return { ok: false, error: "Image too large even after compression" };
+    }
+
+    onProgress?.("uploading");
+    const uploadTarget = await convex.action(api.r2.generateBasketProofUploadUrl, {
+      contentType,
+      sizeBytes,
+    });
+    if (!uploadTarget.ok) return { ok: false, error: uploadTarget.error };
+
+    const putRes = await xhrUpload(uploadTarget.uploadUrl, compressed.uri, contentType);
+    if (!putRes.ok) {
+      return { ok: false, error: `Upload failed (${putRes.status}), try again` };
+    }
+
+    const proofMeta = extractMeta(asset);
+    proofMeta.width = compressed.width;
+    proofMeta.height = compressed.height;
+
+    return {
+      ok: true,
+      proof: { r2Key: uploadTarget.key, contentType, sizeBytes, proofMeta },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Upload failed. Try again.";
+    return { ok: false, error: msg };
+  }
+}
+
 export async function uploadProof(
   convex: ConvexReactClient,
   completionId: Id<"completions">,

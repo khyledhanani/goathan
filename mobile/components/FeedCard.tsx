@@ -483,7 +483,6 @@ const styles = (colors: Colors) =>
     },
     taskName: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 20,
       color: colors.ink,
       letterSpacing: -0.3,

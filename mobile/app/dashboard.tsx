@@ -1,440 +1,468 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
   FlatList,
-  RefreshControl,
-  Pressable,
   StyleSheet,
+  useWindowDimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from "react-native";
-import { Skeleton } from "@/components/Skeleton";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+} from "react-native-reanimated";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useThemeColors } from "@/lib/useThemeColors";
-import { fonts, radii } from "@/lib/theme";
+import { fonts } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { useSignedProofUrls } from "@/lib/useSignedProofUrls";
-import { FeedStatsBar } from "@/components/FeedStatsBar";
-import { StoriesRail, type StoryBundle } from "@/components/StoriesRail";
-import { StoryViewer } from "@/components/StoryViewer";
-import { FeedCard, type FeedCardItem } from "@/components/FeedCard";
-import { BottomTabBar } from "@/components/BottomTabBar";
+import { hapticLight } from "@/lib/haptics";
+import { errorMessage } from "@/lib/errors";
+
+import { Icon } from "@/components/ui/Icon";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
+import { Skeleton } from "@/components/Skeleton";
+import { Toast, type ToastValue } from "@/components/Toast";
+import { TabBar } from "@/components/ui/TabBar";
+import { GroupSwitcher } from "@/components/home/GroupSwitcher";
+import { FeedPage } from "@/components/home/FeedPage";
+import { GroupPage } from "@/components/home/GroupPage";
+import { CommentDrawer } from "@/components/sheets/CommentDrawer";
+import { CapSheet } from "@/components/sheets/CapSheet";
+import { LeaderboardSheet } from "@/components/sheets/LeaderboardSheet";
+import { AddReceiptSheet } from "@/components/sheets/AddReceiptSheet";
+import { UploadSheet, type UploadTask } from "@/components/sheets/UploadSheet";
+import type {
+  ProofItem,
+  ProofActions,
+  StandingMember,
+  GroupTask,
+  PendingInvite,
+  SwitcherTab,
+} from "@/components/home/types";
+
+// ── Raw shapes from the (untyped) Convex queries ──────────────────────────
+interface RawReaction {
+  kind: string;
+  count: number;
+  byYou: boolean;
+}
+interface RawFeedItem {
+  completionId: Id<"completions">;
+  userId: Id<"users">;
+  displayName: string;
+  username?: string;
+  avatarUrl?: string | null;
+  isYou: boolean;
+  groupId: Id<"groups">;
+  groupName: string;
+  taskName: string;
+  taskCategory: string;
+  points: number;
+  verifiedAt: number;
+  proofUrl?: string | null;
+  hasR2Proof: boolean;
+  revokedAt?: number | null;
+  reactions: RawReaction[];
+  challengeCount: number;
+  challengedByYou: boolean;
+  comments: unknown[];
+}
+interface RawHomeGroup {
+  _id: Id<"groups">;
+  name: string;
+  memberCount: number;
+}
+interface RawStanding {
+  userId: Id<"users">;
+  displayName: string;
+  username?: string;
+  avatarUrl?: string | null;
+  isAdmin: boolean;
+  isYou: boolean;
+  weekPoints: number;
+  perfectDays: number;
+}
+interface RawInvite {
+  _id: Id<"groupInvites">;
+  groupId: Id<"groups">;
+  groupName: string;
+  invitedByName: string;
+  invitedByAvatarUrl?: string | null;
+  groupExists: boolean;
+}
 
 export default function DashboardScreen() {
-  const colors = useThemeColors();
-  const s = styles(colors);
+  const c = useThemeColors();
+  const s = styles(c);
   const router = useRouter();
+  const { width: W } = useWindowDimensions();
 
-  // ── Data ──────────────────────────────────────────────────────────────
+  // ── Data ────────────────────────────────────────────────────────────────
   const home = useQuery(api.groups.homeView, {});
-  const feed = useQuery(api.proofs.feedAcrossMyGroups, { limit: 30 });
-  const stories = useQuery(api.proofs.storiesAcrossMyGroups, {});
-  const markSeen = useMutation(api.profiles.markFeedSeen);
+  const feed = useQuery(api.proofs.feedAcrossMyGroups, { limit: 60 });
   const notifs = useQuery(api.notifications.recent, {});
+  const pendingInvites = useQuery(api.groups.pendingInvites, {});
+  const me = useQuery(api.profiles.getCurrentProfile, {});
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeStory, setActiveStory] = useState<StoryBundle | null>(null);
+  const toggleLike = useMutation(api.likes.toggle);
+  const respondToInvite = useMutation(api.groups.respondToInvite);
 
-  // Mark feed as seen on mount
-  useEffect(() => {
-    if (feed) {
-      void markSeen({});
-    }
-  }, [feed != null]);
+  // ── Sheet / nav state ─────────────────────────────────────────────────
+  const [pageIndex, setPageIndex] = useState(0);
+  const [capPost, setCapPost] = useState<ProofItem | null>(null);
+  const [commentId, setCommentId] = useState<Id<"completions"> | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [uploadTask, setUploadTask] = useState<UploadTask | null>(null);
+  const [boardGroupId, setBoardGroupId] = useState<Id<"groups"> | null>(null);
+  const [toast, setToast] = useState<ToastValue>(null);
+  const pagerRef = useRef<FlatList>(null);
+
+  // Live horizontal scroll offset of the pager (UI thread) → drives the top
+  // group-switcher so its active tab tracks the drag fraction continuously.
+  const scrollX = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x;
+    },
+  });
 
   // ── Signed proof URLs ─────────────────────────────────────────────────
-  const r2CompletionIds = useMemo(() => {
-    const ids: Id<"completions">[] = [];
-    if (feed) {
-      for (const item of feed.items) {
-        if (item.hasR2Proof) ids.push(item.completionId);
-      }
-    }
-    if (stories) {
-      for (const bundle of stories) {
-        for (const item of bundle.items) {
-          if (item.hasR2Proof) ids.push(item.completionId);
-        }
-      }
-    }
-    return ids;
-  }, [feed, stories]);
+  const r2Ids = useMemo<Id<"completions">[]>(
+    () =>
+      feed
+        ? (feed.items as RawFeedItem[]).filter((i) => i.hasR2Proof).map((i) => i.completionId)
+        : [],
+    [feed],
+  );
+  const signedUrls = useSignedProofUrls(r2Ids);
 
-  const signedUrls = useSignedProofUrls(r2CompletionIds);
+  // ── Map feed → ProofItem (carries like/comment/cap, reused by group pages) ─
+  const proofs: ProofItem[] = useMemo(() => {
+    if (!feed) return [];
+    return (feed.items as RawFeedItem[]).map((it) => {
+      const heart = it.reactions?.find((r) => r.kind === "HEART");
+      return {
+        completionId: it.completionId,
+        userId: it.userId,
+        displayName: it.displayName,
+        username: it.username,
+        avatarUrl: it.avatarUrl,
+        isYou: it.isYou,
+        groupId: it.groupId,
+        groupName: it.groupName,
+        taskName: it.taskName,
+        taskCategory: it.taskCategory,
+        points: it.points,
+        whenMs: it.verifiedAt,
+        imageUrl: signedUrls[it.completionId] ?? it.proofUrl ?? null,
+        likeCount: heart?.count ?? 0,
+        likedByYou: heart?.byYou ?? false,
+        commentCount: it.comments?.length ?? 0,
+        challengeCount: it.challengeCount ?? 0,
+        challengedByYou: it.challengedByYou ?? false,
+        revoked: it.revokedAt != null,
+      };
+    });
+  }, [feed, signedUrls]);
 
-  // ── Pull to refresh ───────────────────────────────────────────────────
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    // Convex queries auto-refresh, just show indicator briefly
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+  // ── Warm the image cache so receipts appear instantly (no load flash) ──
+  useEffect(() => {
+    const urls = Array.from(
+      new Set(
+        proofs
+          .flatMap((p) => [p.imageUrl, p.avatarUrl])
+          .filter((u): u is string => !!u),
+      ),
+    );
+    if (urls.length) Image.prefetch(urls, "memory-disk").catch(() => {});
+  }, [proofs]);
+
+  // ── Tabs ────────────────────────────────────────────────────────────────
+  const groups = (home?.groups ?? []) as RawHomeGroup[];
+  const tabs: SwitcherTab[] = useMemo(
+    () => [{ key: "feed", label: "Feed" }, ...groups.map((g) => ({ key: g._id, label: g.name }))],
+    [groups],
+  );
+
+  // ── Invites ───────────────────────────────────────────────────────────
+  const invites: PendingInvite[] = useMemo(
+    () =>
+      ((pendingInvites ?? []) as RawInvite[])
+        .filter((i) => i.groupExists)
+        .map((i) => ({
+          inviteId: i._id,
+          groupId: i.groupId,
+          groupName: i.groupName,
+          invitedByName: i.invitedByName,
+          invitedByAvatarUrl: i.invitedByAvatarUrl,
+        })),
+    [pendingInvites],
+  );
+
+  // ── Cap threshold for the active post ─────────────────────────────────
+  const capRequired = useMemo(() => {
+    if (!capPost || !home) return 3;
+    const g = (home.groups as RawHomeGroup[]).find((gg) => gg._id === capPost.groupId);
+    const mc = g?.memberCount ?? 0;
+    return Math.max(1, Math.floor(Math.max(0, mc - 1) / 2) + 1);
+  }, [capPost, home]);
+
+  // ── Leaderboard standings (active "Full board") ───────────────────────
+  const boardStandings = useQuery(
+    api.groups.weeklyStandings,
+    boardGroupId ? { groupId: boardGroupId } : "skip",
+  );
+  const boardMembers: StandingMember[] = ((boardStandings ?? []) as RawStanding[]).map((m) => ({
+    userId: m.userId,
+    displayName: m.displayName,
+    username: m.username,
+    avatarUrl: m.avatarUrl,
+    isAdmin: m.isAdmin,
+    isYou: m.isYou,
+    weekPoints: m.weekPoints,
+    perfectDays: m.perfectDays,
+  }));
 
   // ── Navigation helpers ────────────────────────────────────────────────
-  const navigateToUser = (userId: Id<"users">) => {
-    router.push(`/u/${userId}`);
-  };
-  const navigateToGroup = (groupId: Id<"groups">) => {
-    router.push(`/group/${groupId}`);
-  };
+  const goToPage = useCallback(
+    (index: number) => {
+      setPageIndex(index);
+      pagerRef.current?.scrollToIndex({ index, animated: true });
+    },
+    [],
+  );
 
-  // ── Feed sections ─────────────────────────────────────────────────────
-  const { freshItems, olderItems } = useMemo(() => {
-    if (!feed) return { freshItems: [], olderItems: [] };
-    const threshold = feed.lastSeenFeedAt;
-    const fresh: FeedCardItem[] = [];
-    const older: FeedCardItem[] = [];
-    for (const item of feed.items) {
-      if (item.verifiedAt > threshold) {
-        fresh.push(item);
+  const onMomentumEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const i = Math.round(e.nativeEvent.contentOffset.x / Math.max(1, W));
+      setPageIndex((prev) => (prev !== i ? i : prev));
+    },
+    [W],
+  );
+
+  // ── Proof actions ─────────────────────────────────────────────────────
+  const actions: ProofActions = useMemo(
+    () => ({
+      onLike: (item) => {
+        hapticLight();
+        toggleLike({ completionId: item.completionId, kind: "HEART" }).catch(() => {});
+      },
+      onComment: (item) => setCommentId(item.completionId),
+      onCap: (item) => setCapPost(item),
+      onUser: (userId) => router.push(`/u/${userId}`),
+      onGroup: (groupId) => {
+        const i = tabs.findIndex((t) => t.key === groupId);
+        if (i > 0) goToPage(i);
+      },
+    }),
+    [toggleLike, router, tabs, goToPage],
+  );
+
+  const onAddReceipt = useCallback(
+    (task: GroupTask, groupName: string) => {
+      setUploadTask({
+        taskId: task.taskId,
+        name: task.name,
+        category: task.category,
+        points: task.points,
+        groupName,
+        completionId: task.youCompletionId ?? null,
+      });
+    },
+    [],
+  );
+
+  const handleInvite = async (id: Id<"groupInvites">, response: "ACCEPT" | "DECLINE") => {
+    try {
+      const res = await respondToInvite({ inviteId: id, response });
+      if (res.ok) {
+        setToast({
+          message: response === "ACCEPT" ? "Joined the group" : "Invite declined",
+          tone: "success",
+        });
       } else {
-        older.push(item);
+        setToast({ message: res.error, tone: "error" });
       }
+    } catch (e) {
+      setToast({ message: errorMessage(e), tone: "error" });
     }
-    return { freshItems: fresh, olderItems: older };
-  }, [feed]);
+  };
 
-  const allItems = useMemo(() => {
-    const sections: ({ type: "divider" } | { type: "card"; item: FeedCardItem })[] = [];
-    for (const item of freshItems) {
-      sections.push({ type: "card", item });
-    }
-    if (freshItems.length > 0 && olderItems.length > 0) {
-      sections.push({ type: "divider" });
-    }
-    for (const item of olderItems) {
-      sections.push({ type: "card", item });
-    }
-    return sections;
-  }, [freshItems, olderItems]);
+  const unread = notifs?.unreadCount ?? 0;
 
-  // ── Earliest period end for countdown ─────────────────────────────────
-  const earliestPeriodEndMs = useMemo(() => {
-    if (!home) return undefined;
-    let earliest: number | undefined;
-    for (const g of home.groups) {
-      if (!g.stats.periodEnded && g.stats.periodEndMs > 0) {
-        if (!earliest || g.stats.periodEndMs < earliest) {
-          earliest = g.stats.periodEndMs;
-        }
-      }
-    }
-    return earliest;
-  }, [home]);
-
-  // ── Loading state ─────────────────────────────────────────────────────
-  if (!home || !feed) {
+  // ── Loading ───────────────────────────────────────────────────────────
+  if (home === undefined || feed === undefined) {
     return (
       <SafeAreaView style={s.safe} edges={["top"]}>
-        <View style={[s.listContent, { gap: 16, paddingTop: 16, flex: 1 }]}>
-          {/* Header skeleton */}
-          <Skeleton width={120} height={28} radius={6} />
-          {/* Stats bar skeleton */}
-          <Skeleton width={"100%"} height={48} radius={10} />
-          {/* Stories skeleton */}
-          <View style={{ flexDirection: "row", gap: 14, paddingVertical: 4 }}>
-            {[1,2,3,4].map(i => (
-              <View key={i} style={{ alignItems: "center", gap: 4 }}>
-                <Skeleton width={52} height={52} radius={26} />
-                <Skeleton width={36} height={8} radius={4} />
-              </View>
-            ))}
-          </View>
-          {/* Feed card skeletons */}
-          {[1,2].map(i => (
-            <View key={i} style={{ gap: 12, paddingVertical: 16 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Skeleton width={36} height={36} radius={18} />
-                <View style={{ gap: 4 }}>
-                  <Skeleton width={160} height={13} radius={4} />
+        <View style={s.header}>
+          <View style={[s.iconBtn, { borderColor: c.line }]} />
+          <Skeleton width={120} height={26} radius={6} />
+          <View style={[s.iconBtn, { borderColor: c.line }]} />
+        </View>
+        <View style={{ padding: 24, gap: 18 }}>
+          <Skeleton width={"100%"} height={150} radius={22} />
+          {[1, 2].map((i) => (
+            <View key={i} style={{ gap: 12, paddingVertical: 12 }}>
+              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                <Skeleton width={48} height={48} radius={24} />
+                <View style={{ gap: 6 }}>
+                  <Skeleton width={160} height={14} radius={4} />
                   <Skeleton width={100} height={10} radius={4} />
                 </View>
               </View>
-              <Skeleton width={"100%"} height={200} radius={10} />
-              <Skeleton width={180} height={20} radius={4} />
+              <Skeleton width={"100%"} height={250} radius={16} />
             </View>
           ))}
         </View>
-        <BottomTabBar />
       </SafeAreaView>
     );
   }
 
-  // ── Empty state (no groups) ───────────────────────────────────────────
-  if (home.groups.length === 0) {
-    return (
-      <SafeAreaView style={s.safe} edges={["top"]}>
-        <View style={s.emptyState}>
-          <Text style={s.brand}>
-            Receipts
-            <Text style={s.brandVersion}>{"  "}v0.1</Text>
-          </Text>
-          <Text style={s.emptyTitle}>No groups yet</Text>
-          <Text style={s.emptyBody}>
-            Join a group or create one to start logging receipts.
-          </Text>
-        </View>
-        <BottomTabBar unreadCount={notifs?.unreadCount ?? 0} />
-      </SafeAreaView>
-    );
-  }
-
-  // ── Full dashboard ────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      {/* Story viewer modal */}
-      <StoryViewer
-        bundle={activeStory}
-        signedUrls={signedUrls}
-        onClose={() => setActiveStory(null)}
-      />
-
-      <FlatList
-        data={allItems}
-        keyExtractor={(entry, i) =>
-          entry.type === "divider" ? `divider-${i}` : entry.item.completionId
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.fog}
-          />
-        }
-        contentContainerStyle={s.listContent}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={s.listHeader}>
-            {/* App header */}
-            <View style={s.headerBar}>
-              <Text style={s.brand}>
-                Receipts
-                <Text style={s.brandVersion}>{"  "}v0.1</Text>
-              </Text>
+      {/* Header: bell · group switcher · new group */}
+      <View style={[s.header, { borderBottomColor: c.line }]}>
+        <AnimatedPressable
+          scaleDown={0.92}
+          dimOnPress={false}
+          onPress={() => router.push("/inbox")}
+          style={[s.iconBtn, { backgroundColor: c.surface, borderColor: c.line }]}
+        >
+          <Icon name="bell" size={21} color={c.ink} />
+          {unread > 0 && (
+            <View style={[s.badge, { backgroundColor: c.accent, borderColor: c.paper }]}>
+              <Text style={[s.badgeText, { color: c.onAccent }]}>{unread > 9 ? "9+" : unread}</Text>
             </View>
+          )}
+        </AnimatedPressable>
 
-            {/* Stats bar */}
-            <FeedStatsBar
-              todayDone={home.totals.todayDone}
-              totalDailyTasks={home.totals.totalDailyTasks}
-              todayPoints={home.totals.todayPoints}
-              groupCount={home.totals.groupCount}
-              earliestPeriodEndMs={earliestPeriodEndMs}
-            />
+        <View style={s.switcherWrap}>
+          <GroupSwitcher tabs={tabs} scrollX={scrollX} pageWidth={W} onPick={goToPage} />
+        </View>
 
-            {/* Stories */}
-            {stories && stories.length > 0 && (
-              <StoriesRail
-                bundles={stories}
-                onPress={(bundle) => setActiveStory(bundle)}
+        <AnimatedPressable
+          scaleDown={0.92}
+          dimOnPress={false}
+          onPress={() => router.push("/groups/create")}
+          style={[s.iconBtn, { backgroundColor: c.surface, borderColor: c.line }]}
+        >
+          <Icon name="groupsAdd" size={21} color={c.ink} />
+        </AnimatedPressable>
+      </View>
+
+      {/* Swipeable pager */}
+      <Animated.FlatList
+        ref={pagerRef}
+        data={tabs}
+        keyExtractor={(t: SwitcherTab) => t.key}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={onMomentumEnd}
+        getItemLayout={(_: unknown, index: number) => ({ length: W, offset: W * index, index })}
+        onScrollToIndexFailed={({ index }: { index: number }) => {
+          const offset = Math.max(0, Math.min(index, tabs.length - 1)) * W;
+          setTimeout(() => pagerRef.current?.scrollToOffset({ offset, animated: true }), 60);
+        }}
+        renderItem={({ item, index }: { item: SwitcherTab; index: number }) => (
+          <View style={{ width: W }}>
+            {index === 0 ? (
+              <FeedPage
+                proofs={proofs}
+                invites={invites}
+                actions={actions}
+                onAccept={(id) => handleInvite(id, "ACCEPT")}
+                onDecline={(id) => handleInvite(id, "DECLINE")}
+              />
+            ) : (
+              <GroupPage
+                groupId={item.key as Id<"groups">}
+                groupName={item.label}
+                proofs={proofs.filter((p) => p.groupId === (item.key as Id<"groups">))}
+                actions={actions}
+                onAddReceipt={(task) => onAddReceipt(task, item.label)}
+                onFullBoard={setBoardGroupId}
               />
             )}
-
-            {/* Groups quick nav */}
-            <View style={s.groupsNav}>
-              <Text style={s.sectionLabel}>Your groups</Text>
-              <View style={s.groupPills}>
-                {home.groups.map((g) => (
-                  <AnimatedPressable
-                    key={g._id}
-                    scaleDown={0.98}
-                    style={s.groupPill}
-                    onPress={() => navigateToGroup(g._id)}
-                  >
-                    <Text style={s.groupPillName} numberOfLines={1}>
-                      {g.name}
-                    </Text>
-                    <Text style={s.groupPillStat}>
-                      {g.stats.todayDone}/{g.stats.totalDailyTasks}
-                    </Text>
-                  </AnimatedPressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Feed label */}
-            {allItems.length > 0 && (
-              <Text style={s.sectionLabel}>Feed</Text>
-            )}
           </View>
-        }
-        renderItem={({ item: entry }) => {
-          if (entry.type === "divider") {
-            return (
-              <View style={s.divider}>
-                <View style={s.dividerLine} />
-                <Text style={s.dividerText}>earlier</Text>
-                <View style={s.dividerLine} />
-              </View>
-            );
-          }
-          return (
-            <FeedCard
-              item={entry.item}
-              signedUrl={signedUrls[entry.item.completionId]}
-              onUserPress={navigateToUser}
-              onGroupPress={navigateToGroup}
-            />
-          );
-        }}
-        ListEmptyComponent={
-          <View style={s.emptyFeed}>
-            <Text style={s.emptyFeedText}>
-              No receipts yet. Claim a task in one of your groups to get started.
-            </Text>
-          </View>
-        }
+        )}
       />
-      <BottomTabBar unreadCount={notifs?.unreadCount ?? 0} />
+
+      <TabBar onAdd={() => setAddOpen(true)} />
+
+      {/* Sheets */}
+      <CommentDrawer
+        completionId={commentId}
+        onClose={() => setCommentId(null)}
+        meInitial={me?.displayName?.charAt(0)}
+        meAvatarUrl={me?.avatarUrl}
+      />
+      <CapSheet post={capPost} requiredCalls={capRequired} onClose={() => setCapPost(null)} />
+      <LeaderboardSheet
+        visible={boardGroupId != null}
+        members={boardMembers}
+        onClose={() => setBoardGroupId(null)}
+      />
+      <AddReceiptSheet
+        visible={addOpen}
+        groups={groups}
+        onClose={() => setAddOpen(false)}
+        onDone={() => setAddOpen(false)}
+      />
+      <UploadSheet
+        task={uploadTask}
+        onClose={() => setUploadTask(null)}
+        onDone={() => setUploadTask(null)}
+      />
+
+      <Toast value={toast} onDismiss={() => setToast(null)} />
     </SafeAreaView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────
-
-const styles = (colors: Colors) =>
+const styles = (c: Colors) =>
   StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: colors.paper,
-    },
-    loading: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    loadingText: {
-      fontFamily: fonts.mono,
-      fontSize: 11,
-      color: colors.fog,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-    },
-    listContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
-    listHeader: {
-      gap: 16,
-      paddingTop: 8,
-      paddingBottom: 8,
-    },
-
-    // Header
-    headerBar: {
+    safe: { flex: 1, backgroundColor: c.paper },
+    header: {
       flexDirection: "row",
+      alignItems: "center",
       justifyContent: "space-between",
-      alignItems: "baseline",
-      flexWrap: "wrap",
-      gap: 12,
-    },
-    brand: {
-      fontFamily: fonts.serif,
-      fontStyle: "italic",
-      fontSize: 28,
-      color: colors.ink,
-      letterSpacing: -0.3,
-    },
-    brandVersion: {
-      fontFamily: fonts.mono,
-      fontSize: 10,
-      color: colors.fog,
-      letterSpacing: 1.4,
-    },
-
-    // Groups nav
-    groupsNav: {
+      paddingHorizontal: 16,
+      paddingTop: 6,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
       gap: 8,
     },
-    sectionLabel: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 10,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      color: colors.fog,
-    },
-    groupPills: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-    },
-    groupPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+    switcherWrap: { flex: 1, height: 44, justifyContent: "center" },
+    iconBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 1,
-      borderColor: colors.rule,
-      borderRadius: radii.md,
-      backgroundColor: colors.paper2,
-    },
-    groupPillName: {
-      fontFamily: fonts.sansMedium,
-      fontSize: 13,
-      color: colors.ink,
-      maxWidth: 140,
-    },
-    groupPillStat: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      color: colors.accent,
-    },
-
-    // Feed divider
-    divider: {
-      flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      paddingVertical: 16,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: colors.rule,
-    },
-    dividerText: {
-      fontFamily: fonts.mono,
-      fontSize: 10,
-      color: colors.mist,
-      letterSpacing: 1,
-      textTransform: "uppercase",
-    },
-
-    // Empty states
-    emptyState: {
-      flex: 1,
       justifyContent: "center",
+    },
+    badge: {
+      position: "absolute",
+      top: -3,
+      right: -3,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
       alignItems: "center",
-      padding: 40,
-      gap: 12,
+      justifyContent: "center",
+      paddingHorizontal: 4,
     },
-    emptyTitle: {
-      fontFamily: fonts.serif,
-      fontStyle: "italic",
-      fontSize: 32,
-      color: colors.ink,
-    },
-    emptyBody: {
-      fontFamily: fonts.sans,
-      fontSize: 15,
-      color: colors.smoke,
-      textAlign: "center",
-      lineHeight: 22,
-    },
-    emptyFeed: {
-      paddingVertical: 40,
-      alignItems: "center",
-    },
-    emptyFeedText: {
-      fontFamily: fonts.sans,
-      fontSize: 14,
-      color: colors.fog,
-      textAlign: "center",
-      lineHeight: 21,
-      maxWidth: 280,
-    },
+    badgeText: { fontFamily: fonts.monoMedium, fontSize: 10 },
   });

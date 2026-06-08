@@ -198,7 +198,7 @@ export default function SettingsScreen() {
               <View style={s.divider} />
 
               {/* Individual kinds */}
-              {notifPrefs.allKinds.map((kind) => {
+              {notifPrefs.allKinds.map((kind: any) => {
                 const muted = notifPrefs.mutedKinds.includes(kind);
                 const label = KIND_LABELS[kind] ?? kind;
                 return (
@@ -226,7 +226,7 @@ export default function SettingsScreen() {
           <Text style={s.sectionTitle}>Your groups</Text>
           {groups && groups.length > 0 ? (
             <View style={s.groupList}>
-              {groups.map((g) => (
+              {groups.map((g: any) => (
                 <View key={g._id} style={s.groupRow}>
                   <View style={s.groupInfo}>
                     <Text style={s.groupName}>{g.name}</Text>
@@ -340,6 +340,7 @@ function DetailRow({
 const styles = (colors: Colors) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.paper },
+    title: { fontFamily: fonts.serif, fontSize: 48, color: colors.ink, letterSpacing: -1 },
     scroll: { paddingHorizontal: 24, paddingBottom: 60 },
 
     // Header
@@ -347,7 +348,6 @@ const styles = (colors: Colors) =>
     backBtn: { fontFamily: fonts.monoMedium, fontSize: 11, color: colors.smoke, letterSpacing: 1.1, textTransform: "uppercase" },
     pageHead: { gap: 6, paddingVertical: 16, marginBottom: 8 },
     eyebrow: { fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: colors.fog },
-    title: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 48, color: colors.ink, letterSpacing: -1 },
 
     // Sections
     section: { marginBottom: 28 },

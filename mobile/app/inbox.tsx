@@ -1,32 +1,25 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-} from "react-native";
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
-import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
-import type { Id } from "../convex/_generated/dataModel";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/useThemeColors";
 import { fonts, radii } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { timeAgo } from "@/lib/timeAgo";
 import { errorMessage } from "@/lib/errors";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
+import { Icon } from "@/components/ui/Icon";
+import { PillBtn, EmptyState } from "@/components/ui/primitives";
 import { Toast, type ToastValue } from "@/components/Toast";
-import { BottomTabBar } from "@/components/BottomTabBar";
-
-// ── Kind labels ───────────────────────────────────────────────────────
+import type { Id } from "../convex/_generated/dataModel";
 
 const KIND_LABELS: Record<string, string> = {
   LIKE: "Reaction",
   COMMENT: "Comment",
   CAP_CALLED: "Cap called",
-  CAP_REVOKED: "Revoked",
+  CAP_REVOKED: "Cap revoked",
   CAP_RESTORED: "Restored",
   MEDAL_AWARDED: "Medal",
   MEMBER_JOINED: "New member",
@@ -34,12 +27,21 @@ const KIND_LABELS: Record<string, string> = {
   DAILY_RESET_REMINDER: "Reminder",
   FIRST_RECEIPT: "First receipt",
 };
+const CAP_KINDS = new Set(["CAP_CALLED", "CAP_REVOKED"]);
 
-// ── Component ─────────────────────────────────────────────────────────
+interface RawNotif {
+  _id: Id<"notifications">;
+  kind: string;
+  title: string;
+  body: string;
+  deepLinkPath: string;
+  createdAt: number;
+  readAt?: number | null;
+}
 
 export default function InboxScreen() {
-  const colors = useThemeColors();
-  const s = styles(colors);
+  const c = useThemeColors();
+  const s = styles(c);
   const router = useRouter();
 
   const data = useQuery(api.notifications.recent, {});
@@ -49,30 +51,29 @@ export default function InboxScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<ToastValue>(null);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+  const items = (data?.items ?? []) as RawNotif[];
+  const unread = data?.unreadCount ?? 0;
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/dashboard");
   };
 
-  const handleTap = async (n: any) => {
+  const handleTap = async (n: RawNotif) => {
     try {
       await markRead({ notificationId: n._id });
     } catch {}
-    if (n.deepLinkPath) {
-      router.push(n.deepLinkPath);
-    }
+    if (n.deepLinkPath) router.push(n.deepLinkPath as never);
   };
 
-  const handleMarkAllRead = async () => {
+  const handleMarkAll = async () => {
     try {
       await markAllRead({});
-      setToast({ message: "All caught up!", tone: "success" });
+      setToast({ message: "All caught up", tone: "success" });
     } catch (e) {
       setToast({ message: errorMessage(e), tone: "error" });
     }
   };
-
-  const unread = data?.unreadCount ?? 0;
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -80,74 +81,64 @@ export default function InboxScreen() {
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.fog}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 700); }} tintColor={c.muted} />
         }
       >
-        <View style={s.pageHead}>
-          <Text style={s.eyebrow}>
-            {data === undefined
-              ? "Loading..."
-              : unread > 0
-                ? `${unread} unread`
-                : data.items.length > 0
-                  ? "Caught up"
-                  : "Empty"}
-          </Text>
-          <Text style={s.title}>
-            Inbox<Text style={{ color: colors.accent }}>.</Text>
-          </Text>
+        <AnimatedPressable
+          scaleDown={0.92}
+          onPress={goBack}
+          style={[s.backBtn, { backgroundColor: c.surface, borderColor: c.line }]}
+        >
+          <Icon name="chevL" size={22} color={c.ink} />
+        </AnimatedPressable>
+
+        <View style={s.topRow}>
+          <Text style={[s.eyebrow, { color: c.muted }]}>Recent</Text>
+          {unread > 0 && <PillBtn onPress={handleMarkAll}>Mark all read</PillBtn>}
         </View>
 
-        {/* Mark all read */}
-        {unread > 0 && (
-          <AnimatedPressable scaleDown={0.92} style={s.markAllBtn} onPress={handleMarkAllRead}>
-            <Text style={s.markAllText}>Mark all read</Text>
-          </AnimatedPressable>
-        )}
-
-        {/* Empty state */}
-        {data && data.items.length === 0 && (
-          <View style={s.emptyBox}>
-            <Text style={s.emptyTitle}>Empty inbox</Text>
-            <Text style={s.emptyLine}>
-              Reactions, comments, and caps will land here.
-            </Text>
+        {!data ? null : items.length === 0 ? (
+          <View style={{ paddingTop: 40 }}>
+            <EmptyState head="Empty inbox" body="Reactions, comments, and caps will land here." />
           </View>
-        )}
-
-        {/* Notification list */}
-        {data && data.items.length > 0 && (
-          <View style={s.list}>
-            {data.items.map((n: any) => {
+        ) : (
+          <View style={[s.list, { borderColor: c.line }]}>
+            {items.map((n, i) => {
               const isUnread = !n.readAt;
+              const isCap = CAP_KINDS.has(n.kind);
               return (
                 <AnimatedPressable
                   key={n._id}
-                  scaleDown={0.98}
-                  style={[s.row, isUnread && s.rowUnread]}
+                  scaleDown={0.99}
+                  dimOnPress={false}
                   onPress={() => handleTap(n)}
+                  style={[
+                    s.row,
+                    { borderBottomColor: c.line, borderBottomWidth: i < items.length - 1 ? 1 : 0, opacity: isUnread ? 1 : 0.55 },
+                  ]}
                 >
-                  {isUnread && <View style={s.unreadDot} />}
-                  <View style={s.rowContent}>
-                    <View style={s.rowMeta}>
-                      <Text style={s.kindLabel}>
-                        {KIND_LABELS[n.kind] ?? n.kind}
-                      </Text>
-                      <Text style={s.rowTime}>{timeAgo(n.createdAt)}</Text>
-                    </View>
-                    <Text style={s.rowTitle} numberOfLines={2}>
+                  <View
+                    style={[
+                      s.dot,
+                      isUnread
+                        ? { backgroundColor: c.accent }
+                        : { backgroundColor: "transparent", borderWidth: 1, borderColor: c.lineStrong },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.kind, { color: isCap ? c.cap : c.muted }]}>
+                      {KIND_LABELS[n.kind] ?? n.kind}
+                    </Text>
+                    <Text style={[s.title, { color: c.inkStrong }]} numberOfLines={2}>
                       {n.title}
                     </Text>
                     {n.body ? (
-                      <Text style={s.rowBody} numberOfLines={2}>
+                      <Text style={[s.body, { color: c.muted }]} numberOfLines={2}>
                         {n.body}
                       </Text>
                     ) : null}
                   </View>
+                  <Text style={[s.time, { color: c.mutedDim }]}>{timeAgo(n.createdAt)}</Text>
                 </AnimatedPressable>
               );
             })}
@@ -156,124 +147,40 @@ export default function InboxScreen() {
       </ScrollView>
 
       <Toast value={toast} onDismiss={() => setToast(null)} />
-      <BottomTabBar unreadCount={unread} />
     </SafeAreaView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────
-
-const styles = (colors: Colors) =>
+const styles = (c: Colors) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.paper },
-    scroll: { paddingHorizontal: 24, paddingBottom: 60 },
-
-    pageHead: { gap: 6, paddingVertical: 16, marginBottom: 8 },
-    eyebrow: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 10,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      color: colors.fog,
-    },
-    title: {
-      fontFamily: fonts.serif,
-      fontStyle: "italic",
-      fontSize: 48,
-      color: colors.ink,
-      letterSpacing: -1,
-    },
-
-    // Mark all
-    markAllBtn: {
-      alignSelf: "flex-start",
-      paddingVertical: 6,
-      paddingHorizontal: 12,
+    safe: { flex: 1, backgroundColor: c.paper },
+    scroll: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 60 },
+    backBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 1,
-      borderColor: colors.rule,
-      borderRadius: radii.pill,
-      marginBottom: 16,
-    },
-    markAllText: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 10,
-      color: colors.accent,
-      letterSpacing: 0.5,
-      textTransform: "uppercase",
-    },
-
-    // Empty
-    emptyBox: { paddingVertical: 40, alignItems: "center", gap: 6 },
-    emptyTitle: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      color: colors.fog,
-      letterSpacing: 1,
-      textTransform: "uppercase",
-    },
-    emptyLine: {
-      fontFamily: fonts.sans,
-      fontSize: 13,
-      color: colors.mist,
-      textAlign: "center",
-      lineHeight: 19,
-    },
-
-    // List
-    list: {
-      borderWidth: 1,
-      borderColor: colors.rule,
-      borderRadius: radii.md,
-      overflow: "hidden",
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 10,
-      paddingVertical: 14,
-      paddingHorizontal: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.rule,
-    },
-    rowUnread: {
-      backgroundColor: colors.paper2,
-    },
-    unreadDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-      marginTop: 5,
-    },
-    rowContent: { flex: 1, gap: 3 },
-    rowMeta: {
-      flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 18,
     },
-    kindLabel: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 9,
-      color: colors.fog,
-      letterSpacing: 0.8,
+    topRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 22,
+    },
+    eyebrow: {
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      letterSpacing: 1.4,
       textTransform: "uppercase",
     },
-    rowTime: {
-      fontFamily: fonts.mono,
-      fontSize: 9,
-      color: colors.mist,
-      letterSpacing: 0.5,
-    },
-    rowTitle: {
-      fontFamily: fonts.sansMedium,
-      fontSize: 14,
-      color: colors.ink,
-      lineHeight: 20,
-    },
-    rowBody: {
-      fontFamily: fonts.sans,
-      fontSize: 12,
-      color: colors.smoke,
-      lineHeight: 17,
-    },
+    list: { borderWidth: 1, borderRadius: radii.card, overflow: "hidden" },
+    row: { flexDirection: "row", gap: 14, paddingVertical: 22, paddingHorizontal: 20, alignItems: "flex-start" },
+    dot: { width: 9, height: 9, borderRadius: 5, marginTop: 7 },
+    kind: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase" },
+    title: { fontFamily: fonts.sansSemiBold, fontSize: 18, marginTop: 7, marginBottom: 2 },
+    body: { fontFamily: fonts.sans, fontSize: 15 },
+    time: { fontFamily: fonts.mono, fontSize: 11 },
   });

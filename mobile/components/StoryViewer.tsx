@@ -263,7 +263,6 @@ const styles = (colors: Colors) =>
     },
     taskName: {
       fontFamily: fonts.serif,
-      fontStyle: "italic",
       fontSize: 24,
       color: colors.ink,
       letterSpacing: -0.3,

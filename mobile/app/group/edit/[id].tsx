@@ -607,7 +607,7 @@ export default function GroupEditScreen() {
 
             {/* Current tasks list */}
             <View style={s.taskList}>
-              {today.slate.map((task) => (
+              {today.slate.map((task: any) => (
                 <View key={task._id} style={s.taskRow}>
                   <View style={s.taskInfo}>
                     <Text style={s.taskCategory}>{task.category.toLowerCase()}</Text>
@@ -646,6 +646,9 @@ const styles = (colors: Colors) =>
     safe: { flex: 1, backgroundColor: colors.paper },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     loadingText: { fontFamily: fonts.mono, fontSize: 11, color: colors.fog, letterSpacing: 1.5, textTransform: "uppercase" },
+    title: { fontFamily: fonts.serif, fontSize: 48, color: colors.ink, letterSpacing: -1 },
+    textInput: { fontFamily: fonts.serif, fontSize: 24, color: colors.ink, borderBottomWidth: 1, borderBottomColor: colors.rule, paddingVertical: 12, letterSpacing: -0.3 },
+    sectionTitle: { fontFamily: fonts.serif, fontSize: 28, color: colors.ink, letterSpacing: -0.3 },
     scroll: { paddingHorizontal: 24, paddingBottom: 60 },
 
     // Header
@@ -653,7 +656,6 @@ const styles = (colors: Colors) =>
     backBtn: { fontFamily: fonts.monoMedium, fontSize: 11, color: colors.smoke, letterSpacing: 1.1, textTransform: "uppercase" },
     pageHead: { gap: 6, paddingVertical: 16, marginBottom: 8 },
     eyebrow: { fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: colors.fog },
-    title: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 48, color: colors.ink, letterSpacing: -1 },
 
     // Fields
     field: { marginBottom: 24 },
@@ -661,9 +663,7 @@ const styles = (colors: Colors) =>
     label: { fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: colors.fog, marginBottom: 8 },
     hintSmall: { fontFamily: fonts.mono, fontSize: 10, color: colors.mist, letterSpacing: 0.5 },
     hint: { fontFamily: fonts.sans, fontSize: 13, color: colors.fog },
-    textInput: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 24, color: colors.ink, borderBottomWidth: 1, borderBottomColor: colors.rule, paddingVertical: 12, letterSpacing: -0.3 },
     charCount: { fontFamily: fonts.mono, fontSize: 9, color: colors.mist, textAlign: "right", marginTop: 4 },
-    sectionTitle: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 28, color: colors.ink, letterSpacing: -0.3 },
     headerLink: { fontFamily: fonts.monoMedium, fontSize: 11, color: colors.smoke, letterSpacing: 1.1, textTransform: "uppercase" },
 
     // Reset period

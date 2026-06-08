@@ -48,23 +48,23 @@ export default function ExpandProofScreen() {
     if (!basket) return [];
     const q = search.trim().toLowerCase();
     return basket.groups
-      .map((g) => ({
+      .map((g: any) => ({
         ...g,
-        tasks: g.tasks.filter((t) =>
+        tasks: g.tasks.filter((t: any) =>
           q ? t.name.toLowerCase().includes(q) : true,
         ),
       }))
-      .filter((g) => g.tasks.length > 0);
+      .filter((g: any) => g.tasks.length > 0);
   }, [basket, search]);
 
   const selectedTasks = useMemo(() => {
     if (!basket) return [];
     return basket.groups
-      .flatMap((g) => g.tasks)
-      .filter((t) => selected.has(t._id));
+      .flatMap((g: any) => g.tasks)
+      .filter((t: any) => selected.has(t._id));
   }, [basket, selected]);
 
-  const totalPoints = selectedTasks.reduce((sum, t) => sum + t.points, 0);
+  const totalPoints = selectedTasks.reduce((sum: number, t: any) => sum + t.points, 0);
 
   const toggle = (taskId: string) => {
     setSelected((prev) => {
@@ -107,7 +107,7 @@ export default function ExpandProofScreen() {
     );
   }
 
-  const totalAvailable = basket.groups.reduce((s, g) => s + g.tasks.length, 0);
+  const totalAvailable = basket.groups.reduce((s: number, g: any) => s + g.tasks.length, 0);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -145,10 +145,10 @@ export default function ExpandProofScreen() {
         )}
 
         {/* Task list grouped by group */}
-        {filteredGroups.map((g) => (
+        {filteredGroups.map((g: any) => (
           <View key={g.groupId} style={s.groupSection}>
             <Text style={s.groupName}>{g.groupName}</Text>
-            {g.tasks.map((task) => {
+            {g.tasks.map((task: any) => {
               const isSelected = selected.has(task._id);
               return (
                 <AnimatedPressable
@@ -227,13 +227,13 @@ const styles = (colors: Colors) =>
     safe: { flex: 1, backgroundColor: colors.paper },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     loadingText: { fontFamily: fonts.mono, fontSize: 11, color: colors.fog, letterSpacing: 1.5, textTransform: "uppercase" },
+    title: { fontFamily: fonts.serif, fontSize: 36, color: colors.ink, letterSpacing: -0.8 },
     scroll: { paddingHorizontal: 24, paddingBottom: 100 },
 
     headerBar: { paddingTop: 8, paddingBottom: 4 },
     backBtn: { fontFamily: fonts.monoMedium, fontSize: 11, color: colors.smoke, letterSpacing: 1.1, textTransform: "uppercase" },
     pageHead: { gap: 6, paddingVertical: 16, marginBottom: 12 },
     eyebrow: { fontFamily: fonts.monoMedium, fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: colors.fog },
-    title: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 36, color: colors.ink, letterSpacing: -0.8 },
     subtitle: { fontFamily: fonts.sans, fontSize: 14, color: colors.smoke, lineHeight: 21 },
 
     searchInput: {

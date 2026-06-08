@@ -320,7 +320,6 @@ const s = StyleSheet.create({
   },
   brand: {
     fontFamily: fonts.serif,
-    fontStyle: "italic",
     fontSize: 28,
     letterSpacing: -0.3,
   },
@@ -351,7 +350,6 @@ const s = StyleSheet.create({
   },
   headline: {
     fontFamily: fonts.serif,
-    fontStyle: "italic",
     fontSize: 64,
     lineHeight: 62,
     letterSpacing: -1.3,
@@ -395,7 +393,6 @@ const s = StyleSheet.create({
     width: "100%",
     paddingVertical: 14,
     fontFamily: fonts.serif,
-    fontStyle: "italic",
     fontSize: 28,
     letterSpacing: -0.3,
     borderBottomWidth: 1,
@@ -428,7 +425,6 @@ const s = StyleSheet.create({
   },
   goalLabel: {
     fontFamily: fonts.serif,
-    fontStyle: "italic",
     fontSize: 22,
     letterSpacing: -0.2,
   },
@@ -461,7 +457,6 @@ const s = StyleSheet.create({
   },
   arrow: {
     fontFamily: fonts.serif,
-    fontStyle: "italic",
     fontSize: 18,
     lineHeight: 20,
   },
