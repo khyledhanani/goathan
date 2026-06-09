@@ -51,24 +51,31 @@ function AuthGate() {
       // Not logged in → go to landing
       if (!isOnLanding) {
         router.replace("/");
+        return; // Hide splash after navigation completes (next effect run)
       }
+      SplashScreen.hideAsync();
       return;
     }
 
-    // Authenticated — wait for profile to load
+    // Authenticated — wait for profile to load before hiding splash
     if (profile === undefined) return;
 
     if (!profile || !profile.onboardingCompleted) {
       // Needs onboarding
       if (!isOnOnboarding) {
         router.replace("/onboarding");
+        return; // Hide splash after navigation completes (next effect run)
       }
     } else {
       // Fully onboarded → dashboard
       if (isOnLanding || isOnOnboarding) {
         router.replace("/dashboard");
+        return; // Hide splash after navigation completes (next effect run)
       }
     }
+
+    // Already on the correct screen — safe to reveal
+    SplashScreen.hideAsync();
   }, [isLoading, isAuthenticated, profile, segments, router]);
 
   // Native stack → real iOS "slide-over-page" transitions (the bell → inbox push,
@@ -80,7 +87,10 @@ function AuthGate() {
         animation: "slide_from_right",
         contentStyle: { backgroundColor: colors.paper },
       }}
-    />
+    >
+      <Stack.Screen name="dashboard" options={{ animation: "none" }} />
+      <Stack.Screen name="profile" options={{ animation: "none" }} />
+    </Stack>
   );
 }
 
@@ -110,10 +120,6 @@ export default function RootLayout() {
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
   });
-
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 

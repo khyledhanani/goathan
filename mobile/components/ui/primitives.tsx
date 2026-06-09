@@ -27,7 +27,7 @@ export function TitleDot({
   return (
     <Text
       style={[
-        { fontFamily: fonts.serif, fontSize: size, color: color ?? c.inkStrong, lineHeight: size * 1.02 },
+        { fontFamily: fonts.serif, fontSize: size, color: color ?? c.inkStrong, lineHeight: size * 1.15 },
         style,
       ]}
     >

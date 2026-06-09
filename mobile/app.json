@@ -52,6 +52,12 @@
         "projectId": "0c2b1892-8aea-4dca-9de9-6efe161d6392"
       }
     },
-    "owner": "khyledhanani"
+    "owner": "khyledhanani",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0c2b1892-8aea-4dca-9de9-6efe161d6392"
+    }
   }
 }

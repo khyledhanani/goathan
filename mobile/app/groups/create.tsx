@@ -37,12 +37,12 @@ function utcMidnight(d: Date): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-function nextWeekday(day: number): number {
+function mostRecentWeekday(day: number): number {
   const now = new Date();
   const current = now.getUTCDay();
-  const diff = (day - current + 7) % 7 || 7;
+  const diff = (current - day + 7) % 7; // 0 if today IS that day
   const target = new Date(now);
-  target.setUTCDate(target.getUTCDate() + diff);
+  target.setUTCDate(target.getUTCDate() - diff);
   return utcMidnight(target);
 }
 
@@ -83,7 +83,7 @@ export default function CreateGroupScreen() {
         return {
           durationDays: 7,
           repeat: true,
-          anchorDate: nextWeekday(weekday),
+          anchorDate: mostRecentWeekday(weekday),
         };
       case "monthly":
         return {

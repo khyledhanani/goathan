@@ -7,15 +7,16 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  PanResponder,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
   Dimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedKeyboard,
   withTiming,
   withSpring,
   runOnJS,
@@ -27,6 +28,12 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, EmptyState } from "@/components/ui/primitives";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
+import {
+  useMention,
+  MentionSuggestions,
+  type MentionMember,
+} from "@/components/comments/MentionTextInput";
+import { MentionText } from "@/components/comments/MentionText";
 import { useThemeColors } from "@/lib/useThemeColors";
 import { fonts, radii, springs } from "@/lib/theme";
 import { timeAgo } from "@/lib/timeAgo";
@@ -40,6 +47,10 @@ interface RawComment {
   isYou: boolean;
   body: string;
   createdAt: number;
+}
+
+interface RawRosterMember extends MentionMember {
+  userId: Id<"users">;
 }
 
 interface Props {
@@ -61,17 +72,33 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
   const [sending, setSending] = useState(false);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const listRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
 
   const ty = useSharedValue(SCREEN_H);
+  const dragY = useSharedValue(0);
   const backdrop = useSharedValue(0);
+  const keyboard = useAnimatedKeyboard();
+  const scrollY = useRef(0);
 
   const proof = useQuery(
     api.proofs.byCompletionId,
     completionId ? { completionId } : "skip",
   );
   const addComment = useMutation(api.comments.add);
+  const groupId = proof?.groupId as Id<"groups"> | undefined;
+  const roster = useQuery(
+    api.groups.getRoster,
+    groupId ? { groupId } : "skip",
+  );
   const comments = (proof?.comments ?? []) as RawComment[];
+  const mentionMembers = (roster ?? []) as RawRosterMember[];
+
+  const {
+    inputRef,
+    suggestions,
+    insertMention,
+    handleSelectionChange,
+    selectionOverride,
+  } = useMention(text, setText, mentionMembers, { maxLength: 240 });
 
   const visible = completionId != null;
 
@@ -79,6 +106,7 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
     if (visible) {
       setMounted(true);
       setSnap("half");
+      dragY.value = 0;
       ty.value = withSpring(0, springs.sheet);
       backdrop.value = withTiming(1, { duration: 240 });
     } else if (mounted) {
@@ -90,31 +118,50 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) ty.value = g.dy;
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy < -40) {
-          runOnJS(setSnap)("full");
-          ty.value = withSpring(0, springs.sheet);
-        } else if (g.dy > 90) {
-          runOnJS(Keyboard.dismiss)();
-          onClose();
-        } else {
-          ty.value = withSpring(0, springs.sheet);
-        }
-      },
-      onPanResponderTerminate: () => {
-        ty.value = withSpring(0, springs.sheet);
-      },
-    }),
-  ).current;
+  // Track scroll position
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollY.current = e.nativeEvent.contentOffset.y;
+  };
 
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
+  // Drag-to-dismiss: track touch when scrolled to top
+  const touchStartY = useRef(0);
+  const isDragging = useRef(false);
+
+  const onTouchStart = (e: any) => {
+    touchStartY.current = e.nativeEvent.pageY;
+    isDragging.current = false;
+  };
+
+  const onTouchMove = (e: any) => {
+    const dy = e.nativeEvent.pageY - touchStartY.current;
+    if (dy > 0 && scrollY.current <= 0) {
+      isDragging.current = true;
+      dragY.value = dy;
+    } else if (isDragging.current && dy <= 0) {
+      dragY.value = 0;
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    if (dragY.value > 100) {
+      Keyboard.dismiss();
+      onClose();
+    } else {
+      dragY.value = withSpring(0, springs.sheet);
+    }
+  };
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: ty.value + dragY.value }],
+  }));
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdrop.value * Math.max(0, 1 - dragY.value / 300),
+  }));
+  const kbShiftStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboard.height.value,
+  }));
 
   const send = async () => {
     const body = text.trim();
@@ -139,11 +186,7 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.kav}
-          pointerEvents="box-none"
-        >
+        <View style={styles.kav} pointerEvents="box-none">
           <Animated.View
             style={[
               styles.sheet,
@@ -151,8 +194,14 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
               sheetStyle,
             ]}
           >
-            {/* Grabber + header (drag target) */}
-            <View {...pan.panHandlers} style={styles.head}>
+            <View
+              style={{ flex: 1 }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
+            {/* Grabber + header */}
+            <View style={styles.head}>
               <View style={[styles.grabber, { backgroundColor: c.lineStrong }]} />
               <View style={styles.headRow}>
                 <Text style={[styles.headLabel, { color: c.muted }]}>
@@ -168,93 +217,119 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
               </View>
             </View>
 
-            {/* Comments */}
-            <ScrollView
-              ref={listRef}
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
-              keyboardShouldPersistTaps="handled"
-              onScrollBeginDrag={() => Keyboard.dismiss()}
-              showsVerticalScrollIndicator={false}
-            >
-              {proof === undefined ? null : comments.length ? (
-                comments.map((cm) => (
-                  <View key={cm._id} style={styles.commentRow}>
-                    <Avatar initial={cm.authorName} size={36} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.commentMeta}>
-                        <Text style={[styles.commentAuthor, { color: c.inkStrong }]}>
-                          {cm.isYou ? "You" : cm.authorName}
-                        </Text>
-                        <Text style={[styles.commentWhen, { color: c.mutedDim }]}>
-                          {"  "}
-                          {timeAgo(cm.createdAt)}
-                        </Text>
-                      </Text>
-                      <Text style={[styles.commentBody, { color: c.ink }]}>{cm.body}</Text>
-                    </View>
-                    <Pressable
-                      onPress={() => {
-                        hapticLight();
-                        setLiked((l) => ({ ...l, [cm._id]: !l[cm._id] }));
-                      }}
-                      hitSlop={8}
-                      style={{ paddingTop: 2 }}
-                    >
-                      <Icon
-                        name="heart"
-                        size={15}
-                        color={liked[cm._id] ? c.accent : c.mutedDim}
-                        fill={liked[cm._id] ? c.accent : undefined}
-                      />
-                    </Pressable>
-                  </View>
-                ))
-              ) : (
-                <View style={{ paddingTop: 40 }}>
-                  <EmptyState head="No comments yet" body="Start the conversation." />
+            <Animated.View style={[{ flex: 1 }, kbShiftStyle]}>
+              {/* Comments / Mention suggestions (suggestions replace comment area) */}
+              {suggestions.length > 0 ? (
+                <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 8 }}>
+                  <MentionSuggestions
+                    suggestions={suggestions}
+                    onSelect={insertMention}
+                    style={{ borderWidth: 0, shadowOpacity: 0, elevation: 0, marginBottom: 0 }}
+                  />
                 </View>
+              ) : (
+                <ScrollView
+                  ref={listRef}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="interactive"
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                  overScrollMode="never"
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                >
+                  {proof === undefined ? null : comments.length ? (
+                    comments.map((cm) => (
+                      <View key={cm._id} style={styles.commentRow}>
+                        <Avatar initial={cm.authorName} size={36} />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.commentMeta}>
+                            <Text style={[styles.commentAuthor, { color: c.inkStrong }]}>
+                              {cm.isYou ? "You" : cm.authorName}
+                            </Text>
+                            <Text style={[styles.commentWhen, { color: c.mutedDim }]}>
+                              {"  "}
+                              {timeAgo(cm.createdAt)}
+                            </Text>
+                          </Text>
+                          <MentionText
+                            body={cm.body}
+                            style={[styles.commentBody, { color: c.ink }]}
+                            mentionStyle={[styles.commentMention, { color: c.accent }]}
+                          />
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            hapticLight();
+                            setLiked((l) => ({ ...l, [cm._id]: !l[cm._id] }));
+                          }}
+                          hitSlop={8}
+                          style={{ paddingTop: 2 }}
+                        >
+                          <Icon
+                            name="heart"
+                            size={15}
+                            color={liked[cm._id] ? c.accent : c.mutedDim}
+                            fill={liked[cm._id] ? c.accent : undefined}
+                          />
+                        </Pressable>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={{ paddingTop: 40 }}>
+                      <EmptyState head="No comments yet" body="Start the conversation." />
+                    </View>
+                  )}
+                </ScrollView>
               )}
-            </ScrollView>
 
-            {/* Sticky input */}
-            <View
-              style={[
-                styles.inputRow,
-                {
-                  borderTopColor: c.line,
-                  backgroundColor: c.surface,
-                  paddingBottom: 12 + (Platform.OS === "android" ? 0 : insets.bottom > 0 ? 4 : 0),
-                },
-              ]}
-            >
-              <Avatar initial={meInitial ?? "?"} uri={meAvatarUrl} size={34} />
-              <TextInput
-                ref={inputRef}
-                value={text}
-                onChangeText={setText}
-                onFocus={() => setSnap("full")}
-                placeholder="Add a comment…"
-                placeholderTextColor={c.mutedDim}
-                style={[styles.input, { backgroundColor: c.paper, borderColor: c.line, color: c.ink }]}
-                returnKeyType="send"
-                onSubmitEditing={send}
-                maxLength={240}
-              />
-              <AnimatedPressable
-                scaleDown={0.9}
-                onPress={send}
-                disabled={!text.trim()}
+              {/* Sticky input */}
+              <View
                 style={[
-                  styles.sendBtn,
-                  { backgroundColor: text.trim() ? c.accent : c.surface2 },
+                  styles.inputRow,
+                  {
+                    borderTopColor: c.line,
+                    backgroundColor: c.surface,
+                    paddingBottom: 12 + (Platform.OS === "android" ? 0 : insets.bottom > 0 ? 4 : 0),
+                  },
                 ]}
               >
-                <Icon name="arrowR" size={19} color={text.trim() ? c.onAccent : c.mutedDim} />
-              </AnimatedPressable>
+                <Avatar initial={meInitial ?? "?"} uri={meAvatarUrl} size={34} />
+                <TextInput
+                  ref={inputRef}
+                  value={text}
+                  onChangeText={setText}
+                  onSelectionChange={handleSelectionChange}
+                  selection={selectionOverride ?? undefined}
+                  onFocus={() => setSnap("full")}
+                  placeholder="Add a comment…"
+                  placeholderTextColor={c.mutedDim}
+                  style={[
+                    styles.input,
+                    { backgroundColor: c.paper, borderColor: c.line, color: c.ink },
+                  ]}
+                  returnKeyType="send"
+                  onSubmitEditing={send}
+                  maxLength={240}
+                />
+                <AnimatedPressable
+                  scaleDown={0.9}
+                  onPress={send}
+                  disabled={!text.trim()}
+                  style={[
+                    styles.sendBtn,
+                    { backgroundColor: text.trim() ? c.accent : c.surface2 },
+                  ]}
+                >
+                  <Icon name="arrowR" size={19} color={text.trim() ? c.onAccent : c.mutedDim} />
+                </AnimatedPressable>
+              </View>
+            </Animated.View>
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
@@ -293,9 +368,10 @@ const styles = StyleSheet.create({
   commentAuthor: { fontFamily: fonts.sansSemiBold, fontSize: 14 },
   commentWhen: { fontFamily: fonts.mono, fontSize: 11 },
   commentBody: { fontFamily: fonts.sans, fontSize: 15, marginTop: 3, lineHeight: 21 },
+  commentMention: { fontFamily: fonts.sansSemiBold },
   inputRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,

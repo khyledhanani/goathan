@@ -10,7 +10,6 @@ import {
   Platform,
 } from "react-native";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
-import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -34,7 +33,6 @@ const TASK_PILLS = [
 ];
 
 export default function LandingScreen() {
-  const router = useRouter();
   const { signIn } = useAuthActions();
   const colors = useThemeColors();
   const devBypass = process.env.EXPO_PUBLIC_AUTH_DEV_BYPASS === "true";
@@ -51,7 +49,7 @@ export default function LandingScreen() {
     setStatus("google");
     try {
       await signIn("google");
-      router.replace("/dashboard");
+      // AuthGate in _layout.tsx handles navigation after auth state updates
     } catch (e) {
       setToast({ message: errorMessage(e, "Sign-in failed. Try again."), tone: "error" });
       setStatus("error");
@@ -74,7 +72,7 @@ export default function LandingScreen() {
         password,
         flow: authMode === "sign-up" ? "signUp" : "signIn",
       });
-      router.replace("/dashboard");
+      // AuthGate in _layout.tsx handles navigation after auth state updates
     } catch (e) {
       setToast({
         message: errorMessage(
@@ -93,7 +91,7 @@ export default function LandingScreen() {
     setStatus("dev");
     try {
       await signIn("anonymous");
-      router.replace("/dashboard");
+      // AuthGate in _layout.tsx handles navigation after auth state updates
     } catch (e) {
       setToast({ message: errorMessage(e, "Dev sign-in failed."), tone: "error" });
       setStatus("error");

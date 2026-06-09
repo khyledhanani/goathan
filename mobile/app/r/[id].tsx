@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   StyleSheet,
   Modal,
   Dimensions,
@@ -22,6 +21,11 @@ import { useSignedProofUrls } from "@/lib/useSignedProofUrls";
 import { timeAgo } from "@/lib/timeAgo";
 import { errorMessage } from "@/lib/errors";
 import { Toast, type ToastValue } from "@/components/Toast";
+import {
+  MentionTextInput,
+  type MentionMember,
+} from "@/components/comments/MentionTextInput";
+import { MentionText } from "@/components/comments/MentionText";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const REACTION_KINDS = ["HEART", "FIRE", "EYES"] as const;
@@ -31,6 +35,10 @@ const REACTION_EMOJI: Record<string, string> = {
   EYES: "\ud83d\udc40",
 };
 
+interface RawRosterMember extends MentionMember {
+  userId: Id<"users">;
+}
+
 export default function ReceiptDetailScreen() {
   const colors = useThemeColors();
   const s = styles(colors);
@@ -39,6 +47,10 @@ export default function ReceiptDetailScreen() {
   const completionId = id as Id<"completions">;
 
   const receipt = useQuery(api.proofs.byCompletionId, { completionId });
+  const roster = useQuery(
+    api.groups.getRoster,
+    receipt?.groupId ? { groupId: receipt.groupId } : "skip",
+  );
   const toggleLike = useMutation(api.likes.toggle);
   const toggleCap = useMutation(api.challenges.toggle);
   const addComment = useMutation(api.comments.add);
@@ -64,6 +76,7 @@ export default function ReceiptDetailScreen() {
   }
 
   const proofUrl = receipt.proofUrl ?? signedUrls[completionId] ?? null;
+  const mentionMembers = (roster ?? []) as RawRosterMember[];
 
   const handleReaction = async (kind: string) => {
     try {
@@ -254,19 +267,24 @@ export default function ReceiptDetailScreen() {
                 {c.authorName}
                 {c.isYou && <Text style={s.youBadge}> (you)</Text>}
               </Text>
-              <Text style={s.commentBody}>{c.body}</Text>
+              <MentionText
+                body={c.body}
+                style={s.commentBody}
+                mentionStyle={s.commentMention}
+              />
               <Text style={s.commentTime}>{timeAgo(c.createdAt)}</Text>
             </View>
           ))}
 
           {/* Comment input */}
           <View style={s.commentInput}>
-            <TextInput
-              style={s.commentTextInput}
+            <MentionTextInput
               value={commentText}
               onChangeText={setCommentText}
+              members={mentionMembers}
               placeholder="Add a comment..."
               placeholderTextColor={colors.mist}
+              inputStyle={s.commentTextInput}
               maxLength={240}
               multiline
             />
@@ -538,6 +556,10 @@ const styles = (colors: Colors) =>
       fontSize: 13,
       color: colors.smoke,
       lineHeight: 19,
+    },
+    commentMention: {
+      fontFamily: fonts.sansSemiBold,
+      color: colors.accent,
     },
     commentTime: {
       fontFamily: fonts.mono,

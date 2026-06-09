@@ -64,7 +64,7 @@ export function TabBar({ onAdd }: Props) {
         icon="home"
         label="Feed"
         active={feedActive}
-        onPress={() => router.push("/dashboard")}
+        onPress={() => { if (!feedActive) router.replace("/dashboard"); }}
       />
 
       <View style={s.addCol}>
@@ -84,7 +84,7 @@ export function TabBar({ onAdd }: Props) {
         icon="person"
         label="Profile"
         active={profileActive}
-        onPress={() => router.push("/profile")}
+        onPress={() => { if (!profileActive) router.replace("/profile"); }}
       />
     </View>
   );

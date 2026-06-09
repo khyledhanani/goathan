@@ -2,14 +2,14 @@ import { useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   TextInput,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { useThemeColors } from "@/lib/useThemeColors";
@@ -17,6 +17,12 @@ import { fonts, radii } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import { timeAgo } from "@/lib/timeAgo";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import {
+  useMention,
+  MentionSuggestions,
+  type MentionMember,
+} from "@/components/comments/MentionTextInput";
+import { MentionText } from "@/components/comments/MentionText";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -35,6 +41,10 @@ interface Comment {
   isYou: boolean;
   body: string;
   createdAt: number;
+}
+
+interface RawRosterMember extends MentionMember {
+  userId: Id<"users">;
 }
 
 interface AiVerification {
@@ -105,6 +115,7 @@ export function FeedCard({ item, signedUrl, onUserPress, onGroupPress }: Props) 
   const toggleLike = useMutation(api.likes.toggle);
   const toggleChallenge = useMutation(api.challenges.toggle);
   const addComment = useMutation(api.comments.add);
+  const roster = useQuery(api.groups.getRoster, { groupId: item.groupId });
 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -113,6 +124,15 @@ export function FeedCard({ item, signedUrl, onUserPress, onGroupPress }: Props) 
 
   const imageUrl = signedUrl ?? item.proofUrl;
   const isRevoked = item.revokedAt != null;
+  const mentionMembers = (roster ?? []) as RawRosterMember[];
+
+  const {
+    inputRef,
+    suggestions,
+    insertMention,
+    handleSelectionChange,
+    selectionOverride,
+  } = useMention(commentText, setCommentText, mentionMembers, { maxLength: 240 });
 
   const handleReaction = async (kind: ReactionKind) => {
     hapticLight();
@@ -299,19 +319,28 @@ export function FeedCard({ item, signedUrl, onUserPress, onGroupPress }: Props) 
               <Text style={s.commentAuthor}>
                 {c.isYou ? "You" : c.authorName}
               </Text>
-              <Text style={s.commentBody}>{c.body}</Text>
+              <MentionText
+                body={c.body}
+                style={s.commentBody}
+                mentionStyle={s.commentMention}
+              />
               <Text style={s.commentTime}>{timeAgo(c.createdAt)}</Text>
             </View>
           ))}
+          <MentionSuggestions suggestions={suggestions} onSelect={insertMention} />
           <View style={s.commentInput}>
             <TextInput
-              style={s.commentTextInput}
+              ref={inputRef}
               value={commentText}
               onChangeText={setCommentText}
+              onSelectionChange={handleSelectionChange}
+              selection={selectionOverride ?? undefined}
               placeholder="Add a comment..."
               placeholderTextColor={colors.mist}
+              style={s.commentTextInput}
               returnKeyType="send"
               onSubmitEditing={handleSendComment}
+              maxLength={240}
             />
             {sendingComment ? (
               <ActivityIndicator size="small" color={colors.accent} />
@@ -622,6 +651,10 @@ const styles = (colors: Colors) =>
       fontSize: 12,
       color: colors.smoke,
       flex: 1,
+    },
+    commentMention: {
+      fontFamily: fonts.sansSemiBold,
+      color: colors.accent,
     },
     commentTime: {
       fontFamily: fonts.mono,

@@ -262,7 +262,7 @@ const styles = (c: Colors) =>
       letterSpacing: 1.5,
       textTransform: "uppercase",
     },
-    scroll: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 130 },
+    scroll: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 130 },
     settingsLink: {
       fontFamily: fonts.mono,
       fontSize: 12,
