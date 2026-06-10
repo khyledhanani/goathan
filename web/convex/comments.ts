@@ -82,10 +82,21 @@ export const add = mutation({
     const task = await ctx.db.get(completion.taskId);
     const notified = new Set<Id<"users">>();
 
+    // Resolve mentions first so we can give them the "mentioned you" message
+    const mentionUserIds = new Set(
+      await resolveGroupMentionUserIds(
+        ctx,
+        completion.groupId,
+        extractMentionUsernames(trimmed),
+      ),
+    );
+
+    // Notify post owner about the comment (if not the commenter themselves)
     if (
       completion.userId !== userId &&
       completion.revokedAt === undefined
     ) {
+      const isMentioned = mentionUserIds.has(completion.userId);
       await enqueueNotification(ctx, {
         userId: completion.userId,
         kind: "COMMENT",
@@ -94,18 +105,18 @@ export const add = mutation({
         completionId,
         commentId,
         title: actor?.displayName ?? "Someone",
-        body: `on your ${truncate(task?.name ?? "receipt", 28)}: "${truncate(trimmed, 80)}"`,
+        body: isMentioned
+          ? `mentioned you on ${truncate(task?.name ?? "a receipt", 28)}: "${truncate(trimmed, 80)}"`
+          : `on your ${truncate(task?.name ?? "receipt", 28)}: "${truncate(trimmed, 80)}"`,
         deepLinkPath: `/r/${completionId}`,
-        dedupeKey: `comment:${commentId}`,
+        dedupeKey: isMentioned
+          ? `mention:${commentId}:${completion.userId}`
+          : `comment:${commentId}`,
       });
       notified.add(completion.userId);
     }
 
-    const mentionUserIds = await resolveGroupMentionUserIds(
-      ctx,
-      completion.groupId,
-      extractMentionUsernames(trimmed),
-    );
+    // Notify other @mentioned users (skip self and already-notified owner)
     for (const mentionedUserId of mentionUserIds) {
       if (mentionedUserId === userId || notified.has(mentionedUserId)) {
         continue;
