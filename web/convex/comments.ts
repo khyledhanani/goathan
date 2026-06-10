@@ -80,12 +80,20 @@ export const add = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     const task = await ctx.db.get(completion.taskId);
+
+    const mentionUserIds = await resolveGroupMentionUserIds(
+      ctx,
+      completion.groupId,
+      extractMentionUsernames(trimmed),
+    );
+    const mentionSet = new Set(mentionUserIds);
     const notified = new Set<Id<"users">>();
 
     if (
       completion.userId !== userId &&
       completion.revokedAt === undefined
     ) {
+      const isMentioned = mentionSet.has(completion.userId);
       await enqueueNotification(ctx, {
         userId: completion.userId,
         kind: "COMMENT",
@@ -94,18 +102,17 @@ export const add = mutation({
         completionId,
         commentId,
         title: actor?.displayName ?? "Someone",
-        body: `on your ${truncate(task?.name ?? "receipt", 28)}: "${truncate(trimmed, 80)}"`,
+        body: isMentioned
+          ? `mentioned you on ${truncate(task?.name ?? "a receipt", 28)}: "${truncate(trimmed, 80)}"`
+          : `on your ${truncate(task?.name ?? "receipt", 28)}: "${truncate(trimmed, 80)}"`,
         deepLinkPath: `/r/${completionId}`,
-        dedupeKey: `comment:${commentId}`,
+        dedupeKey: isMentioned
+          ? `mention:${commentId}:${completion.userId}`
+          : `comment:${commentId}`,
       });
       notified.add(completion.userId);
     }
 
-    const mentionUserIds = await resolveGroupMentionUserIds(
-      ctx,
-      completion.groupId,
-      extractMentionUsernames(trimmed),
-    );
     for (const mentionedUserId of mentionUserIds) {
       if (mentionedUserId === userId || notified.has(mentionedUserId)) {
         continue;
