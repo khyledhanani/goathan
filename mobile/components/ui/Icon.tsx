@@ -26,6 +26,7 @@ export type IconName =
   | "comment"
   | "x"
   | "settings"
+  | "pencil"
   | "medal"
   | "share"
   | "clock"
@@ -80,6 +81,9 @@ const ICONS: Record<IconName, El[]> = {
   settings: [
     ["c", 12, 12, 3],
     ["p", "M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7 5.6 5.6"],
+  ],
+  pencil: [
+    ["p", "M14.5 5.5l4 4M4 20l1.2-4.2L15.5 5.5a2 2 0 0 1 3 3L8.2 18.8 4 20Z"],
   ],
   medal: [
     ["c", 12, 14.5, 5],

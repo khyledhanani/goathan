@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Avatar } from "@/components/ui/primitives";
@@ -17,6 +18,23 @@ import type { StandingMember } from "@/components/home/types";
 interface Props {
   members: StandingMember[];
   onFullBoard: () => void;
+  /** Standings period end (ms). From groups.todayView → groupPeriodBounds, so
+   *  it already honors each group's settings (weekly/daily/monthly/custom). */
+  periodEndMs?: number | null;
+  /** Group stake from groups.todayView → group.stakeKind / group.stakeText. */
+  stakeKind?: "REWARD" | "PENALTY" | null;
+  stakeText?: string | null;
+}
+
+// "Current round ends in 3d 20h" — coarse day/hour (then h/m, then m) display.
+function formatRound(ms: number): string {
+  if (ms <= 0) return "Current round ended";
+  const totalMin = Math.floor(ms / 60_000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  const dur = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return `Current round ends in ${dur}`;
 }
 
 interface Col {
@@ -28,9 +46,18 @@ interface Col {
   av: number;
 }
 
-export function Podium({ members, onFullBoard }: Props) {
+export function Podium({ members, onFullBoard, periodEndMs, stakeKind, stakeText }: Props) {
   const c = useThemeColors();
   const s = styles(c);
+
+  // Live "current round ends in …" — re-renders each minute (day/hour scale).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (periodEndMs == null) return;
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [periodEndMs]);
+  const roundLabel = periodEndMs == null ? null : formatRound(periodEndMs - now);
 
   const board = [...members].sort((a, b) => b.weekPoints - a.weekPoints);
   const top = board.slice(0, 3);
@@ -48,8 +75,12 @@ export function Podium({ members, onFullBoard }: Props) {
       {/* faux inset-top highlight line */}
       <View style={s.topHighlight} pointerEvents="none" />
 
-      {/* Full board link (top-right) */}
+      {/* Section label (top-left) · Full board link (top-right) */}
       <View style={s.linkRow}>
+        <View>
+          <Text style={s.kicker}>Standings</Text>
+          {roundLabel && <Text style={s.subtitle}>{roundLabel}</Text>}
+        </View>
         <AnimatedPressable
           scaleDown={0.96}
           dimOnPress
@@ -60,6 +91,25 @@ export function Podium({ members, onFullBoard }: Props) {
           <Icon name="arrowR" size={13} color={c.accent} />
         </AnimatedPressable>
       </View>
+
+      {/* Group stake (reward = green, penalty = red); hidden if unconfigured */}
+      {stakeKind && stakeText?.trim() ? (
+        <View
+          style={[
+            s.stake,
+            stakeKind === "REWARD"
+              ? { backgroundColor: c.accentBg, borderColor: c.accent }
+              : { backgroundColor: c.capBg, borderColor: c.cap },
+          ]}
+        >
+          <Text style={s.stakeText} numberOfLines={2}>
+            <Text style={[s.stakeKind, { color: stakeKind === "REWARD" ? c.accent : c.cap }]}>
+              {stakeKind === "REWARD" ? "🏆 Reward" : "⚡ Penalty"}
+            </Text>
+            {`  ·  ${stakeText.trim()}`}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Step columns */}
       <View style={s.cols}>
@@ -141,8 +191,38 @@ const styles = (c: Colors) =>
     },
     linkRow: {
       flexDirection: "row",
-      justifyContent: "flex-end",
-      alignItems: "baseline",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    kicker: {
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+      color: c.muted,
+    },
+    subtitle: {
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      letterSpacing: 0.3,
+      color: c.mutedDim,
+      marginTop: 3,
+    },
+    stake: {
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    stakeText: {
+      fontFamily: fonts.sans,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: c.smoke,
+    },
+    stakeKind: {
+      fontFamily: fonts.sansSemiBold,
     },
     link: {
       flexDirection: "row",

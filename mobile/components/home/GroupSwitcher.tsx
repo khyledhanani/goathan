@@ -180,7 +180,7 @@ const styles = (c: Colors) =>
     tab: {
       flexShrink: 0,
       paddingVertical: 2,
-      marginHorizontal: 9,
+      marginHorizontal: 7,
     },
     tabInner: {
       flexDirection: "row",

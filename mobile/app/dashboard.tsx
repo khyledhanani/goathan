@@ -393,7 +393,7 @@ export default function DashboardScreen() {
           onPress={() => router.push("/groups/create")}
           style={[s.iconBtn, { backgroundColor: c.surface, borderColor: c.line }]}
         >
-          <Icon name="groupsAdd" size={21} color={c.ink} />
+          <Icon name="plus" size={21} color={c.ink} />
         </AnimatedPressable>
       </View>
 

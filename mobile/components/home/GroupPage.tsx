@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Podium } from "@/components/home/Podium";
+import { ResetCountdown } from "@/components/home/ResetCountdown";
 import { TaskCard } from "@/components/home/TaskCard";
 import { EmptyState } from "@/components/ui/primitives";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
@@ -174,12 +175,21 @@ export function GroupPage({
             onPress={() => router.push(`/group/edit/${groupId}`)}
             style={[s.manageBtn, { backgroundColor: c.surface, borderColor: c.line }]}
           >
-            <Icon name="settings" size={18} color={c.muted} />
+            <Icon name="pencil" size={21} color={c.ink} />
           </AnimatedPressable>
         </View>
       )}
 
-      {members.length > 0 && <Podium members={members} onFullBoard={() => onFullBoard(groupId)} />}
+      {members.length > 0 && (
+        <Podium
+          members={members}
+          onFullBoard={() => onFullBoard(groupId)}
+          periodEndMs={today?.stats?.periodEndMs ?? null}
+          stakeKind={today?.group?.stakeKind ?? null}
+          stakeText={today?.group?.stakeText ?? null}
+        />
+      )}
+      {members.length > 0 && <ResetCountdown />}
       {tasks.length > 0 ? (
         tasks.map((t) => (
           <View
@@ -219,9 +229,9 @@ const styles = (c: Colors) =>
       marginBottom: 12,
     },
     manageBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
