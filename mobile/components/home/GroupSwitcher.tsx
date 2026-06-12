@@ -142,12 +142,6 @@ function Tab({
     return { color: interpolateColor(d, [0, 1], [colors.inkStrong, colors.mutedDim]) };
   });
 
-  const dotStyle = useAnimatedStyle(() => {
-    const p = pageWidth > 0 ? scrollX.value / pageWidth : 0;
-    const d = Math.min(Math.abs(p - index), 1);
-    return { opacity: 1 - d };
-  });
-
   return (
     <AnimatedPressable
       scaleDown={0.96}
@@ -161,7 +155,6 @@ function Tab({
         <Animated.Text style={[s.label, labelColor]} numberOfLines={1}>
           {label}
         </Animated.Text>
-        <Animated.Text style={[s.label, s.dot, dotStyle]}>.</Animated.Text>
       </Animated.View>
     </AnimatedPressable>
   );
@@ -192,8 +185,5 @@ const styles = (c: Colors) =>
       lineHeight: 28,
       includeFontPadding: false,
       color: c.inkStrong,
-    },
-    dot: {
-      color: c.accent,
     },
   });

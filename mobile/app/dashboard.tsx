@@ -127,6 +127,39 @@ export default function DashboardScreen() {
   const [highlightId, setHighlightId] = useState<Id<"completions"> | null>(null);
   const pagerRef = useRef<FlatList>(null);
 
+  // Single Home-feed refresh path (native RefreshControl), shared by BOTH the
+  // manual pull and the Home tab returning from a group — same spinner/UI. The
+  // feed is live (Convex), so this is brief UI feedback, not a real refetch.
+  const [feedRefreshing, setFeedRefreshing] = useState(false);
+  const feedRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerFeedRefresh = useCallback(() => {
+    setFeedRefreshing(true);
+    if (feedRefreshTimer.current) clearTimeout(feedRefreshTimer.current);
+    feedRefreshTimer.current = setTimeout(() => setFeedRefreshing(false), 900);
+  }, []);
+
+  // Home tab from a group: run the SAME refresh, but only after the pager has
+  // slid back to the feed so FeedPage can reveal the RefreshControl like a pull.
+  const homeNavTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleFeedRefresh = useCallback(() => {
+    if (homeNavTimer.current) clearTimeout(homeNavTimer.current);
+    homeNavTimer.current = setTimeout(() => triggerFeedRefresh(), 320);
+  }, [triggerFeedRefresh]);
+
+  useEffect(
+    () => () => {
+      if (feedRefreshTimer.current) clearTimeout(feedRefreshTimer.current);
+      if (homeNavTimer.current) clearTimeout(homeNavTimer.current);
+    },
+    [],
+  );
+  // Mirror pageIndex in a ref so the deep-link effect can tell whether the
+  // Home tap came from a group page without re-subscribing on every page change.
+  const pageIndexRef = useRef(0);
+  useEffect(() => {
+    pageIndexRef.current = pageIndex;
+  }, [pageIndex]);
+
   // Live horizontal scroll offset of the pager (UI thread) → drives the top
   // group-switcher so its active tab tracks the drag fraction continuously.
   const scrollX = useSharedValue(0);
@@ -237,10 +270,27 @@ export default function DashboardScreen() {
   const goToPage = useCallback(
     (index: number) => {
       setPageIndex(index);
-      pagerRef.current?.scrollToIndex({ index, animated: true });
+      // Skip the scroll when already on the target page (e.g. a fresh Home
+      // mount is already at the feed) — a redundant scrollToIndex during the
+      // first layout can perturb the header/switcher reveal.
+      if (pageIndexRef.current !== index) {
+        pagerRef.current?.scrollToIndex({ index, animated: true });
+      }
     },
     [],
   );
+
+  // Bottom-left Home tab pressed while already on the dashboard (feed OR a
+  // group). Always return to the feed, scroll to top, and run the shared
+  // refresh animation. If already on the feed there's no slide, so trigger
+  // immediately; otherwise wait for the pager slide to settle. Called directly
+  // by TabBar (not the route effect) for reliability.
+  const onHomeTab = useCallback(() => {
+    const alreadyOnFeed = pageIndexRef.current === 0;
+    goToPage(0);
+    if (alreadyOnFeed) triggerFeedRefresh();
+    else scheduleFeedRefresh();
+  }, [goToPage, triggerFeedRefresh, scheduleFeedRefresh]);
 
   const onMomentumEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -256,6 +306,13 @@ export default function DashboardScreen() {
     const hl = params.highlight as string | undefined;
     if (!groupParam && !hl) return;
 
+    // Wait until the Home screen has real data before acting on the param. The
+    // header + group switcher only mount (and measure/reveal) once data is
+    // loaded; processing the param earlier means the goToPage / refresh churn
+    // (and clearing the param mid-skeleton) races the switcher's layout-based
+    // reveal, so it sometimes renders blank. Deps include home/feed → re-runs.
+    if (home === undefined || feed === undefined) return;
+
     // Resolve which group to land on (param wins; else infer from the post).
     let targetGroup = groupParam;
     if (hl && !targetGroup) {
@@ -267,13 +324,16 @@ export default function DashboardScreen() {
     if (targetGroup) {
       const i = tabs.findIndex((t) => t.key === targetGroup);
       if (i < 0 && home === undefined) return; // groups still loading — wait
-      if (i > 0) goToPage(i);
+      // i === 0 → the "feed" tab (Home arriving via route param, e.g. from the
+      // Profile screen). Always run the shared feed refresh animation.
+      if (i === 0) scheduleFeedRefresh();
+      if (i >= 0) goToPage(i);
     }
     if (hl) setHighlightId(hl as Id<"completions">);
 
     // Consume the params so back-nav / re-renders don't re-trigger.
     router.setParams({ group: undefined, highlight: undefined });
-  }, [params.group, params.highlight, tabs, proofs, feed, home, goToPage, router]);
+  }, [params.group, params.highlight, tabs, proofs, feed, home, goToPage, router, scheduleFeedRefresh]);
 
   // The group page clears the highlight once it has actually pulsed the card.
   const clearHighlight = useCallback(() => setHighlightId(null), []);
@@ -422,6 +482,8 @@ export default function DashboardScreen() {
                 actions={actions}
                 onAccept={(id) => handleInvite(id, "ACCEPT")}
                 onDecline={(id) => handleInvite(id, "DECLINE")}
+                refreshing={feedRefreshing}
+                onRefresh={triggerFeedRefresh}
               />
             ) : (
               <GroupPage
@@ -439,7 +501,7 @@ export default function DashboardScreen() {
         )}
       />
 
-      <TabBar onAdd={() => setAddOpen(true)} />
+      <TabBar onAdd={() => setAddOpen(true)} onHome={onHomeTab} />
 
       {/* Sheets */}
       <CommentDrawer

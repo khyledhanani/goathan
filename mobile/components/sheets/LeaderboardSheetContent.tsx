@@ -3,6 +3,7 @@ import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Icon } from "@/components/ui/Icon";
 import { TitleDot, Avatar } from "@/components/ui/primitives";
 import { useThemeColors } from "@/lib/useThemeColors";
+import { competitionRanks } from "@/lib/ranking";
 import { fonts } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import type { StandingMember } from "@/components/home/types";
@@ -30,6 +31,7 @@ export function LeaderboardSheetContent({ members, onClose }: Props) {
   const s = styles(c);
 
   const board = [...members].sort((a, b) => b.weekPoints - a.weekPoints);
+  const ranks = competitionRanks(board, (m) => m.weekPoints);
 
   return (
     <View>
@@ -44,7 +46,7 @@ export function LeaderboardSheetContent({ members, onClose }: Props) {
       {/* Rows */}
       <View style={s.list}>
         {board.map((m, i) => {
-          const rank = i + 1;
+          const rank = ranks[i];
           const me = m.isYou;
           const medal = MEDALS[rank];
           return (

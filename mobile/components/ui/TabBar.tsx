@@ -15,6 +15,10 @@ import type { Colors } from "@/lib/theme";
 
 interface Props {
   onAdd: () => void;
+  /** Called when Home is tapped while already on the dashboard (lets the
+   *  dashboard reset the pager to the feed + show refresh feedback directly,
+   *  instead of round-tripping through a route param). */
+  onHome?: () => void;
 }
 
 function NavTab({
@@ -48,7 +52,7 @@ function NavTab({
   );
 }
 
-export function TabBar({ onAdd }: Props) {
+export function TabBar({ onAdd, onHome }: Props) {
   const c = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
@@ -62,9 +66,16 @@ export function TabBar({ onAdd }: Props) {
     <View style={[s.bar, { paddingBottom: Math.max(insets.bottom, 18) }]}>
       <NavTab
         icon="home"
-        label="Feed"
+        label="Home"
         active={feedActive}
-        onPress={() => { if (!feedActive) router.replace("/dashboard"); }}
+        // Already on the dashboard (feed or a group page): let the dashboard
+        // reset to the feed + show the spinner directly. From another screen
+        // (e.g. Profile): route to the feed, which the dashboard reads via
+        // `group=feed`.
+        onPress={() => {
+          if (feedActive && onHome) onHome();
+          else router.replace("/dashboard?group=feed");
+        }}
       />
 
       <View style={s.addCol}>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, View, StyleSheet, type LayoutChangeEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, View, StyleSheet, RefreshControl, type LayoutChangeEvent } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -71,6 +71,22 @@ export function GroupPage({
   const cardY = useRef<Record<string, number>>({});
   const handledRef = useRef<string | null>(null);
   const [pulseTaskId, setPulseTaskId] = useState<string | null>(null);
+
+  // Pull-to-refresh — same pattern/UI as the Home feed. Group data is live via
+  // Convex, so this is brief UI feedback (no manual refetch), then stops.
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => setRefreshing(false), 900);
+  }, []);
+  useEffect(
+    () => () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    },
+    [],
+  );
 
   const members: StandingMember[] = useMemo(
     () =>
@@ -166,6 +182,15 @@ export function GroupPage({
       style={{ flex: 1 }}
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={c.accent}
+          colors={[c.accent]}
+          progressBackgroundColor={c.surface}
+        />
+      }
     >
       {amAdmin && (
         <View style={s.manageRow}>

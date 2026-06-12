@@ -118,12 +118,24 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  // Briefly surface the native scroll indicator whenever the list mounts or
+  // its content/height changes. flashScrollIndicators() is a no-op when the
+  // content fits, so this never fakes a scrollbar — it just makes a real
+  // (incl. small) overflow discoverable, since the drag flash is easy to miss.
+  useEffect(() => {
+    if (!mounted) return;
+    const id = setTimeout(() => listRef.current?.flashScrollIndicators(), 120);
+    return () => clearTimeout(id);
+  }, [mounted, snap, comments.length]);
+
   // Track scroll position
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.current = e.nativeEvent.contentOffset.y;
   };
 
-  // Drag-to-dismiss: track touch when scrolled to top
+  // Drag-to-dismiss. These handlers live ONLY on the grabber/header (see
+  // below), so dragging inside the comments list is left entirely to the
+  // ScrollView — that's what restores its native bounce with short content.
   const touchStartY = useRef(0);
   const isDragging = useRef(false);
 
@@ -134,10 +146,10 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
 
   const onTouchMove = (e: any) => {
     const dy = e.nativeEvent.pageY - touchStartY.current;
-    if (dy > 0 && scrollY.current <= 0) {
+    if (dy > 0) {
       isDragging.current = true;
       dragY.value = dy;
-    } else if (isDragging.current && dy <= 0) {
+    } else if (isDragging.current) {
       dragY.value = 0;
     }
   };
@@ -194,14 +206,15 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
               sheetStyle,
             ]}
           >
+            <View style={{ flex: 1 }}>
+            {/* Grabber + header — the only drag-to-dismiss zone, so it never
+                steals vertical gestures from the comments ScrollView below. */}
             <View
-              style={{ flex: 1 }}
+              style={styles.head}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={onTouchEnd}
             >
-            {/* Grabber + header */}
-            <View style={styles.head}>
               <View style={[styles.grabber, { backgroundColor: c.lineStrong }]} />
               <View style={styles.headRow}>
                 <Text style={[styles.headLabel, { color: c.muted }]}>
@@ -231,12 +244,17 @@ export function CommentDrawer({ completionId, onClose, meInitial, meAvatarUrl }:
                 <ScrollView
                   ref={listRef}
                   style={{ flex: 1 }}
-                  contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+                  // flexGrow:1 makes the content fill the scroll area even when
+                  // comments are short, so the empty space below the rows is part
+                  // of the scrollable content and registers drag/bounce too.
+                  contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingBottom: 10 }}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="interactive"
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                  overScrollMode="never"
+                  showsVerticalScrollIndicator={true}
+                  indicatorStyle="white"
+                  bounces={true}
+                  alwaysBounceVertical={true}
+                  overScrollMode="always"
                   onScroll={handleScroll}
                   scrollEventThrottle={16}
                 >

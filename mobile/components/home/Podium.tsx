@@ -4,6 +4,7 @@ import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Avatar } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/Icon";
 import { useThemeColors } from "@/lib/useThemeColors";
+import { competitionRanks } from "@/lib/ranking";
 import { fonts } from "@/lib/theme";
 import type { Colors } from "@/lib/theme";
 import type { StandingMember } from "@/components/home/types";
@@ -39,7 +40,11 @@ function formatRound(ms: number): string {
 
 interface Col {
   m: StandingMember;
-  rank: 1 | 2 | 3;
+  /** Positional column: 1 = center, 2 = left, 3 = right. Layout order only. */
+  slot: 1 | 2 | 3;
+  /** Number shown on the step — competition rank (ties share a rank). Also
+   *  drives height/styling so tied players render at equal visual priority. */
+  displayRank: number;
   h: number;
   bg: string;
   num: string;
@@ -60,14 +65,24 @@ export function Podium({ members, onFullBoard, periodEndMs, stakeKind, stakeText
   const roundLabel = periodEndMs == null ? null : formatRound(periodEndMs - now);
 
   const board = [...members].sort((a, b) => b.weekPoints - a.weekPoints);
+  const ranks = competitionRanks(board, (m) => m.weekPoints);
   const top = board.slice(0, 3);
   if (top.length < 1) return null;
 
-  // Order: #2 left, #1 center, #3 right.
+  // Step height + styling are keyed by displayRank (NOT position), so tied
+  // players get equal height and equal first-place styling. Rank is always
+  // 1, 2, or 3 here (only the top 3 rows are shown).
+  const STEP: Record<number, { h: number; bg: string; num: string; av: number }> = {
+    1: { h: 86, bg: c.accent, num: c.onAccent, av: 54 },
+    2: { h: 58, bg: c.surface3, num: c.ink, av: 42 },
+    3: { h: 42, bg: c.surface2, num: c.muted, av: 42 },
+  };
+
+  // Positional order: #2 left, #1 center, #3 right (classic podium layout).
   const cols: Col[] = [
-    top[1] && { m: top[1], rank: 2, h: 58, bg: c.surface3, num: c.ink, av: 42 },
-    top[0] && { m: top[0], rank: 1, h: 86, bg: c.accent, num: c.onAccent, av: 54 },
-    top[2] && { m: top[2], rank: 3, h: 42, bg: c.surface2, num: c.muted, av: 42 },
+    top[1] && { m: top[1], slot: 2 as const, displayRank: ranks[1], ...STEP[ranks[1]] },
+    top[0] && { m: top[0], slot: 1 as const, displayRank: ranks[0], ...STEP[ranks[0]] },
+    top[2] && { m: top[2], slot: 3 as const, displayRank: ranks[2], ...STEP[ranks[2]] },
   ].filter(Boolean) as Col[];
 
   return (
@@ -114,9 +129,9 @@ export function Podium({ members, onFullBoard, periodEndMs, stakeKind, stakeText
       {/* Step columns */}
       <View style={s.cols}>
         {cols.map((col) => {
-          const isFirst = col.rank === 1;
+          const isFirst = col.displayRank === 1;
           return (
-            <View key={col.rank} style={s.col}>
+            <View key={col.slot} style={s.col}>
               {isFirst && (
                 <Icon name="medal" size={22} color={c.accent} />
               )}
@@ -156,7 +171,7 @@ export function Podium({ members, onFullBoard, periodEndMs, stakeKind, stakeText
                     { fontSize: isFirst ? 30 : 24, color: col.num },
                   ]}
                 >
-                  {col.rank}
+                  {col.displayRank}
                 </Text>
               </View>
             </View>
