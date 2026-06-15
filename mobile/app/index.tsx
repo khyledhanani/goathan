@@ -21,17 +21,6 @@ import { Toast, type ToastValue } from "@/components/Toast";
 type AuthMode = "sign-in" | "sign-up";
 type Status = "idle" | "google" | "password" | "dev" | "error";
 
-const TASK_PILLS = [
-  "Take a selfie",
-  "Make your bed",
-  "Hit the gym",
-  "Do cardio",
-  "Drink water",
-  "Read 10 pages",
-  "No takeout",
-  "Sleep by 11",
-];
-
 export default function LandingScreen() {
   const { signIn } = useAuthActions();
   const colors = useThemeColors();
@@ -117,61 +106,19 @@ export default function LandingScreen() {
               Receipts
               <Text style={[s.brandVersion, { color: colors.fog }]}>{"  "}v0.1</Text>
             </Text>
-            <Text style={[s.eyebrow, { color: colors.fog }]}>
-              <Text style={{ fontFamily: fonts.monoMedium, color: colors.ink }}>Private</Text>
-              {"  ·  invite only"}
-            </Text>
           </View>
 
           {/* ── Hero ── */}
           <View style={s.mid}>
-            <Text style={[s.headline, { color: colors.ink }]}>
-              {"Receipts for\n"}
-              <Text style={[s.headlineUnderline, { textDecorationColor: colors.accent }]}>
-                anything.
-              </Text>
+            <Text style={[s.headline, { color: colors.inkStrong }]}>
+              {"Real goals.\nReal points.\n"}
+              <Text style={{ color: colors.accent }}>Real stakes.</Text>
+            </Text>
+            <Text style={[s.tagline, { color: colors.smoke }]}>
+              No proof. No points.
             </Text>
 
-            <Text style={[s.subhead, { color: colors.smoke }]}>
-              Make a group. Add daily or weekly tasks. Post proof when they're
-              done. Your friends decide what counts.
-            </Text>
-
-            {/* Task pills */}
-            <View style={s.pills}>
-              {TASK_PILLS.map((t) => (
-                <View key={t} style={[s.pill, { backgroundColor: colors.rule }]}>
-                  <Text style={[s.pillText, { color: colors.smoke }]}>{t}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* ── Google sign-in ── */}
-            <Pressable
-              style={({ pressed }) => [
-                s.btnGoogle,
-                { backgroundColor: pressed ? colors.accentHover : colors.ink },
-              ]}
-              onPress={onGoogleSignIn}
-              disabled={busy}
-            >
-              <View style={[s.googleIcon, { backgroundColor: colors.paper }]}>
-                <GoogleGlyph />
-              </View>
-              <Text style={[s.btnGoogleText, { color: colors.paper }]}>
-                {status === "google" ? "Opening Google…" : "Sign in with Google"}
-              </Text>
-              <Text style={[s.arrow, { color: colors.paper }]}>→</Text>
-            </Pressable>
-
-            {/* ── Divider ── */}
-            <View style={s.divider}>
-              <View style={[s.dividerLine, { backgroundColor: colors.rule }]} />
-              <Text style={[s.dividerText, { color: colors.mist }]}>or</Text>
-              <View style={[s.dividerLine, { backgroundColor: colors.rule }]} />
-            </View>
-
-            {/* ── Email/Password ── */}
+            {/* ── Email/Password (primary) ── */}
             <View style={s.emailSection}>
               <View style={s.authToggle}>
                 <AnimatedPressable scaleDown={0.92} onPress={() => setAuthMode("sign-in")}>
@@ -240,10 +187,10 @@ export default function LandingScreen() {
                   {
                     backgroundColor:
                       !email.trim() || !password.trim()
-                        ? colors.paper3
+                        ? colors.surface2
                         : pressed
-                          ? colors.accent
-                          : colors.ink,
+                          ? colors.accentHover
+                          : colors.accent,
                   },
                 ]}
                 onPress={onPasswordAuth}
@@ -254,7 +201,7 @@ export default function LandingScreen() {
                     s.btnPrimaryText,
                     {
                       color:
-                        !email.trim() || !password.trim() ? colors.mist : colors.paper,
+                        !email.trim() || !password.trim() ? colors.mist : colors.onAccent,
                     },
                   ]}
                 >
@@ -269,7 +216,7 @@ export default function LandingScreen() {
                     s.arrow,
                     {
                       color:
-                        !email.trim() || !password.trim() ? colors.mist : colors.paper,
+                        !email.trim() || !password.trim() ? colors.mist : colors.onAccent,
                     },
                   ]}
                 >
@@ -277,6 +224,31 @@ export default function LandingScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            {/* ── Divider ── */}
+            <View style={s.divider}>
+              <View style={[s.dividerLine, { backgroundColor: colors.rule }]} />
+              <Text style={[s.dividerText, { color: colors.mist }]}>or</Text>
+              <View style={[s.dividerLine, { backgroundColor: colors.rule }]} />
+            </View>
+
+            {/* ── Google sign-in (secondary) ── */}
+            <Pressable
+              style={({ pressed }) => [
+                s.btnGoogle,
+                {
+                  borderColor: pressed ? colors.muted : colors.rule,
+                  backgroundColor: pressed ? colors.surface2 : "transparent",
+                },
+              ]}
+              onPress={onGoogleSignIn}
+              disabled={busy}
+            >
+              <GoogleGlyph />
+              <Text style={[s.btnGoogleText, { color: colors.smoke }]}>
+                {status === "google" ? "Opening Google…" : "Continue with Google"}
+              </Text>
+            </Pressable>
 
             {/* ── Dev bypass ── */}
             {devBypass && (
@@ -298,30 +270,6 @@ export default function LandingScreen() {
               </Pressable>
             )}
 
-            {/* ── Fine print ── */}
-            <Text style={[s.fineprint, { color: colors.fog }]}>
-              We'll pull your name, email, and avatar from Google. You can change
-              your tag in onboarding.
-            </Text>
-          </View>
-
-          {/* ── Footer ── */}
-          <View style={[s.footer, { borderTopColor: colors.rule }]}>
-            <Text style={[s.eyebrow, { color: colors.fog }]}>
-              © Receipts · small promises, daily receipts
-            </Text>
-            <View style={s.lattice}>
-              {([
-                ["Tasks", "Anything"],
-                ["Proof", "Photo / screenshot"],
-                ["Referee", "Your friends"],
-              ] as const).map(([k, v]) => (
-                <View key={k} style={s.latticeItem}>
-                  <Text style={[s.latticeKey, { color: colors.fog }]}>{k}</Text>
-                  <Text style={[s.latticeVal, { color: colors.ink }]}>{v}</Text>
-                </View>
-              ))}
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -382,80 +330,45 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
       fontSize: 10,
       letterSpacing: 1.4,
     },
-    eyebrow: {
-      fontFamily: fonts.monoMedium,
-      fontSize: 11,
-      letterSpacing: 1.8,
-      textTransform: "uppercase",
-    },
 
     // ── Mid / hero ──
     mid: {
       flex: 1,
-      justifyContent: "center",
+      justifyContent: "flex-start",
       maxWidth: 560,
-      paddingVertical: 32,
+      paddingTop: 32,
+      paddingBottom: 24,
     },
     headline: {
       fontFamily: fonts.serif,
-      fontSize: 64,
-      lineHeight: 62,
-      letterSpacing: -1.3,
-      marginBottom: 24,
+      fontSize: 32,
+      lineHeight: 36,
+      letterSpacing: -0.6,
+      marginBottom: 12,
     },
-    headlineUnderline: {
-      textDecorationLine: "underline",
-      textDecorationStyle: "solid",
-    },
-    subhead: {
+    tagline: {
       fontFamily: fonts.sans,
-      fontSize: 17,
-      lineHeight: 25.5,
-      maxWidth: 480,
-      marginBottom: 20,
+      fontSize: 14,
+      lineHeight: 20,
+      letterSpacing: 0.1,
+      marginBottom: 30,
     },
 
-    // ── Task pills ──
-    pills: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 32,
-      maxWidth: 480,
-    },
-    pill: {
-      borderRadius: 100,
-      paddingVertical: 5,
-      paddingHorizontal: 14,
-    },
-    pillText: {
-      fontFamily: fonts.mono,
-      fontSize: 12,
-      letterSpacing: 0.5,
-    },
-
-    // ── Google button ──
+    // ── Google button (secondary, outline) ──
     btnGoogle: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      justifyContent: "center",
+      gap: 10,
       width: "100%",
-      paddingVertical: 16,
+      paddingVertical: 14,
       paddingHorizontal: 22,
       borderRadius: radii.pill,
-    },
-    googleIcon: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 2,
+      borderWidth: 1,
     },
     btnGoogleText: {
-      fontFamily: fonts.sansSemiBold,
-      fontSize: 15,
-      flex: 1,
+      fontFamily: fonts.sansMedium,
+      fontSize: 14,
     },
     arrow: {
       fontFamily: fonts.serif,
@@ -551,38 +464,4 @@ const styles = (c: ReturnType<typeof useThemeColors>) =>
       fontSize: 16,
     },
 
-    // ── Fine print ──
-    fineprint: {
-      marginTop: 16,
-      fontFamily: fonts.mono,
-      fontSize: 11,
-      letterSpacing: 0.4,
-      lineHeight: 16.5,
-    },
-
-    // ── Footer ──
-    footer: {
-      borderTopWidth: 1,
-      paddingTop: 18,
-      gap: 16,
-    },
-    lattice: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 28,
-    },
-    latticeItem: {
-      gap: 2,
-    },
-    latticeKey: {
-      fontFamily: fonts.mono,
-      fontSize: 10,
-      letterSpacing: 1.6,
-      textTransform: "uppercase",
-    },
-    latticeVal: {
-      fontFamily: fonts.mono,
-      fontSize: 13,
-      letterSpacing: 0.7,
-    },
   });
