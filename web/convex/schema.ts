@@ -35,6 +35,9 @@ export default defineSchema({
     inviteCode: v.string(),
     createdByUserId: v.id("users"),
     createdAt: v.number(),
+    // IANA timezone (e.g. "America/Toronto") used for all reset calculations.
+    // Optional for backwards compatibility; resolves to DEFAULT_TIMEZONE.
+    timezone: v.optional(v.string()),
     anchorDate: v.optional(v.number()),
     anchorDayOfMonth: v.optional(v.number()),
     durationDays: v.optional(v.number()),

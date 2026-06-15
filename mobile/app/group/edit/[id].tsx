@@ -26,6 +26,7 @@ import {
   TASK_TEMPLATES,
   type TaskTemplate,
 } from "@/lib/task-templates";
+import { TIMEZONE_OPTIONS, DEFAULT_TIMEZONE, timezoneOptionFor } from "@/lib/timezones";
 
 // ── Reset mode helpers ─────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ export default function GroupEditScreen() {
 
   // ── Settings form state ───────────────────────────────────────────────
   const [name, setName] = useState("");
+  const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
   const [resetMode, setResetMode] = useState<ResetMode>("weekly");
   const [weekday, setWeekday] = useState(1);
   const [monthDay, setMonthDay] = useState(1);
@@ -96,6 +98,7 @@ export default function GroupEditScreen() {
     if (!today || initialized) return;
     const g = today.group;
     setName(g.name);
+    setTimezone(g.timezone ?? DEFAULT_TIMEZONE);
     setStakeKind(g.stakeKind ?? null);
     setStakeText(g.stakeText ?? "");
 
@@ -125,6 +128,7 @@ export default function GroupEditScreen() {
       const result = await updateSettings({
         groupId,
         name: name.trim(),
+        timezone,
         ...reset,
         stakeKind: stakeKind ?? undefined,
         stakeText: stakeText.trim() || undefined,
@@ -388,6 +392,47 @@ export default function GroupEditScreen() {
                   <Text style={s.hint}>days</Text>
                 </View>
               </View>
+            )}
+          </View>
+
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* TIMEZONE                                                    */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          <View style={s.field}>
+            <Text style={s.label}>Timezone</Text>
+            <Text style={s.hint}>Used for daily, weekly, and round resets.</Text>
+            <View style={s.tzGrid}>
+              {TIMEZONE_OPTIONS.map((tz) => {
+                const active = timezoneOptionFor(timezone)?.id === tz.id;
+                return (
+                  <AnimatedPressable
+                    key={tz.id}
+                    scaleDown={0.92}
+                    style={[
+                      s.tzChip,
+                      {
+                        backgroundColor: active ? colors.accent : colors.paper3,
+                        borderColor: active ? colors.accent : colors.rule,
+                      },
+                    ]}
+                    onPress={() => setTimezone(tz.id)}
+                  >
+                    <Text
+                      style={[
+                        s.tzChipText,
+                        { color: active ? colors.paper : colors.smoke },
+                      ]}
+                    >
+                      {tz.label}
+                    </Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </View>
+            {timezoneOptionFor(timezone) && (
+              <Text style={s.tzMeaning}>
+                {timezoneOptionFor(timezone)!.label} · {timezoneOptionFor(timezone)!.name}
+              </Text>
             )}
           </View>
 
@@ -676,6 +721,12 @@ const styles = (colors: Colors) =>
     weekdayText: { fontFamily: fonts.monoMedium, fontSize: 11, letterSpacing: 0.5 },
     inlineRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     numberInput: { fontFamily: fonts.monoMedium, fontSize: 18, color: colors.ink, borderBottomWidth: 1, borderBottomColor: colors.rule, paddingVertical: 8, width: 60, textAlign: "center" },
+
+    // Timezone
+    tzGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+    tzChip: { paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: radii.pill },
+    tzChipText: { fontFamily: fonts.monoMedium, fontSize: 11, letterSpacing: 0.5 },
+    tzMeaning: { fontFamily: fonts.mono, fontSize: 11, color: colors.fog, letterSpacing: 0.3, marginTop: 10 },
 
     // Stakes
     stakeToggle: { flexDirection: "row", gap: 8 },

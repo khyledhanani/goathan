@@ -9,7 +9,13 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { periodKeyFor, groupPeriodBounds, dayKey } from "./lib/period";
+import {
+  periodKeyFor,
+  groupPeriodBounds,
+  groupTimeZone,
+  dayKey,
+  zonedDayStartMs,
+} from "./lib/period";
 import { notifyFirstReceipt } from "./lib/notify";
 
 export const VERIFICATION_WINDOW_MS = 15 * 60 * 1000;
@@ -57,8 +63,10 @@ async function maybeNotifyFirstReceipt(
   now: number,
   triggerCompletionId?: Id<"completions">,
 ) {
-  const today = dayKey(now);
-  const startOfDay = new Date(today + "T00:00:00Z").getTime();
+  const group = await ctx.db.get(groupId);
+  const tz = groupTimeZone(group);
+  const today = dayKey(now, tz);
+  const startOfDay = zonedDayStartMs(now, tz);
 
   // Check if user already has a verified completion today in this group
   const recentCompletions = await ctx.db
@@ -155,7 +163,7 @@ export const claimBasketOptions = query({
         const availableTasks = [];
         for (const task of tasks) {
           if (!isBasketProofTask(task)) continue;
-          const pk = periodKeyFor(task.frequency, now);
+          const pk = periodKeyFor(task.frequency, now, groupTimeZone(group));
           // Include the starting task even if already claimed (it will be verified)
           if (task._id !== resolvedTaskId && await hasCompletionThisPeriod(ctx, userId, task._id, pk)) {
             continue;
@@ -259,13 +267,13 @@ export const submitProofBasket = mutation({
         throw new ConvexError("Not a member of one selected group");
       }
 
-      const pk = periodKeyFor(task.frequency, now);
+      const group = await ctx.db.get(task.groupId);
+      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
+      const pk = periodKeyFor(task.frequency, now, groupTimeZone(group));
       if (await hasCompletionThisPeriod(ctx, userId, task._id, pk)) {
         return { ok: false as const, error: `${task.name} is already claimed this period` };
       }
 
-      const group = await ctx.db.get(task.groupId);
-      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
       const groupPeriod = groupPeriodBounds(group, now);
       if (groupPeriod.ended) {
         return { ok: false as const, error: `${task.name} is in an ended comp` };
@@ -394,13 +402,13 @@ export const verifyWithBasket = mutation({
         throw new ConvexError("Not a member of one selected group");
       }
 
-      const pk = periodKeyFor(task.frequency, now);
+      const group = await ctx.db.get(task.groupId);
+      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
+      const pk = periodKeyFor(task.frequency, now, groupTimeZone(group));
       if (await hasCompletionThisPeriod(ctx, userId, task._id, pk)) {
         return { ok: false as const, error: `${task.name} is already claimed this period` };
       }
 
-      const group = await ctx.db.get(task.groupId);
-      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
       const groupPeriod = groupPeriodBounds(group, now);
       if (groupPeriod.ended) {
         return { ok: false as const, error: `${task.name} is in an ended comp` };
@@ -555,12 +563,12 @@ export const expandProof = mutation({
       if (!(await isMember(ctx, task.groupId, userId))) {
         throw new ConvexError("Not a member of one selected group");
       }
-      const pk = periodKeyFor(task.frequency, now);
+      const group = await ctx.db.get(task.groupId);
+      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
+      const pk = periodKeyFor(task.frequency, now, groupTimeZone(group));
       if (await hasCompletionThisPeriod(ctx, userId, task._id, pk)) {
         return { ok: false as const, error: `${task.name} is already claimed this period` };
       }
-      const group = await ctx.db.get(task.groupId);
-      if (!group) return { ok: false as const, error: "A selected group no longer exists" };
       const groupPeriod = groupPeriodBounds(group, now);
       if (groupPeriod.ended) {
         return { ok: false as const, error: `${task.name} is in an ended comp` };
@@ -626,7 +634,8 @@ export const claim = mutation({
     if (!membership) throw new ConvexError("Not a member of this group");
 
     const now = Date.now();
-    const pk = periodKeyFor(task.frequency, now);
+    const group = await ctx.db.get(task.groupId);
+    const pk = periodKeyFor(task.frequency, now, groupTimeZone(group));
 
     const existing = await ctx.db
       .query("completions")
@@ -643,7 +652,6 @@ export const claim = mutation({
       };
     }
 
-    const group = await ctx.db.get(task.groupId);
     const { periodKey } = groupPeriodBounds(group ?? {}, now);
 
     const completionId = await ctx.db.insert("completions", {

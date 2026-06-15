@@ -214,7 +214,9 @@ export function GroupPage({
           stakeText={today?.group?.stakeText ?? null}
         />
       )}
-      {members.length > 0 && <ResetCountdown />}
+      {members.length > 0 && (
+        <ResetCountdown nextResetMs={today?.stats?.dailyResetMs ?? null} />
+      )}
       {tasks.length > 0 ? (
         tasks.map((t) => (
           <View

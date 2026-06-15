@@ -1,6 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { enqueueNotification } from "./lib/notify";
-import { dayKey, periodKeyFor } from "./lib/period";
+import { dayKey, periodKeyFor, groupTimeZone } from "./lib/period";
 import type { Id } from "./_generated/dataModel";
 
 export const fanOutDailyReminders = internalMutation({
@@ -9,11 +9,16 @@ export const fanOutDailyReminders = internalMutation({
     const now = Date.now();
     const today = dayKey(now);
     const todayStart = new Date(now);
-    const todayStartMs = Date.UTC(
-      todayStart.getUTCFullYear(),
-      todayStart.getUTCMonth(),
-      todayStart.getUTCDate(),
-    );
+    // Lower bound for the per-user completion scan. Widened by a day so that
+    // groups in timezones ahead of UTC (whose local "today" can start before
+    // UTC midnight) are still captured; the per-group periodKey check below is
+    // the real gate.
+    const todayStartMs =
+      Date.UTC(
+        todayStart.getUTCFullYear(),
+        todayStart.getUTCMonth(),
+        todayStart.getUTCDate(),
+      ) - 86_400_000;
 
     const profiles = await ctx.db
       .query("profiles")
@@ -34,7 +39,10 @@ export const fanOutDailyReminders = internalMutation({
       // Total daily tasks across all groups
       let totalDailyTasks = 0;
       const dailyTaskIdsByGroup = new Map<Id<"groups">, Set<Id<"tasks">>>();
+      const tzByGroup = new Map<Id<"groups">, string>();
       for (const gid of groupIds) {
+        const group = await ctx.db.get(gid);
+        tzByGroup.set(gid, groupTimeZone(group));
         const tasks = await ctx.db
           .query("tasks")
           .withIndex("by_group", (q) => q.eq("groupId", gid))
@@ -61,7 +69,8 @@ export const fanOutDailyReminders = internalMutation({
       for (const c of todayCompletions) {
         if (c.verifiedAt === undefined) continue;
         if (c.revokedAt !== undefined) continue;
-        if (c.periodKey !== periodKeyFor("DAILY", now)) continue;
+        const groupTz = tzByGroup.get(c.groupId) ?? "UTC";
+        if (c.periodKey !== periodKeyFor("DAILY", now, groupTz)) continue;
         const groupDailyIds = dailyTaskIdsByGroup.get(c.groupId);
         if (!groupDailyIds || !groupDailyIds.has(c.taskId)) continue;
         doneToday++;

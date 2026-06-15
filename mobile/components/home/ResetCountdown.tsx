@@ -7,16 +7,15 @@ import type { Colors } from "@/lib/theme";
 
 // ════════════════════════════════════════════════════════════════════════
 // RECEIPTS — ResetCountdown (live "Resets in HH:MM:SS" pill above standings)
-// The backend defines the task day in UTC: web/convex/lib/period.ts dayKey()
-// uses getUTC*, and completions.ts derives startOfDay from "T00:00:00Z". So
-// the daily period boundary is the next UTC midnight — mirrored here, no new
-// reset rule invented. Presentational + a 1s tick; nothing is persisted.
+// The daily reset boundary is computed by the backend in the group's timezone
+// (web/convex/lib/period.ts) and delivered as an absolute timestamp via
+// groups.todayView → stats.dailyResetMs. This component just counts down to
+// that instant — no reset rule lives on the client. Presentational + a 1s tick.
 // ════════════════════════════════════════════════════════════════════════
 
-function msUntilUtcMidnight(now: number): number {
-  const d = new Date(now);
-  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0);
-  return Math.max(0, next - now);
+interface Props {
+  /** Absolute ms of the next daily reset, in the group timezone. */
+  nextResetMs?: number | null;
 }
 
 function format(ms: number): string {
@@ -28,15 +27,22 @@ function format(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-export function ResetCountdown() {
+export function ResetCountdown({ nextResetMs }: Props) {
   const c = useThemeColors();
   const s = styles(c);
-  const [left, setLeft] = useState(() => msUntilUtcMidnight(Date.now()));
+  const [left, setLeft] = useState(() =>
+    nextResetMs == null ? 0 : Math.max(0, nextResetMs - Date.now()),
+  );
 
   useEffect(() => {
-    const id = setInterval(() => setLeft(msUntilUtcMidnight(Date.now())), 1000);
+    if (nextResetMs == null) return;
+    const tick = () => setLeft(Math.max(0, nextResetMs - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [nextResetMs]);
+
+  if (nextResetMs == null) return null;
 
   return (
     <View style={s.wrap}>

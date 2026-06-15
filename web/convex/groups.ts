@@ -2,7 +2,15 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { dayKey, periodKeyFor, groupPeriodBounds } from "./lib/period";
+import {
+  dayKey,
+  periodKeyFor,
+  groupPeriodBounds,
+  groupTimeZone,
+  nextZonedMidnightMs,
+  snapUtcDayToZoneMidnight,
+  DEFAULT_TIMEZONE,
+} from "./lib/period";
 import { PERFECT_DAY_BONUS, countPerfectDays } from "./lib/perfectDay";
 import { enqueueNotification } from "./lib/notify";
 import { serializeVerification } from "./lib/aiVerifyDisplay";
@@ -260,7 +268,8 @@ export const todayView = query({
       .collect();
 
     const now = Date.now();
-    const todayKey = dayKey(now);
+    const tz = groupTimeZone(group);
+    const todayKey = dayKey(now, tz);
     const period = groupPeriodBounds(group, now);
 
     const groupPeriodRows = await ctx.db
@@ -324,7 +333,7 @@ export const todayView = query({
     // claimed earlier in the week when the group period has since reset).
     for (const t of tasks) {
       if (completedByTask.has(t._id)) continue;
-      const expectedKey = periodKeyFor(t.frequency, now);
+      const expectedKey = periodKeyFor(t.frequency, now, tz);
       const match = await ctx.db
         .query("completions")
         .withIndex("by_user_task_period", (q) =>
@@ -352,7 +361,7 @@ export const todayView = query({
 
     const slate = tasks
       .map((t) => {
-        const expectedKey = periodKeyFor(t.frequency, now);
+        const expectedKey = periodKeyFor(t.frequency, now, tz);
         const completion = completedByTask.get(t._id);
         const claimedThisPeriod =
           !!completion && completion.periodKey === expectedKey;
@@ -417,6 +426,7 @@ export const todayView = query({
         _id: group._id,
         name: group.name,
         inviteCode: group.inviteCode,
+        timezone: tz,
         anchorDate: group.anchorDate ?? null,
         anchorDayOfMonth: group.anchorDayOfMonth ?? null,
         durationDays: group.durationDays ?? null,
@@ -431,6 +441,8 @@ export const todayView = query({
         todayKey,
         weekKey: period.periodKey,
         periodEndMs: period.periodEnd,
+        // Absolute timestamp of the next daily reset in the group timezone.
+        dailyResetMs: nextZonedMidnightMs(now, tz),
         periodEnded: period.ended,
         durationDays: group.durationDays ?? 7,
         cadence: group.cadence ?? null,
@@ -532,7 +544,7 @@ export const homeView = query({
         const dailyPointsByTask = new Map(
           dailyTasks.map((t) => [t._id, t.points]),
         );
-        const todayKey = periodKeyFor("DAILY", now);
+        const todayKey = periodKeyFor("DAILY", now, groupTimeZone(group));
         const verifiedTodayTaskIds = new Set(
           myCompletions
             .filter(
@@ -832,10 +844,21 @@ export const recentActivity = query({
   },
 });
 
+// Cheap validity check for an IANA timezone name via the Intl runtime.
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const create = mutation({
   args: {
     name: v.string(),
     tasks: v.optional(v.array(seedTaskValidator)),
+    timezone: v.optional(v.string()),
     durationDays: v.optional(v.number()),
     repeat: v.optional(v.boolean()),
     cadence: v.optional(v.union(v.literal("monthly"))),
@@ -849,6 +872,7 @@ export const create = mutation({
     {
       name,
       tasks,
+      timezone,
       durationDays,
       repeat,
       cadence,
@@ -875,29 +899,22 @@ export const create = mutation({
       return { ok: false as const, error: "Duration must be 1–365 days" };
     }
 
+    const tz =
+      timezone && isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE;
+
     const inviteCode = await findFreshInviteCode(ctx);
     const now = Date.now();
 
-    // Use provided anchor or snap to UTC midnight of now
-    let anchorDate: number;
-    if (anchorArg !== undefined) {
-      // Snap to UTC midnight to be safe
-      const ad = new Date(anchorArg);
-      anchorDate = Date.UTC(ad.getUTCFullYear(), ad.getUTCMonth(), ad.getUTCDate());
-    } else {
-      const anchorD = new Date(now);
-      anchorDate = Date.UTC(
-        anchorD.getUTCFullYear(),
-        anchorD.getUTCMonth(),
-        anchorD.getUTCDate(),
-      );
-    }
+    // Snap the chosen calendar day to midnight in the group timezone so rounds
+    // begin/end at local midnight rather than UTC midnight.
+    const anchorDate = snapUtcDayToZoneMidnight(anchorArg ?? now, tz);
 
     const groupId = await ctx.db.insert("groups", {
       name: trimmed,
       inviteCode,
       createdByUserId: userId,
       createdAt: now,
+      timezone: tz,
       anchorDate,
       anchorDayOfMonth: cadence === "monthly" ? anchorDayOfMonth : undefined,
       durationDays: cadence === "monthly" ? undefined : dur,
@@ -928,6 +945,7 @@ export const updateSettings = mutation({
   args: {
     groupId: v.id("groups"),
     name: v.string(),
+    timezone: v.optional(v.string()),
     durationDays: v.optional(v.number()),
     repeat: v.optional(v.boolean()),
     cadence: v.optional(v.union(v.literal("monthly"))),
@@ -941,6 +959,7 @@ export const updateSettings = mutation({
     {
       groupId,
       name,
+      timezone,
       durationDays,
       repeat,
       cadence,
@@ -977,11 +996,18 @@ export const updateSettings = mutation({
       return { ok: false as const, error: "Penalty or reward is too long" };
     }
 
+    if (timezone !== undefined && !isValidTimeZone(timezone)) {
+      return { ok: false as const, error: "Invalid timezone" };
+    }
+    // Timezone reset calculations should use after this save.
+    const tz = timezone ?? groupTimeZone(group);
+
     const patch: Partial<Doc<"groups">> = {
       name: trimmed,
       stakeKind: normalizedStakeText ? (stakeKind ?? "PENALTY") : undefined,
       stakeText: normalizedStakeText,
     };
+    if (timezone !== undefined) patch.timezone = timezone;
 
     const hasResetUpdate =
       durationDays !== undefined ||
@@ -993,21 +1019,11 @@ export const updateSettings = mutation({
     if (hasResetUpdate) {
       let nextAnchorDate: number;
       if (anchorArg !== undefined) {
-        const ad = new Date(anchorArg);
-        nextAnchorDate = Date.UTC(
-          ad.getUTCFullYear(),
-          ad.getUTCMonth(),
-          ad.getUTCDate(),
-        );
+        nextAnchorDate = snapUtcDayToZoneMidnight(anchorArg, tz);
       } else if (group.anchorDate !== undefined) {
-        nextAnchorDate = group.anchorDate;
+        nextAnchorDate = snapUtcDayToZoneMidnight(group.anchorDate, tz);
       } else {
-        const now = new Date();
-        nextAnchorDate = Date.UTC(
-          now.getUTCFullYear(),
-          now.getUTCMonth(),
-          now.getUTCDate(),
-        );
+        nextAnchorDate = snapUtcDayToZoneMidnight(Date.now(), tz);
       }
 
       if (cadence === "monthly") {
@@ -1035,6 +1051,10 @@ export const updateSettings = mutation({
         patch.repeat = repeat ?? true;
         patch.cadence = undefined;
       }
+    } else if (timezone !== undefined && group.anchorDate !== undefined) {
+      // Timezone-only change: shift the existing anchor's calendar day to the
+      // new zone's midnight, leaving cadence/duration/repeat untouched.
+      patch.anchorDate = snapUtcDayToZoneMidnight(group.anchorDate, tz);
     }
 
     await ctx.db.patch(groupId, patch);
